@@ -1212,7 +1212,7 @@ Debug.Log("C4 Out");
 
       bool ShowWarning = false;
       if (logCount > 0 &&
-          (false || Edge1 < 0 || Edge2 < 0 || Edge3 < 0 || Edge4 < 0 || c1 < 0 ||
+          (Edge1 < 0 || Edge2 < 0 || Edge3 < 0 || Edge4 < 0 || c1 < 0 ||
            c2 < 0 || c3 < 0 || c4 < 0)) {
         ShowWarning = true;
         Debug.LogWarning ("Divide(Pre-Rectify):\n"
@@ -1380,7 +1380,7 @@ Debug.Log("C4 Out");
   private int GetTerrainWithCoord(int x, int z) {
 
     for (int i = 0; i < terrList.Count; i++) {
-#if DEBUG_ARRAY && false
+#if DEBUG_ARRAY
       Debug.Log(terrList[i].name + "==Terrain(" + x + "," + z + ")" + " [" +
                 terrList[i].name.Equals("Terrain(" + x + "," + z + ")") + "]{" +
                 i + "}");
@@ -1396,7 +1396,7 @@ Debug.Log("C4 Out");
 
   private int GetTerrainWithData(TerrainData terr) {
     for (int i = 0; i < terrList.Count; i++) {
-#if DEBUG_ARRAY && false
+#if DEBUG_ARRAY
       Debug.Log(terrData[i] + "==" + terr + " [" + (terrData[i] == terr) +
                 " (" + i + ")]");
 #endif
@@ -1409,7 +1409,7 @@ Debug.Log("C4 Out");
 
   private int GetTerrainWithData(Terrain terr) {
     for (int i = 0; i < terrList.Count; i++) {
-#if DEBUG_ARRAY && false
+#if DEBUG_ARRAY
       Debug.Log(terrList[i].name + "==" + terr.name + " [" +
                 (terrList[i].name == terr.name) + " (" + i + ")]");
 #endif
@@ -1490,14 +1490,7 @@ Debug.Log("C4 Out");
       numAvg++;
     }
     if (numAvg == 0) {
-      Debug.Log(c1 + " + " + c2 + " + " + c3 + " + " + c4 + " = " + Avg + " / "
-                                                                      + numAvg);
       return EmptyPoint;
-    }
-    if(false && logCount > 0) {
-      Debug.Log(c1 + " + " + c2 + " + " + c3 + " + " + c4 + " = " + Avg + " / "
-                                               + numAvg + " = " + (Avg/numAvg));
-      logCount--;
     }
     return Avg / numAvg;
   }

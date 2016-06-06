@@ -23,6 +23,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		private float m_RunstepLenghten;
 		[SerializeField]
 		private float m_JumpSpeed;
+    [SerializeField]
+    private float m_GodModeSpeedMultiplier;
 		[SerializeField]
 		private float m_StickToGroundForce;
 		[SerializeField]
@@ -65,6 +67,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		private float m_NextStep;
 		private bool m_Jumping;
 		private bool m_Swiming;
+    private bool m_GodMode;
 		private AudioSource m_AudioSource;
 
 		// Use this for initialization
@@ -79,6 +82,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 			m_NextStep = m_StepCycle / 2f;
 			m_Jumping = false;
 			m_Swiming = false;
+      m_GodMode = false;
 			m_AudioSource = GetComponent<AudioSource> ();
 			m_MouseLook.Init (transform, m_Camera.transform);
 		}
@@ -92,6 +96,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
 			if (!m_Jump) {
 				m_Jump = CrossPlatformInputManager.GetButtonDown ("Jump");
 			}
+      if (!m_GodMode) {
+        m_GodMode = Input.GetButtonDown("GodMode");
+      } else {
+        m_GodMode = !Input.GetButtonDown("GodMode");
+      }
 			m_Swiming = (this.transform.position.y <= m_WaterHeight && CrossPlatformInputManager.GetButton ("Jump"));
 			if (m_Swiming) {
 				m_Jump = false;
@@ -135,7 +144,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 			m_MoveDir.x = desiredMove.x * speed;
 			m_MoveDir.z = desiredMove.z * speed;
 
-			
+
 			//Debug.Log("MoveDir: " + m_MoveDir);
 			if (m_Swiming) {
 				m_MoveDir.y -= Physics.gravity.y * m_GravityMultiplier * Time.fixedDeltaTime * m_Buoyancy;
@@ -151,7 +160,15 @@ namespace UnityStandardAssets.Characters.FirstPerson
 					m_Jump = false;
 					m_Jumping = true;
 				}
-			} else {
+			} else if (m_GodMode) {
+        if(CrossPlatformInputManager.GetButton ("Jump")) {
+          m_MoveDir.y = m_JumpSpeed * m_GodModeSpeedMultiplier;
+        } else if(CrossPlatformInputManager.GetButton ("Crouch")) {
+          m_MoveDir.y = -m_JumpSpeed * m_GodModeSpeedMultiplier;
+        } else {
+          m_MoveDir.y = 0f;
+        }
+      } else {
 				m_MoveDir += Physics.gravity * m_GravityMultiplier * Time.fixedDeltaTime;
 			}
 			m_CollisionFlags = m_CharacterController.Move (m_MoveDir * Time.fixedDeltaTime);
@@ -235,7 +252,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
 			m_IsWalking = !Input.GetKey (KeyCode.LeftShift);
 #endif
 			// set the desired speed to be walking or running
-			speed = m_IsWalking ? m_WalkSpeed : m_RunSpeed;
+      if(m_GodMode) {
+			  speed = m_IsWalking ? m_WalkSpeed * m_GodModeSpeedMultiplier : m_RunSpeed * m_GodModeSpeedMultiplier;
+      } else {
+			  speed = m_IsWalking ? m_WalkSpeed : m_RunSpeed;
+      }
 			m_Input = new Vector2 (horizontal, vertical);
 
 			// normalize input if it exceeds 1 in combined length:
