@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using UnityStandardAssets.CrossPlatformInput;
+// using UnityStandardAssets.CrossPlatformInput;
 using UnityStandardAssets.Utility;
 using Random = UnityEngine.Random;
 
@@ -91,17 +91,24 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		// Update is called once per frame
 		private void Update ()
 		{
+      for (int i = 0;i < 20; i++) {
+        if(Input.GetKeyDown("joystick 1 button "+i)){
+          print("joystick 1 button "+i);
+        }
+      }
 			RotateView ();
 			// the jump state needs to read here to make sure it is not missed
 			if (!m_Jump) {
-				m_Jump = CrossPlatformInputManager.GetButtonDown ("Jump");
+				// m_Jump = CrossPlatformInputManager.GetButtonDown ("Jump");
+				m_Jump = Input.GetButtonDown ("Jump");
 			}
       if (!m_GodMode) {
         m_GodMode = Input.GetButtonDown("GodMode");
       } else {
         m_GodMode = !Input.GetButtonDown("GodMode");
       }
-			m_Swiming = (this.transform.position.y <= m_WaterHeight && CrossPlatformInputManager.GetButton ("Jump"));
+			// m_Swiming = (this.transform.position.y <= m_WaterHeight && CrossPlatformInputManager.GetButton ("Jump"));
+			m_Swiming = (this.transform.position.y <= m_WaterHeight && Input.GetButton ("Jump"));
 			if (m_Swiming) {
 				m_Jump = false;
 				m_Jumping = false;
@@ -146,7 +153,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 
 
 			//Debug.Log("MoveDir: " + m_MoveDir);
-			if (m_Swiming) {
+			if (m_Swiming && !m_GodMode) {
 				m_MoveDir.y -= Physics.gravity.y * m_GravityMultiplier * Time.fixedDeltaTime * m_Buoyancy;
 				if (m_MoveDir.y > m_SwimSpeed) {
 					m_MoveDir.y = m_SwimSpeed;
@@ -161,9 +168,11 @@ namespace UnityStandardAssets.Characters.FirstPerson
 					m_Jumping = true;
 				}
 			} else if (m_GodMode) {
-        if(CrossPlatformInputManager.GetButton ("Jump")) {
+        // if(CrossPlatformInputManager.GetButton ("Jump")) {
+        if(Input.GetButton ("Jump")) {
           m_MoveDir.y = m_JumpSpeed * m_GodModeSpeedMultiplier;
-        } else if(CrossPlatformInputManager.GetButton ("Crouch")) {
+        // } else if(CrossPlatformInputManager.GetButton ("Crouch")) {
+        } else if(Input.GetButton ("Crouch")) {
           m_MoveDir.y = -m_JumpSpeed * m_GodModeSpeedMultiplier;
         } else {
           m_MoveDir.y = 0f;
@@ -241,8 +250,10 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		private void GetInput (out float speed)
 		{
 			// Read input
-			float horizontal = CrossPlatformInputManager.GetAxis ("Horizontal");
-			float vertical = CrossPlatformInputManager.GetAxis ("Vertical");
+			float horizontal = Input.GetAxis ("Horizontal");
+			// float horizontal = CrossPlatformInputManager.GetAxis ("Horizontal");
+			float vertical = Input.GetAxis ("Vertical");
+			// float vertical = CrossPlatformInputManager.GetAxis ("Vertical");
 
 			bool waswalking = m_IsWalking;
 

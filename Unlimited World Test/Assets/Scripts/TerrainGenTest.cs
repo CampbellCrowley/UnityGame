@@ -10,6 +10,9 @@
 // #define DEBUG_SEED
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
+#define DEBUG_HUD_POS
+#define DEBUG_HUD_TIMES
+#define DEBUG_HUD_LOADED
 #pragma warning disable 0168
 
 using UnityEngine;
@@ -29,9 +32,11 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
 
 [Serializable] public class GeneratorModes {
   // Number of pixels to update per chunk per frame
-  [Range(0, 1000000)] public int HeightmapSpeed = 1000;
+  [Range(0, 100000)] public int HeightmapSpeed = 1000;
+  public bool DisplaceDivide = false;
   public bool Reach = false;
   public bool Cube = false;
+  public bool Perlin = true;
 }
 [Serializable] public class Times {
   public GUIText deltaNextUpdate;
@@ -48,9 +53,6 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
 }
 public class TerrainGenTest : MonoBehaviour {
   public static float EmptyPoint = -100;
-  // private TerrainData[] terrData; //Array of terrain data for setting heights
-  // private GameObject[] terrList; //List of terrains for instantiating
-  // private bool[,] terrNeighbours;
 
   // List of terrain data for setting heights. Equivalent to
   // terrList[].GetComponent<Terrain>().terrainData
@@ -67,25 +69,43 @@ public class TerrainGenTest : MonoBehaviour {
   // Used for determining adjacent chunk heightmaps
   private List<bool> terrReady = new List<bool>();
 
+  // Water Tile to instantiate with the terrain when generating a new chunk
   [SerializeField] public GameObject waterTile;
+  // Player for deciding when to load chunks based on position
   [SerializeField] public GameObject player;
-  [SerializeField] public bool useSeed;
-  [SerializeField] public int Seed;
+  // Whether or not to use the pre-determined seed or use Unity's random seed
+  [SerializeField] public bool useSeed = true;
+  [SerializeField] public int Seed = 4;
+  // Modifier to shift the perlin noise map in order to reduce chance of finding
+  // the same patch of terrain again. This value is multiplied by the seed.
+  [SerializeField] public float PerlinSeedModifier = 100000.12f;
+  // The GUIText object that is used to display information on the HUD
   [SerializeField] public GUIText positionInfo;
+  [SerializeField] public GUIText chunkListInfo;
+  // Show list of available terrain generators
   [SerializeField] public GeneratorModes GenMode;
+  // Distance from chunk for it to be loaded
   [SerializeField] public int loadDist = 50;  // chunk load distance
-  [SerializeField] public float roughness = 5f;
-  [SerializeField] public float yShift = 0.5f;
-  [SerializeField] public int maxX = 2;  // Number of terrains to generate on X
-  [SerializeField] public int maxZ = 2;  // Number of terrains to generate on Z
+  // Roughness of terrain is modified by this value
+  [SerializeField] public float roughness = 0.3f;
+  // Vertical shift of values pre-rectification
+  [SerializeField] public float yShift = 0.0f;
+  // Number of terrain chunks to generate initially before the player spawns
+  [SerializeField] public int maxX = 2;
+  [SerializeField] public int maxZ = 2;
+  // Array of textures to apply to the terrain
+  // TODO(Campbell): Actually do something useful with this
   [SerializeField] public Texture2D[] TerrainTextures;
+  // GUIText of debugging data to show on the HUD
   [SerializeField] public Times times;
+  // Used to identify the corners of the loaded terrain when not generating in a
+  // radius from the player
   private Terrain lastLoaded, firstLoaded;
   private int lastX, lastZ, firstX, firstZ;
   private int terrListEnd;
-  int terrWidth;  // Used to space the terrains when instantiating
-  int terrLength;
-  int heightmapWidth;  // The size of an individual heightmap
+  int terrWidth;  // Used to space the terrains when instantiating.
+  int terrLength; // Size of the terrain chunk in normal units.
+  int heightmapWidth;  // The size of an individual heightmap of each chunk.
   int heightmapHeight;
   int width;  // Total size of heightmaps combined
   int height;
@@ -95,6 +115,9 @@ public class TerrainGenTest : MonoBehaviour {
   int lastTerrUpdateLoc = 0;
   int lastTerrUpdated = 0;
   float[, ] TerrUpdatePoints;
+  float lowest = 1.0f;
+  float highest = 0.0f;
+  String LoadedChunkList = "";
 
   void Start() {
     times.lastUpdate = Time.time;
@@ -175,10 +198,16 @@ public class TerrainGenTest : MonoBehaviour {
       float TerrainHeight = terrList[terrLoc].GetComponent<Terrain>()
                               .SampleHeight(new Vector3(PlayerX,0,PlayerZ));
 
-      positionInfo.text = "Player" + player.transform.position + "\n"
+#if DEBUG_HUD_POS
+      positionInfo.text = "Joystick(" + Input.GetAxis("Mouse X") + ", "
+                            + Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") + ", " + Input.GetAxis("Vertical") + "\n"
+                          + "Player" + player.transform.position + "\n"
                           + "Coord(" + (int)(PlayerX/terrWidth) + ", "
                             + (int)(PlayerZ/terrLength) + ")\n"
-                          + "TerrainHeight: " + TerrainHeight + "\n";
+                          + "TerrainHeight: " + TerrainHeight
+                          + "\nHighest Point: " + highest
+                          + "\nLowest Point: " + lowest;
+#endif
       if(player.transform.position.y < TerrainHeight - 10.0f) {
         Debug.Log("Player at " + player.transform.position +
               "\nCoord: (" + (int)(PlayerX / terrWidth)
@@ -192,12 +221,76 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
 
+
+
     float iTime = -1;
-    if (player.transform.position.x + loadDist >= lastX * 500) {  // PX > TLX
+    int xCenter = Mathf.RoundToInt((player.transform.position.x - terrWidth / 2) / terrWidth);
+    int yCenter = Mathf.RoundToInt((player.transform.position.z - terrLength / 2) / terrLength);
+    int radius = Mathf.RoundToInt(loadDist / ((terrWidth + terrLength) / 2.0f));
+    bool done = false;
+#if DEBUG_HUD_LOADED
+    LoadedChunkList = "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
+#endif
+    for (int x = xCenter - radius; x <= xCenter && !done; x++) {
+      for (int y = yCenter - radius; y <= yCenter; y++) {
+        // we don't have to take the square root, it's slow
+        if ((x - xCenter)*(x - xCenter) + (y - yCenter)*(y - yCenter) <= radius*radius) {
+          int xSym = xCenter - (x - xCenter);
+          int ySym = yCenter - (y - yCenter);
+
+          if(GetTerrainWithCoord(x, y) == -1) {
+            if(iTime==-1)
+              iTime = Time.realtimeSinceStartup;
+            GenerateTerrainChunk(x, y);
+            FractalNewTerrains(x, y);
+            done=true;
+            break;
+          }
+          if(!(x==xSym && y==ySym) && GetTerrainWithCoord(xSym, ySym) == -1) {
+            if(iTime==-1)
+              iTime = Time.realtimeSinceStartup;
+            GenerateTerrainChunk(xSym, ySym);
+            FractalNewTerrains(xSym, ySym);
+            done=true;
+            break;
+          }
+          if(!(x==xSym && y==ySym) && GetTerrainWithCoord(x, ySym) == -1) {
+            if(iTime==-1)
+              iTime = Time.realtimeSinceStartup;
+            GenerateTerrainChunk(x, ySym);
+            FractalNewTerrains(x, ySym);
+            done=true;
+            break;
+          }
+          if(!(x==xSym && y==ySym) && GetTerrainWithCoord(xSym, y) == -1) {
+            if(iTime==-1)
+              iTime = Time.realtimeSinceStartup;
+            GenerateTerrainChunk(xSym, y);
+            FractalNewTerrains(xSym, y);
+            done=true;
+            break;
+          }
+
+          // (x, y), (x, ySym), (xSym , y), (xSym, ySym) are in the circle
+
+#if DEBUG_HUD_LOADED
+          LoadedChunkList += "+(" + x + ", " + y + ")\n";
+          LoadedChunkList += "+(" + xSym + ", " + ySym + ")\n";
+#endif
+        } else {
+#if DEBUG_HUD_LOADED
+          LoadedChunkList += "-(" + Mathf.RoundToInt(x) + ", " + Mathf.RoundToInt(y) + ")\n";
+#endif
+        }
+      }
+      LoadedChunkList += "\n";
+    }
+    chunkListInfo.text = LoadedChunkList;
+    /*if (player.transform.position.x + loadDist >= lastX * 500) {  // PX > TLX
       iTime = Time.realtimeSinceStartup;
       // int shift = (int)Math.Abs(player.transform.position.z/500)-1;
       int shift = 0;
-      for (int i = firstZ; i < lastZ /*maxZ*/; i++) {
+      for (int i = firstZ; i < lastZ; i++) {
         if (GetTerrainWithCoord(lastX, i + shift) == -1) {
           GenerateTerrainChunk(lastX, i + shift);
           FractalNewTerrains(lastX, i + shift);
@@ -213,7 +306,7 @@ public class TerrainGenTest : MonoBehaviour {
       iTime = Time.realtimeSinceStartup;
       // int shift = (int)Math.Abs(player.transform.position.z/500)-1;
       int shift = 0;
-      for (int i = firstZ; i < lastZ /*maxZ*/; i++) {
+      for (int i = firstZ; i < lastZ; i++) {
         if (GetTerrainWithCoord(firstX - 1, i + shift) == -1) {
           GenerateTerrainChunk(firstX - 1, i + shift);
           FractalNewTerrains(firstX - 1, i + shift);
@@ -229,7 +322,7 @@ public class TerrainGenTest : MonoBehaviour {
       iTime = Time.realtimeSinceStartup;
       // int shift = (int)Math.Abs(player.transform.position.x/500)-1;
       int shift = 0;
-      for (int i = firstX; i < lastX /*maxX*/; i++) {
+      for (int i = firstX; i < lastX; i++) {
         if (GetTerrainWithCoord(i + shift, lastZ) == -1) {
           GenerateTerrainChunk(i + shift, lastZ);
           FractalNewTerrains(i + shift, lastZ);
@@ -245,7 +338,7 @@ public class TerrainGenTest : MonoBehaviour {
       iTime = Time.realtimeSinceStartup;
       // int shift = (int)Math.Abs(player.transform.position.x/500)-1;
       int shift = 0;
-      for (int i = firstX; i < lastX /*maxX*/; i++) {
+      for (int i = firstX; i < lastX; i++) {
         if (GetTerrainWithCoord(i + shift, firstZ - 1) == -1) {
           GenerateTerrainChunk(i + shift, firstZ - 1);
           FractalNewTerrains(i + shift, firstZ - 1);
@@ -256,7 +349,8 @@ public class TerrainGenTest : MonoBehaviour {
       Debug.Log("(x,-z)");
 #endif
       firstZ--;
-    }
+    }*/
+
 
     int tileCnt = -1;
     if (lastTerrUpdated == 0) {
@@ -318,6 +412,7 @@ public class TerrainGenTest : MonoBehaviour {
       times.DeltaTotal =
           (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
     }
+#if DEBUG_HUD_TIMES
     times.deltaNextUpdate.text =
         (times.UpdateSpeed - (int)Math.Ceiling(Time.time - times.lastUpdate))
             .ToString() +
@@ -329,6 +424,7 @@ public class TerrainGenTest : MonoBehaviour {
         "ms)<--" + "Divide(" + times.DeltaDivide + "ms),\n" + "Last Total(" +
         times.DeltaTotal + "ms),\n" + "Update Neighbors(" + times.DeltaUpdate +
         "ms)";
+#endif
   }
 
   void UpdateTerrainNeighbors(int X, int Z, int count = 2) {
@@ -415,7 +511,7 @@ public class TerrainGenTest : MonoBehaviour {
       Vector3 terrVector3 =
           terrList[terrListEnd].GetComponent<Terrain>().transform.position;
       Vector3 waterVector3 = terrVector3;
-      waterVector3.y += 250;
+      waterVector3.y += 150;
       waterVector3.x += terrWidth/2;
       waterVector3.z += terrLength/2;
       Instantiate(waterTile, waterVector3, Quaternion.identity);
@@ -509,7 +605,7 @@ public class TerrainGenTest : MonoBehaviour {
         Vector3 terrVector3 =
             terrList[terrListEnd].GetComponent<Terrain>().transform.position;
         Vector3 waterVector3 = terrVector3;
-        waterVector3.y += 250;
+        waterVector3.y += 150;
         waterVector3.x += 250;
         waterVector3.z += 250;
         Instantiate(waterTile, waterVector3, Quaternion.identity);
@@ -809,15 +905,19 @@ public class TerrainGenTest : MonoBehaviour {
     float iTime2 = Time.realtimeSinceStartup;
 
     PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
-    DivideNewGrid(ref points, 0, 0, iWidth, iHeight, points[ 0, 0 ],
-                  points[ 0, (int)iHeight - 1 ],
-                  points[ (int)iWidth - 1, (int)iHeight - 1 ],
-                  points[ (int)iWidth - 1, 0 ]);
+    if(GenMode.Perlin) {
+      PerlinDivide(ref points, changeX, changeZ, iWidth, iHeight);
+    } else if (GenMode.DisplaceDivide) {
+      DivideNewGrid(ref points, 0, 0, iWidth, iHeight, points[ 0, 0 ],
+                    points[ 0, (int)iHeight - 1 ],
+                    points[ (int)iWidth - 1, (int)iHeight - 1 ],
+                    points[ (int)iWidth - 1, 0 ]);
+      MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
+    }
 
     times.DeltaDivide =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
 
-    MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
 
 #if DEBUG_HEIGHTS
     Debug.Log("Fractal:\n"
@@ -852,29 +952,32 @@ public class TerrainGenTest : MonoBehaviour {
         iWidth + ", iHeight: " + iHeight);
 #endif
 
-    float[, ] flippedPoints = new float[ (int)iHeight, (int)iWidth ];
-    for (int r = 0; r < iWidth; r++) {
-      for (int c = 0; c < iHeight; c++) {
-        flippedPoints[ c, r ] = points[ r, c ];
-        if (flippedPoints[ c, r ] <= 0) {
-          float p1 = EmptyPoint, p2 = EmptyPoint, p3 = EmptyPoint,
-                p4 = EmptyPoint;
-          if (c > 0) p1 = flippedPoints[ c - 1, r ];
-          if (p1 <= 0) p1 = EmptyPoint;
-          if (r > 0) p2 = flippedPoints[ c, r - 1 ];
-          if (p2 <= 0) p2 = EmptyPoint;
-          if (c < iHeight - 1) p3 = flippedPoints[ c + 1, r ];
-          if (p3 <= 0) p3 = EmptyPoint;
-          if (r < iWidth - 1) p4 = flippedPoints[ c, r + 1 ];
-          if (p4 <= 0) p4 = EmptyPoint;
-          float p = AverageCorners(p1, p2, p3, p4);
-          if (p == EmptyPoint)
-            p = Displace(iWidth + iHeight);
-          else
+    // float[, ] flippedPoints = new float[ (int)iHeight, (int)iWidth ];
+    float[, ] flippedPoints = points;
+    if(!GenMode.Perlin) {
+      for (int r = 0; r < iWidth; r++) {
+        for (int c = 0; c < iHeight; c++) {
+          flippedPoints[ c, r ] = points[ r, c ];
+          if (flippedPoints[ c, r ] <= 0) {
+            float p1 = EmptyPoint, p2 = EmptyPoint, p3 = EmptyPoint,
+                  p4 = EmptyPoint;
+            if (c > 0) p1 = flippedPoints[ c - 1, r ];
+            if (p1 <= 0) p1 = EmptyPoint;
+            if (r > 0) p2 = flippedPoints[ c, r - 1 ];
+            if (p2 <= 0) p2 = EmptyPoint;
+            if (c < iHeight - 1) p3 = flippedPoints[ c + 1, r ];
+            if (p3 <= 0) p3 = EmptyPoint;
+            if (r < iWidth - 1) p4 = flippedPoints[ c, r + 1 ];
+            if (p4 <= 0) p4 = EmptyPoint;
+            float p = AverageCorners(p1, p2, p3, p4);
+            if (p == EmptyPoint)
+              p = Displace(iWidth + iHeight);
+            else
+              Displace(0);
+            flippedPoints[ c, r ] = p;
+          } else {
             Displace(0);
-          flippedPoints[ c, r ] = p;
-        } else {
-          Displace(0);
+          }
         }
       }
     }
@@ -1346,6 +1449,33 @@ Debug.Log("C4 Out");
       }
       if ((dwidth == 2) && (dheight == 2)) {
         points[ (int)(dX + 1), (int)(dY + 1) ] = c;
+      }
+    }
+  }
+
+  private void PerlinDivide(ref float[,] points, float x, float y, float w, float h) {
+    float xShifted = (x * (w-1)) + (Seed * PerlinSeedModifier);
+    float yShifted = (y * (h-1)) + (Seed * PerlinSeedModifier);
+    // Debug.Log("xShifted: " + xShifted + "(" + (xShifted/(w-1)) + ")\nyShifted: " + yShifted + "(" + (yShifted/(h-1)) + ")");
+    for (int r = 0; r < h; r++) {
+      for (int c = 0; c < w; c++) {
+        float noise = Mathf.PerlinNoise(roughness*(xShifted + c)/(w-1), roughness*(yShifted + r)/(h-1)) + yShift;
+        // float noise = (r + c) / (w + h);
+        float f1 = Mathf.Log(1 - noise) * -roughness * 0.3f;
+        float f2 = -1/(1+Mathf.Pow(2.718f, 10 * (noise - 0.90f))) + 1;
+        // e approx 2.718
+        float blendStart = 0.9f;
+        float blendEnd = 1.0f;
+        if(noise > 0 && noise <= blendStart)
+          points[r,c] = f1;
+        else if(noise < blendEnd && noise > blendStart)
+          points[r,c] = ((f1 * ((blendEnd-blendStart)-(noise-blendStart))) + (f2 * (noise - blendStart)))/(blendEnd-blendStart);
+        else
+          points[r,c] = f2;
+        if(points[r,c] < lowest) lowest = points[r,c];
+        if(points[r,c] > highest) highest = points[r,c];
+        // points[r,c] = Mathf.Log(1 - noise) * -roughness * 0.5f;
+        // points[r,c] = -1/(1+Mathf.Pow(2.718f, 20 * (noise - 0.85f))) + 1;
       }
     }
   }
