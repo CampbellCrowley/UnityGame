@@ -129,8 +129,7 @@ public class TerrainGenTest : MonoBehaviour {
     }
 
     times.lastUpdate = Time.time;
-    if (GenMode.Perlin && useSeed)
-      Seed = (int)(100*UnityEngine.Random.value);
+    if (GenMode.Perlin && useSeed) Seed = (int)(100 * UnityEngine.Random.value);
     if (Seed == 0) Seed++;
     GenerateTerrainChunk(0,0);
     FractalNewTerrains(0,0);
@@ -399,12 +398,16 @@ public class TerrainGenTest : MonoBehaviour {
         try {
           TerrUpdatePoints[ z, x ] = terrPoints[tileCnt][ z, x ];
         } catch (ArgumentOutOfRangeException e) {
-          Debug.LogError("Failed to read terrPoints " + tileCnt + " x:" + z +
-                         ", z:" + x + "\n\n" + e);
+          Debug.LogError("Failed to read terrPoints(err1) " + tileCnt + " x:" +
+                         z + ", z:" + x + "\n\n" + e);
           break;
         } catch (NullReferenceException e) {
-          Debug.LogError("Failed to read terrPoints " + tileCnt + "\n\n" + e);
+          Debug.LogError("Failed to read terrPoints(err2) " + tileCnt + "\n\n" +
+                         e);
           break;
+        } catch (IndexOutOfRangeException e) {
+          Debug.LogError("Failed to read terrPoints(err3) " + tileCnt + " x:" +
+                         z + ", z:" + x + "\n\n" + e);
         }
         lastTerrUpdateLoc_++;
       }
@@ -712,7 +715,8 @@ public class TerrainGenTest : MonoBehaviour {
     // Generate heightmap of points by averaging all surrounding points then
     // displacing.
     if (useSeed) {
-      UnityEngine.Random.seed = (int)(Seed + PerfectlyHashThem((short)changeX, (short)changeZ));
+      UnityEngine.Random.seed =
+          (int)(Seed + PerfectlyHashThem((short)changeX, (short)changeZ));
       // UnityEngine.Random.seed = Seed;
     }
 #if DEBUG_SEED
@@ -1318,37 +1322,46 @@ Debug.Log("C4 Out");
     }
   }
 
-  private void PerlinDivide(ref float[,] points, float x, float y, float w, float h) {
-    float xShifted = (x * (w-1)) + (Seed * PerlinSeedModifier);
-    float yShifted = (y * (h-1)) + (Seed * PerlinSeedModifier);
-    // Debug.Log("xShifted: " + xShifted + "(" + (xShifted/(w-1)) + ")\nyShifted: " + yShifted + "(" + (yShifted/(h-1)) + ")");
+ private
+  void PerlinDivide(ref float[, ] points, float x, float y, float w, float h) {
+    float xShifted = (x * (w - 1)) + (Seed * PerlinSeedModifier);
+    float yShifted = (y * (h - 1)) + (Seed * PerlinSeedModifier);
+    // Debug.Log("xShifted: " + xShifted + "(" + (xShifted/(w-1)) +
+    // ")\nyShifted: " + yShifted + "(" + (yShifted/(h-1)) + ")");
     for (int r = 0; r < h; r++) {
       for (int c = 0; c < w; c++) {
-        if(GenMode.Distort) {
-          float noise = Mathf.PerlinNoise(roughness*(xShifted + c)/(w-1f), roughness*(yShifted + r)/(h-1f));
+        if (GenMode.Distort) {
+          float noise =
+              Mathf.PerlinNoise(roughness * (xShifted + c) / (w - 1f),
+                                roughness * (yShifted + r) / (h - 1f));
           // float noise = (r + c) / (w + h);
           float f1 = Mathf.Log(1 - noise) * -roughness * 0.3f;
-          float f2 = -1/(1+Mathf.Pow(2.718f, 10 * (noise - 0.90f))) + 1;
+          float f2 = -1 / (1 + Mathf.Pow(Math.E, 10 * (noise - 0.90f))) + 1;
           // e approx 2.718
           float blendStart = 0.9f;
           float blendEnd = 1.0f;
-          if(noise > 0 && noise <= blendStart)
-            points[r,c] = f1 + yShift;
-          else if(noise < blendEnd && noise > blendStart)
-            points[r,c] = ((f1 * ((blendEnd-blendStart)-(noise-blendStart))) + (f2 * (noise - blendStart)))/(blendEnd-blendStart) + yShift;
+          if (noise > 0 && noise <= blendStart)
+            points[ r, c ] = f1 + yShift;
+          else if (noise < blendEnd && noise > blendStart)
+            points[ r, c ] =
+                ((f1 * ((blendEnd - blendStart) - (noise - blendStart))) +
+                 (f2 * (noise - blendStart))) /
+                    (blendEnd - blendStart) +
+                yShift;
           else
-            points[r,c] = f2 + yShift;
+            points[ r, c ] = f2 + yShift;
         } else {
           float noise =
-            3.0f * roughness * Mathf.PerlinNoise(
-              Mathf.Pow(roughness,1.2f)*(xShifted + c)/(w-1f),
-              Mathf.Pow(roughness,1.2f)*(yShifted + r)/(h-1f)
-            ) + yShift;
+              3.0f * roughness *
+                  Mathf.PerlinNoise(
+                      Mathf.Pow(roughness, 1.2f) * (xShifted + r) / (w - 1f),
+                      Mathf.Pow(roughness, 1.2f) * (yShifted + c) / (h - 1f)) +
+              yShift;
 
-          points[r,c] = noise;
+          points[ r, c ] = noise;
         }
-        if(points[r,c] < lowest) lowest = points[r,c];
-        if(points[r,c] > highest) highest = points[r,c];
+        if (points[ r, c ] < lowest) lowest = points[ r, c ];
+        if (points[ r, c ] > highest) highest = points[ r, c ];
         // points[r,c] = Mathf.Log(1 - noise) * -roughness * 0.5f;
         // points[r,c] = -1/(1+Mathf.Pow(2.718f, 20 * (noise - 0.85f))) + 1;
       }

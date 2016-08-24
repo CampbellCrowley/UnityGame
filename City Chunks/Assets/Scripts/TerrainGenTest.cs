@@ -4,6 +4,7 @@
 // #define DEBUG_BORDERS_2
 // #define DEBUG_BORDERS_3
 // #define DEBUG_BORDERS_4
+// #define DEBUG_CHUNK_LOADING
 // #define DEBUG_HEIGHTS
 // #define DEBUG_MISC
 // #define DEBUG_POSITION
@@ -49,31 +50,36 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
   public float DeltaGenerate = 0;
   public float DeltaGenerateTerrain = 0;
   public float DeltaGenerateWater = 0;
+  public float DeltaGenerateHeightmap = 0;
   public float DeltaUpdate = 0;
   public float DeltaTotal = 0;
   public float[] DeltaTotalAverageArray = new float[1000];
   public float DeltaTotalAverage = 0;
   public int avgEnd = -1;
 }
+public class Terrains {
+  // List of terrain data for setting heights. Equivalent to
+  // terrList[].GetComponent<Terrain>().terrainData
+  public TerrainData terrData;
+  // List of terrains for instantiating
+  public GameObject terrList;
+  // List of terrain heightmap data points for setting heights over a period of
+  // time.
+  public float[, ] terrPoints;
+  // List of chunks to be updated with points in terrPoints. True if points need
+  // to be flushed to terrainData.
+  public bool terrQueue = false;
+  // List of chunks. True if all points have been defined in terrPoints.
+  // Used for determining adjacent chunk heightmaps
+  public bool terrReady = false;
+  // List of chunks. True if the chunk needs to be unloaded.
+  public bool terrToUnload = false;
+
+}
 public class TerrainGenTest : MonoBehaviour {
   public static float EmptyPoint = -100;
 
-  // List of terrain data for setting heights. Equivalent to
-  // terrList[].GetComponent<Terrain>().terrainData
-  private List<TerrainData> terrData = new List<TerrainData>();
-  // List of terrains for instantiating
-  private List<GameObject> terrList = new List<GameObject>();
-  // List of terrain heightmap data points for setting heights over a period of
-  // time.
-  private List<float[, ]> terrPoints = new List<float[, ]>();
-  // List of chunks to be updated with points in terrPoints. True if points need
-  // to be flushed to terrainData.
-  private List<bool> terrQueue = new List<bool>();
-  // List of chunks. True if all points have been defined in terrPoints.
-  // Used for determining adjacent chunk heightmaps
-  private List<bool> terrReady = new List<bool>();
-  // List of chunks. True if the chunk needs to be unloaded.
-  private List<bool> terrToUnload = new List<bool>();
+  public List<Terrains> terrains = new List<Terrains>();
 
   // Water Tile to instantiate with the terrain when generating a new chunk
   [SerializeField] public GameObject waterTile;
@@ -106,7 +112,6 @@ public class TerrainGenTest : MonoBehaviour {
   [SerializeField] public Times times;
   // Used to identify the corners of the loaded terrain when not generating in a
   // radius from the player
-  private Terrain lastLoaded, firstLoaded;
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
   int heightmapWidth;  // The size of an individual heightmap of each chunk.
@@ -129,21 +134,20 @@ public class TerrainGenTest : MonoBehaviour {
     }
 
     times.lastUpdate = Time.time;
-    if (GenMode.Perlin && useSeed)
-      Seed = (int)(100*UnityEngine.Random.value);
+    if (GenMode.Perlin && useSeed) Seed = (int)(100 * UnityEngine.Random.value);
     if (Seed == 0) Seed++;
     GenerateTerrainChunk(0,0);
     FractalNewTerrains(0,0);
-    terrData[0].SetHeights(0,0, terrPoints[0]);
+    terrains[0].terrData.SetHeights(0,0, terrains[0].terrPoints);
     for(int x=0; x<maxX; x++) {
       for(int z=0; z<maxZ; z++) {
         GenerateTerrainChunk(x,z);
         FractalNewTerrains(x,z);
         int terrID = GetTerrainWithCoord(x,z);
-        terrData[terrID].SetHeights(0, 0, terrPoints[terrID]);
-        terrQueue[terrID] = false;
-        terrToUnload[terrID] = false;
-        terrReady[terrID] = true;
+        terrains[terrID].terrData.SetHeights(0, 0, terrains[terrID].terrPoints);
+        terrains[terrID].terrQueue = false;
+        terrains[terrID].terrToUnload = false;
+        terrains[terrID].terrReady = true;
       }
     }
 
@@ -153,11 +157,11 @@ public class TerrainGenTest : MonoBehaviour {
     FractalTerrains();
     times.DeltaFractal =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);*/
-    float playerX = maxX * firstLoaded.terrainData.size.x / 2f;
-    float playerZ = maxZ * firstLoaded.terrainData.size.z / 2f;
+    float playerX = maxX * terrains[0].terrData.size.x / 2f;
+    float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
     // float playerY = 700f;
     float playerY =
-        terrList[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
+        terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)].terrList
             .GetComponent<Terrain>()
             .SampleHeight(new Vector3(playerX, 0, playerZ));
             // .terrainData.GetHeight((int)(maxX / 2 / heightmapWidth),
@@ -187,25 +191,12 @@ public class TerrainGenTest : MonoBehaviour {
             + player.transform.position.x
             + ", " + player.transform.position.y
             + ", " + player.transform.position.z
-            + "), TF: ("
-            + firstLoaded.transform.position.x
-            + ", " + firstLoaded.transform.position.y
-            + ", " + firstLoaded.transform.position.z
-            + "), TL: ("
-            + lastLoaded.transform.position.x
-            + ", " + lastLoaded.transform.position.y
-            + ", " + lastLoaded.transform.position.z
             + ")");
 #endif
 
-    for (int i = 0; i < terrList.Count; i++) {
-      if (!terrList[i]) {
-        terrList.RemoveAt(i);
-        terrData.RemoveAt(i);
-        terrPoints.RemoveAt(i);
-        terrReady.RemoveAt(i);
-        terrQueue.RemoveAt(i);
-        terrToUnload.RemoveAt(i);
+    for (int i = 0; i < terrains.Count; i++) {
+      if (!terrains[i].terrList) {
+        terrains.RemoveAt(i);
         i--;
       }
     }
@@ -231,7 +222,7 @@ public class TerrainGenTest : MonoBehaviour {
     int terrLoc = GetTerrainWithCoord(xCenter,yCenter);
     if(terrLoc != -1) {
       float TerrainHeight =
-          terrList[terrLoc].GetComponent<Terrain>().SampleHeight(
+          terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
               player.transform.position /*new Vector3(PlayerX,0,PlayerZ)*/);
 
 #if DEBUG_HUD_POS
@@ -270,8 +261,8 @@ public class TerrainGenTest : MonoBehaviour {
     LoadedChunkList = "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
 #endif
 
-    for (int i = 0; i < terrToUnload.Count; i++) {
-      terrToUnload[i] = true;
+    for (int i = 0; i < terrains.Count; i++) {
+      terrains[i].terrToUnload = true;
     }
 
     for (int x = xCenter - radius; x <= xCenter; x++) {
@@ -292,7 +283,13 @@ public class TerrainGenTest : MonoBehaviour {
 #if DEBUG_HUD_LOADED
             LoadedChunkList += "+(" + x + ", " + y + ") ";
 #endif
-            terrToUnload[GetTerrainWithCoord(x, y)] = false;
+            try {
+              terrains[GetTerrainWithCoord(x, y)].terrToUnload = false;
+            } catch (ArgumentOutOfRangeException e) {
+              Debug.Log("(" + x + ", " + y + "): " +
+                        GetTerrainWithCoord(x, y) + " Out of Range (" +
+                        terrains.Count + ")");
+            }
           }
           if (!(x == xSym && y == ySym) &&
               GetTerrainWithCoord(xSym, ySym) == -1) {
@@ -308,11 +305,11 @@ public class TerrainGenTest : MonoBehaviour {
 #endif
             if (GetTerrainWithCoord(xSym, ySym) != -1) {
               try {
-                terrToUnload[GetTerrainWithCoord(xSym, ySym)] = false;
+                terrains[GetTerrainWithCoord(xSym, ySym)].terrToUnload = false;
               } catch (ArgumentOutOfRangeException e) {
                 Debug.Log("(" + xSym + ", " + ySym + "): " +
                           GetTerrainWithCoord(xSym, ySym) + " Out of Range (" +
-                          terrToUnload.Count + ")");
+                          terrains.Count + ")");
               }
             }
           }
@@ -329,11 +326,11 @@ public class TerrainGenTest : MonoBehaviour {
 #endif
             if (GetTerrainWithCoord(x, ySym) != -1) {
               try {
-                terrToUnload[GetTerrainWithCoord(x, ySym)] = false;
+                terrains[GetTerrainWithCoord(x, ySym)].terrToUnload = false;
               } catch (ArgumentOutOfRangeException e) {
                 Debug.Log("(" + xSym + ", " + ySym + "): " +
                           GetTerrainWithCoord(xSym, ySym) + " Out of Range (" +
-                          terrToUnload.Count + ")");
+                          terrains.Count + ")");
               }
             }
           }
@@ -350,11 +347,11 @@ public class TerrainGenTest : MonoBehaviour {
 #endif
             if (GetTerrainWithCoord(xSym, y) != -1) {
               try {
-                terrToUnload[GetTerrainWithCoord(xSym, y)] = false;
+                terrains[GetTerrainWithCoord(xSym, y)].terrToUnload = false;
               } catch (ArgumentOutOfRangeException e) {
                 Debug.Log("(" + xSym + ", " + ySym + "): " +
                           GetTerrainWithCoord(xSym, ySym) + " Out of Range (" +
-                          terrToUnload.Count + ")");
+                          terrains.Count + ")");
               }
             }
           }
@@ -370,58 +367,71 @@ public class TerrainGenTest : MonoBehaviour {
       LoadedChunkList += "\n";
     }
 
-    int tileCnt = -1;
-    if (lastTerrUpdated <= 0 || terrList.Count <= lastTerrUpdated ||
-        !terrQueue[lastTerrUpdated]) {
-      for (int i = 0; i < terrQueue.Count; i++) {
-        if (terrQueue[i]) {
+    int tileCnt = lastTerrUpdated;
+    if (tileCnt <= 0 || terrains.Count <= tileCnt ||
+        !terrains[tileCnt].terrQueue) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].terrQueue) {
           tileCnt = i;
-          Debug.Log("Loading Chunk " + tileCnt + " (" + GetXCoord(tileCnt) +
-                    ", " + GetZCoord(tileCnt) + ")");
+          // Debug.Log("Loading Chunk " + tileCnt + " (" + GetXCoord(tileCnt) +
+          //           ", " + GetZCoord(tileCnt) + ")");
+          lastTerrUpdateLoc = 0;
           break;
         }
       }
-    } else {
-      tileCnt = lastTerrUpdated;
     }
-    if (tileCnt > 0 && terrList.Count > tileCnt && terrList[tileCnt] &&
-        terrQueue[tileCnt]) {
+    if (tileCnt > 0 && terrains.Count > tileCnt && terrains[tileCnt].terrList &&
+        terrains[tileCnt].terrQueue) {
       int lastTerrUpdateLoc_ = lastTerrUpdateLoc;
-      for (int i = lastTerrUpdateLoc;
-           i < lastTerrUpdateLoc + GenMode.HeightmapSpeed; i++) {
+      for (int i = lastTerrUpdateLoc_;
+           i < lastTerrUpdateLoc_ + GenMode.HeightmapSpeed; i++) {
         int z = i % heightmapHeight;
         int x = (int)Math.Floor((float)i / heightmapWidth);
-#if DEBUG_HEIGHTS
+#if DEBUG_CHUNK_LOADING
         if(x < heightmapWidth)
           Debug.Log("Update Coord: (" + z + ", " + x + ")\nI: " + i +
                     "\nLastUpdateLoc: " + lastTerrUpdateLoc + "\nUpdateSpeed: "
                     + GenMode.HeightmapSpeed + "\nHeight: " +
-                    terrPoints[tileCnt][ z, x ] + "\nLoc: " + tileCnt);
+                    terrains[tileCnt].terrPoints[ z, x ] + "\nLoc: " + tileCnt);
 #endif
         if (x >= heightmapWidth) {
-          terrQueue[tileCnt] = false;
-          lastTerrUpdateLoc = 0;
-          lastTerrUpdated = 0;
+          terrains[tileCnt].terrQueue = false;
           break;
         }
+
         try {
-          TerrUpdatePoints[ z, x ] = terrPoints[tileCnt][ z, x ];
+          TerrUpdatePoints[ z, x ] = terrains[tileCnt].terrPoints[ z, x ];
         } catch (ArgumentOutOfRangeException e) {
-          Debug.LogError("Failed to read terrPoints " + tileCnt + " x:" + z +
-                         ", z:" + x + "\n\n" + e);
+          Debug.LogError("Failed to read terrPoints(err1) " + tileCnt + " x:" +
+                         z + ", z:" + x + "\n\n" + e);
           break;
         } catch (NullReferenceException e) {
-          Debug.LogError("Failed to read terrPoints " + tileCnt + "\n\n" + e);
+          Debug.LogError("Failed to read terrPoints(err2) " + tileCnt + "\n\n" +
+                         e);
+          break;
+        } catch (IndexOutOfRangeException e) {
+          Debug.LogError("Failed to read terrPoints(err3) " + tileCnt + " x:" +
+                         z + ", z:" + x + "\n\n" + e);
           break;
         }
-        lastTerrUpdateLoc_++;
+
+        lastTerrUpdateLoc++;
       }
-      terrData[tileCnt].SetHeights(0, 0, TerrUpdatePoints);
-      terrList[tileCnt].GetComponent<Terrain>().Flush();
+
+      try {
+        terrains[tileCnt].terrData.SetHeights(0, 0, TerrUpdatePoints);
+      } catch (ArgumentException e) {
+        Debug.LogWarning("TerrUpdatePoints is incorrect size " +
+                         heightmapHeight + "x" + heightmapWidth +
+                         " instead of " +
+                         terrains[tileCnt].terrData.heightmapWidth + "x" +
+                         terrains[tileCnt].terrData.heightmapHeight + "\n" + e);
+      }
+
+      terrains[tileCnt].terrList.GetComponent<Terrain>().Flush();
       // lastTerrUpdateLoc += GenMode.HeightmapSpeed - 1;
-      lastTerrUpdateLoc = lastTerrUpdateLoc_;
       lastTerrUpdated = tileCnt;
-      if (!terrQueue[tileCnt]) {
+      if (!terrains[tileCnt].terrQueue) {
         TerrUpdatePoints = new float[ heightmapHeight, heightmapWidth ];
         lastTerrUpdateLoc = 0;
         lastTerrUpdated = 0;
@@ -444,8 +454,8 @@ public class TerrainGenTest : MonoBehaviour {
     }
 
     LoadedChunkList += "\nUnloading: ";
-    for (int i = 0; i < terrToUnload.Count; i++) {
-      if (terrToUnload[i]) {
+    for (int i = 0; i < terrains.Count; i++) {
+      if (terrains[i].terrToUnload) {
         LoadedChunkList += "(" + GetXCoord(i) + ", " + GetZCoord(i) + "), ";
         UnloadTerrainChunk(i);
       }
@@ -475,11 +485,15 @@ public class TerrainGenTest : MonoBehaviour {
             .ToString() +
         "s";
     times.deltaTimes.text =
-        "Delta Times:\n" + "Generate(" + times.DeltaGenerate + "ms)<--" + "T(" +
-        times.DeltaGenerateTerrain + "ms)<--" + "W(" +
-        times.DeltaGenerateWater + "ms),\n" + "Fractal(" + times.DeltaFractal +
-        "ms)<--" + "Divide(" + times.DeltaDivide + "ms),\n" + "Last Total(" +
-        times.DeltaTotal + "ms) Avg: " + times.DeltaTotalAverage + ",\n" +
+        "Delta Times:\n" +
+        "Generate(" + times.DeltaGenerate + "ms)<--" +
+          "T(" + times.DeltaGenerateTerrain + "ms)<--" +
+          "W(" + times.DeltaGenerateWater + "ms),\n" +
+        "Heightmap(" + times.DeltaGenerateHeightmap + "ms)\n" +
+        "Fractal(" + times.DeltaFractal + "ms)<--" +
+          "Divide(" + times.DeltaDivide + "ms),\n" +
+        "Last Total(" + times.DeltaTotal + "ms) " +
+          "Avg: " + times.DeltaTotalAverage + ",\n" +
         "Update Neighbors(" + times.DeltaUpdate + "ms)";
 #endif
   }
@@ -490,32 +504,32 @@ public class TerrainGenTest : MonoBehaviour {
       Terrain LeftTerr = null, TopTerr = null, RightTerr = null,
               BottomTerr = null;
       try {
-        LeftTerr =
-            terrList[GetTerrainWithCoord(X - 1, Z)].GetComponent<Terrain>();
+        LeftTerr = terrains[GetTerrainWithCoord(X - 1, Z)]
+                       .terrList.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X - 1, Z, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
-        TopTerr =
-            terrList[GetTerrainWithCoord(X, Z + 1)].GetComponent<Terrain>();
+        TopTerr = terrains[GetTerrainWithCoord(X, Z + 1)]
+                      .terrList.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X, Z + 1, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
-        RightTerr =
-            terrList[GetTerrainWithCoord(X + 1, Z)].GetComponent<Terrain>();
+        RightTerr = terrains[GetTerrainWithCoord(X + 1, Z)]
+                        .terrList.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X + 1, Z, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
-        BottomTerr =
-            terrList[GetTerrainWithCoord(X, Z - 1)].GetComponent<Terrain>();
+        BottomTerr = terrains[GetTerrainWithCoord(X, Z - 1)]
+                         .terrList.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X, Z - 1, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
-        Terrain MidTerr =
-            terrList[GetTerrainWithCoord(X, Z)].GetComponent<Terrain>();
+        Terrain MidTerr = terrains[GetTerrainWithCoord(X, Z)]
+                              .terrList.GetComponent<Terrain>();
         MidTerr.SetNeighbors(LeftTerr, TopTerr, RightTerr, BottomTerr);
       } catch (ArgumentOutOfRangeException e) {
       }
@@ -528,8 +542,6 @@ public class TerrainGenTest : MonoBehaviour {
     int cntX = x;
     int cntZ = z;
     if (cntZ == 0 && cntX == 0) {
-      lastLoaded = this.GetComponent<Terrain>();
-      firstLoaded = this.GetComponent<Terrain>();
       terrWidth = (int)this.GetComponent<Terrain>().terrainData.size.x;
       terrLength = (int)this.GetComponent<Terrain>().terrainData.size.z;
       heightmapWidth =
@@ -537,83 +549,55 @@ public class TerrainGenTest : MonoBehaviour {
       heightmapHeight =
           this.GetComponent<Terrain>().terrainData.heightmapHeight;
 
-      terrData.Add(GetComponent<Terrain>().terrainData);
-      terrList.Add(this.gameObject);
-      terrPoints.Add(new float[ terrWidth, terrLength ]);
-      terrQueue.Add(false);
-      terrToUnload.Add(false);
-      terrReady.Add(false);
-      UpdateTexture(terrData[terrList.Count-1]);
-      terrList[terrList.Count-1].name = "Terrain(" + cntX + "," + cntZ + ")";
+      terrains.Add(new Terrains());
+      terrains[terrains.Count - 1].terrData =
+          GetComponent<Terrain>().terrainData;
+      terrains[terrains.Count - 1].terrList = this.gameObject;
+      terrains[terrains.Count - 1].terrPoints =
+          new float[ terrWidth, terrLength ];
+      UpdateTexture(terrains[terrains.Count - 1].terrData);
+      terrains[terrains.Count - 1].terrList.name =
+          "Terrain(" + cntX + "," + cntZ + ")";
 #if DEBUG_MISC
-      Debug.Log("Added Terrain (0,0){" + terrList.Count-1 + "}");
+      Debug.Log("Added Terrain (0,0){" + terrains.Count-1 + "}");
 #endif
       // lastX = cntX;
       // lastZ = cntZ;
       gBigSize = terrWidth + terrLength;
     } else {
       float iTime2 = Time.realtimeSinceStartup;
-      terrData.Add(new TerrainData() as TerrainData);
-      terrData[terrList.Count-1].heightmapResolution = terrData[0].heightmapResolution;
-      terrData[terrList.Count-1].size = terrData[0].size;
-      UpdateTexture(terrData[terrList.Count-1]);
 
-      terrList.Add(Terrain.CreateTerrainGameObject(terrData[terrList.Count-1]));
-      terrList[terrList.Count-1].name = "Terrain(" + cntX + "," + cntZ + ")";
-      terrList[terrList.Count - 1].transform.Translate(cntX * terrWidth, 0f,
-                                                       cntZ * terrLength);
+      terrains.Add(new Terrains());
+      terrains[terrains.Count-1].terrData = new TerrainData() as TerrainData;
+      terrains[terrains.Count-1].terrData.heightmapResolution =
+         terrains[0].terrData.heightmapResolution;
+      terrains[terrains.Count-1].terrData.size = terrains[0].terrData.size;
+      UpdateTexture(terrains[terrains.Count - 1].terrData);
+
+      terrains[terrains.Count - 1].terrList = Terrain.CreateTerrainGameObject(
+          terrains[terrains.Count - 1].terrData);
+      terrains[terrains.Count - 1].terrList.name =
+          "Terrain(" + cntX + "," + cntZ + ")";
+      terrains[terrains.Count - 1].terrList.transform.Translate(
+          cntX * terrWidth, 0f, cntZ * terrLength);
       times.DeltaGenerateTerrain =
           (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
+
       // Add Water
       iTime2 = Time.realtimeSinceStartup;
-      Vector3 terrVector3 =
-          terrList[terrList.Count-1].GetComponent<Terrain>().transform.position;
+      Vector3 terrVector3 = terrains[terrains.Count - 1]
+                                .terrList.GetComponent<Terrain>()
+                                .transform.position;
       Vector3 waterVector3 = terrVector3;
       waterVector3.y += 150;
       waterVector3.x += terrWidth/2;
       waterVector3.z += terrLength/2;
       Instantiate(waterTile, waterVector3, Quaternion.identity,
-                  terrList[terrList.Count - 1].transform);
+                  terrains[terrains.Count - 1].terrList.transform);
       times.DeltaGenerateWater =
           (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
 
-      int thisLoc = GetTerrainWithCoord(cntX, cntZ);
-      int lastLoadedLoc = GetTerrainWithData(lastLoaded);
-      int firstLoadedLoc = GetTerrainWithData(firstLoaded);
-
-#if DEBUG_ARRAY
-      Debug.Log("This: " + thisLoc + ", First: " + firstLoadedLoc + ", Last: " +
-                lastLoadedLoc);
-#endif
-
-      if (thisLoc != -1) {
-        if (terrList[thisLoc].GetComponent<Terrain>().transform.position.x >=
-                terrList[lastLoadedLoc]
-                    .GetComponent<Terrain>()
-                    .transform.position.x &&
-            terrList[thisLoc].GetComponent<Terrain>().transform.position.z >=
-                terrList[lastLoadedLoc]
-                    .GetComponent<Terrain>()
-                    .transform.position.z &&
-            lastLoadedLoc != -1) {
-          lastLoaded = terrList[thisLoc].GetComponent<Terrain>();
-        }
-        if (terrList[thisLoc].GetComponent<Terrain>().transform.position.x <=
-                terrList[firstLoadedLoc]
-                    .GetComponent<Terrain>()
-                    .transform.position.x &&
-            terrList[thisLoc].GetComponent<Terrain>().transform.position.z <=
-                terrList[firstLoadedLoc]
-                    .GetComponent<Terrain>()
-                    .transform.position.z &&
-            firstLoadedLoc != -1) {
-          firstLoaded = terrList[thisLoc].GetComponent<Terrain>();
-        }
-      }
-      terrPoints.Add(new float[ terrWidth, terrLength ]);
-      terrQueue.Add(false);
-      terrToUnload.Add(false);
-      terrReady.Add(false);
+      terrains[terrains.Count-1].terrPoints = new float[ terrWidth, terrLength ];
 
       times.DeltaGenerate =
           (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
@@ -631,20 +615,23 @@ public class TerrainGenTest : MonoBehaviour {
     }
 #if DEBUG_ARRAY
     Debug.Log("TileCount: " + tileCnt + ", X: " + changeX + " Z: " + changeZ +
-              "\nterrData.Count: " + terrData.Count + ", terrData[tileCnt]: " +
-              terrData[tileCnt] + "\nTerrain Name: " + terrList[tileCnt].name);
+              "\nterrains.Count: " + terrains.Count + ", terrains[tileCnt]: " +
+              terrains[tileCnt].terrData + "\nTerrain Name: " +
+              terrains[tileCnt].terrList.name);
 #endif
     try {
-      terrPoints[tileCnt] = GenerateNew(changeX, changeZ, roughness);
-      terrQueue[tileCnt] = true;
-      terrReady[tileCnt] = true;
+      terrains[tileCnt].terrPoints = GenerateNew(changeX, changeZ, roughness);
+      terrains[tileCnt].terrQueue = true;
+      terrains[tileCnt].terrReady = true;
 #if DEBUG_HEIGHTS
-      Debug.Log(
-          "Top Right = " +
-          terrPoints[tileCnt][ heightmapWidth - 1, heightmapHeight - 1 ] +
-          "\nBottom Right = " + terrPoints[tileCnt][ heightmapWidth - 1, 0 ] +
-          "\nBottom Left = " + terrPoints[tileCnt][ 0, 0 ] + "\nTop Left = " +
-          terrPoints[tileCnt][ 0, heightmapHeight - 1 ]);
+      Debug.Log("Top Right = " +
+                terrains[tileCnt]
+                    .terrPoints[ heightmapWidth - 1, heightmapHeight - 1 ] +
+                "\nBottom Right = " +
+                terrains[tileCnt].terrPoints[ heightmapWidth - 1, 0 ] +
+                "\nBottom Left = " + terrains[tileCnt].terrPoints[ 0, 0 ] +
+                "\nTop Left = " +
+                terrains[tileCnt].terrPoints[ 0, heightmapHeight - 1 ]);
 #endif
 #if DEBUG_STEEPNESS
       Debug.Log(
@@ -687,15 +674,10 @@ public class TerrainGenTest : MonoBehaviour {
   }
   public void UnloadTerrainChunk(int loc) {
     if( loc == 0 ) return;
-    Destroy ( terrList[loc] );
-    Debug.Log("Flagging Chunk for unload " + loc + " (" + GetXCoord(loc) + ", " +
-              GetZCoord(loc) + ")");
-    // terrList.RemoveAt(loc);
-    // terrList[loc].name = "DESTROY " + terrList[loc].name;
-    // terrData.RemoveAt(loc);
-    terrReady[loc] = false;
-    terrQueue[loc] = false;
-    // terrToUnload.RemoveAt(loc);
+    Destroy ( terrains[loc].terrList );
+    // Debug.Log("Flagging Chunk for unload " + loc + " (" + GetXCoord(loc) + ", " +
+    //           GetZCoord(loc) + ")");
+     terrains.RemoveAt(loc);
     if (lastTerrUpdated == loc) {
       lastTerrUpdateLoc = -1;
       lastTerrUpdated = -1;
@@ -717,77 +699,101 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
 
-    // Generate heightmap of points by averaging all surrounding points then
-    // displacing.
-    if (useSeed) {
-      UnityEngine.Random.seed = (int)(Seed + PerfectlyHashThem((short)changeX, (short)changeZ));
-      // UnityEngine.Random.seed = Seed;
-    }
+    if(!GenMode.Perlin) {
+      // Generate heightmap of points by averaging all surrounding points then
+      // displacing.
+      if (useSeed) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)changeX, (short)changeZ)));
+        // UnityEngine.Random.seed = Seed;
+      }
 #if DEBUG_SEED
-    Debug.Log("Seed: (" + changeX + ", " + changeZ + ") = " +
-              UnityEngine.Random.seed);
+      Debug.Log("Seed: (" + changeX + ", " + changeZ + ") = " +
+                UnityEngine.Random.seed);
 #endif
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
-    Debug.Log(terrList[GetTerrainWithCoord(changeX, changeZ)]
-                  .GetComponent<Terrain>()
-                  .name +
-              ",(0,0): " + points[ 0, 0 ]);
-    Debug.Log(terrList[GetTerrainWithCoord(changeX, changeZ)]
-                  .GetComponent<Terrain>()
-                  .name +
-              ",(" + iWidth + "," + iHeight + "): " +
-              points[ (int)iWidth - 1, (int)iHeight - 1 ]);
+      Debug.Log(terrains[GetTerrainWithCoord(changeX, changeZ)]
+                    .terrList.GetComponent<Terrain>()
+                    .name +
+                ",(0,0): " + points[ 0, 0 ]);
+      Debug.Log(terrains[GetTerrainWithCoord(changeX, changeZ)]
+                    .terrList.GetComponent<Terrain>()
+                    .name +
+                ",(" + iWidth + "," + iHeight + "): " +
+                points[ (int)iWidth - 1, (int)iHeight - 1 ]);
 #endif
 
-    gRoughness = iRoughness;
+      gRoughness = iRoughness;
 
-    logCount = 11;
-    if(!(changeX == 0 && changeZ == 0)) {
-      MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
-    } else if(true) {
-      for (int r = 0; r < 4; r++) {
-        for (int c = 0; c < iHeight; c++) {
-          int i,j;
-          switch(r){
-            case 0:
-              i = 0;
-              j = c;
-              break;
-            case 1:
-              i = c;
-              j = (int)iHeight-1;
-              break;
-            case 2:
-              i = (int)iWidth-1;
-              j = c;
-              break;
-            case 3:
-              i = c;
-              j = 0;
-              break;
-            default:
-              i = 0;
-              j = 0;
-              break;
+      logCount = 11;
+      if (!(changeX == 0 && changeZ == 0)) {
+        MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
+      } else if (true) {
+        for (int r = 0; r < 4; r++) {
+          for (int c = 0; c < iHeight; c++) {
+            int i, j;
+            switch (r) {
+              case 0:
+                i = 0;
+                j = c;
+                break;
+              case 1:
+                i = c;
+                j = (int)iHeight - 1;
+                break;
+              case 2:
+                i = (int)iWidth - 1;
+                j = c;
+                break;
+              case 3:
+                i = c;
+                j = 0;
+                break;
+              default:
+                i = 0;
+                j = 0;
+                break;
+            }
+            points[ i, j ] = 0.5f;
           }
-          points[ i, j ] = 0.5f;
         }
       }
     }
 
     float iTime2 = Time.realtimeSinceStartup;
 
-    PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
+    // Separate if statement in order to allow for timing how long generating
+    // the heighmap actually takes.
     if(GenMode.Perlin) {
+      // Use Perlin noise to generate heightmap
       PerlinDivide(ref points, changeX, changeZ, iWidth, iHeight);
+      // MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
     } else if (GenMode.DisplaceDivide) {
+      // Divide chunk into 4 sections and displace the center thus creating 4
+      // more sections per section until every pixel is defined.
+      PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
       DivideNewGrid(ref points, 0, 0, iWidth, iHeight, points[ 0, 0 ],
                     points[ 0, (int)iHeight - 1 ],
                     points[ (int)iWidth - 1, (int)iHeight - 1 ],
                     points[ (int)iWidth - 1, 0 ]);
       MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
+    } else {
+      for (float r = 0; r < heightmapHeight; r++) {
+        for (float c = 0; c < heightmapWidth; c++) {
+          // points[ (int)r, (int)c ] =
+          //     (Mathf.Sin(((r / heightmapHeight) + (c / heightmapWidth)) *
+          //                Mathf.PI) +
+          //      1f) /
+          //     2f;
+
+          points[ (int)r, (int)c ] =
+              Mathf.Sqrt(changeX * changeX + changeZ * changeZ) / 10f;
+        }
+      }
     }
 
+    times.DeltaGenerateHeightmap =
+        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
     times.DeltaDivide =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
 
@@ -831,6 +837,9 @@ public class TerrainGenTest : MonoBehaviour {
       for (int r = 0; r < iWidth; r++) {
         for (int c = 0; c < iHeight; c++) {
           flippedPoints[ c, r ] = points[ r, c ];
+          // If the flipped point is undefined, average surrounding points or
+          // just choose a random location. Should only happen if something is
+          // broken.
           if (flippedPoints[ c, r ] <= 0) {
             float p1 = EmptyPoint, p2 = EmptyPoint, p3 = EmptyPoint,
                   p4 = EmptyPoint;
@@ -856,7 +865,7 @@ public class TerrainGenTest : MonoBehaviour {
     }
     // SmoothEdges(iWidth, iHeight, ref flippedPoints);
 
-    times.DeltaFractal =
+    times.DeltaGenerateHeightmap =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
 
     return flippedPoints;
@@ -879,48 +888,48 @@ public class TerrainGenTest : MonoBehaviour {
     int b3 = GetTerrainWithCoord(changeX + 1, changeZ);  // Right
     int b4 = GetTerrainWithCoord(changeX, changeZ - 1);  // Bottom
     float[, ] newpoints = points;
-    if(b1 >= 0 && terrReady[b1]) {
+    if(b1 >= 0 && terrains[b1].terrReady) {
 #if DEBUG_HEIGHTS
-      Debug.Log("Border1(0,0): " + terrPoints[b1][ 0, 0 ]);
+      Debug.Log("Border1(0,0): " + terrains[b1].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iHeight; i++) {
         if(!flipped)
-          newpoints[ 0, i ] = terrPoints[b1][ (int)iWidth - 1, i ];
+          newpoints[ 0, i ] = terrains[b1].terrPoints[ (int)iWidth - 1, i ];
         else
-          newpoints[ 0, i ] = terrPoints[b1][ i, (int)iWidth - 1 ];
+          newpoints[ 0, i ] = terrains[b1].terrPoints[ i, (int)iWidth - 1 ];
       }
     }
-    if (b2 >= 0 && terrReady[b2]) {  // top
+    if (b2 >= 0 && terrains[b2].terrReady) {  // top
 #if DEBUG_HEIGHTS
-      Debug.Log("Border2(0,0): " + terrPoints[b2][ 0, 0 ]);
+      Debug.Log("Border2(0,0): " + terrains[b2].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iWidth; i++) {
         if(!flipped)
-          newpoints[ i, (int)iHeight - 1 ] = terrPoints[b2][ i, 0 ];
+          newpoints[ i, (int)iHeight - 1 ] = terrains[b2].terrPoints[ i, 0 ];
         else
-          newpoints[ i, (int)iHeight - 1 ] = terrPoints[b2][ 0, i ];
+          newpoints[ i, (int)iHeight - 1 ] = terrains[b2].terrPoints[ 0, i ];
       }
     }
-    if (b3 >= 0 && terrReady[b3]) {  // right
+    if (b3 >= 0 && terrains[b3].terrReady) {  // right
 #if DEBUG_HEIGHTS
-      Debug.Log("Border3(0,0): " + terrPoints[b3][ 0, 0 ]);
+      Debug.Log("Border3(0,0): " + terrains[b3].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iHeight; i++) {
         if(!flipped)
-          newpoints[ (int)iWidth - 1, i ] = terrPoints[b3][ 0, i ];
+          newpoints[ (int)iWidth - 1, i ] = terrains[b3].terrPoints[ 0, i ];
         else
-          newpoints[ (int)iWidth - 1, i ] = terrPoints[b3][ i, 0 ];
+          newpoints[ (int)iWidth - 1, i ] = terrains[b3].terrPoints[ i, 0 ];
       }
     }
-    if (b4 >= 0 && terrReady[b4]) {  // bottom
+    if (b4 >= 0 && terrains[b4].terrReady) {  // bottom
 #if DEBUG_HEIGHTS
-      Debug.Log("Border4(0,0): " + terrPoints[b4][ 0, 0 ]);
+      Debug.Log("Border4(0,0): " + terrains[b4].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iWidth; i++) {
         if(!flipped)
-          newpoints[ i, 0 ] = terrPoints[b4][ i, (int)iHeight - 1 ];
+          newpoints[ i, 0 ] = terrains[b4].terrPoints[ i, (int)iHeight - 1 ];
         else
-          newpoints[ i, 0 ] = terrPoints[b4][ (int)iHeight - 1, i ];
+          newpoints[ i, 0 ] = terrains[b4].terrPoints[ (int)iHeight - 1, i ];
       }
     }
     /* for (int i = 0; i < iWidth * iHeight; i++) {
@@ -1326,14 +1335,19 @@ Debug.Log("C4 Out");
     }
   }
 
-  private void PerlinDivide(ref float[,] points, float x, float y, float w, float h) {
-    float xShifted = (x * (w-1)) + (Seed * PerlinSeedModifier);
-    float yShifted = (y * (h-1)) + (Seed * PerlinSeedModifier);
-    // Debug.Log("xShifted: " + xShifted + "(" + (xShifted/(w-1)) + ")\nyShifted: " + yShifted + "(" + (yShifted/(h-1)) + ")");
+ private
+  void PerlinDivide(ref float[, ] points, float x, float y, float w, float h) {
+    float xShifted = (x + (Seed * PerlinSeedModifier)) * (w - 1f);
+    float yShifted = (y + (Seed * PerlinSeedModifier)) * (h - 1f);
+    // Debug.Log("X: " + x + "\nY: " + y + "\nxShifted: " + xShifted + "(" +
+    //           (xShifted / (w - 1)) + ")\nyShifted: " + yShifted + "(" +
+    //           (yShifted / (h - 1)) + ")");
     for (int r = 0; r < h; r++) {
       for (int c = 0; c < w; c++) {
         if(GenMode.Distort) {
-          float noise = Mathf.PerlinNoise(roughness*(xShifted + c)/(w-1f), roughness*(yShifted + r)/(h-1f));
+          float noise =
+              Mathf.PerlinNoise(roughness * (xShifted + c) / (w - 1f),
+                                roughness * (yShifted + r) / (h - 1f));
           // float noise = (r + c) / (w + h);
           float f1 = Mathf.Log(1 - noise) * -roughness * 0.3f;
           float f2 = -1/(1+Mathf.Pow(2.718f, 10 * (noise - 0.90f))) + 1;
@@ -1343,15 +1357,23 @@ Debug.Log("C4 Out");
           if(noise > 0 && noise <= blendStart)
             points[r,c] = f1 + yShift;
           else if(noise < blendEnd && noise > blendStart)
-            points[r,c] = ((f1 * ((blendEnd-blendStart)-(noise-blendStart))) + (f2 * (noise - blendStart)))/(blendEnd-blendStart) + yShift;
+            points[ r, c ] =
+                ((f1 * ((blendEnd - blendStart) - (noise - blendStart))) +
+                 (f2 * (noise - blendStart))) /
+                    (blendEnd - blendStart) +
+                yShift;
           else
             points[r,c] = f2 + yShift;
         } else {
           float noise =
-            3.0f * roughness * Mathf.PerlinNoise(
-              Mathf.Pow(roughness,1.2f)*(xShifted + c)/(w-1f),
-              Mathf.Pow(roughness,1.2f)*(yShifted + r)/(h-1f)
-            ) + yShift;
+              3.0f * roughness *
+                  Mathf.PerlinNoise(
+                      Mathf.Pow(roughness, 1.2f) * (xShifted + c) /
+                          (w - 1f),
+                      Mathf.Pow(roughness, 1.2f) * (yShifted + r) /
+                          (h - 1f)) +
+              yShift;
+          // float noise = Mathf.PerlinNoise((xShifted+r)/(w-1f),(yShifted+c)/(h-1f));
 
           points[r,c] = noise;
         }
@@ -1392,13 +1414,15 @@ Debug.Log("C4 Out");
 
   private int GetTerrainWithCoord(int x, int z) {
 
-    for (int i = 0; i < terrList.Count; i++) {
+    for (int i = 0; i < terrains.Count; i++) {
+      if (terrains[i].terrList.name.Equals("Terrain(" + x + "," + z + ")")) {
 #if DEBUG_ARRAY
-      Debug.Log(terrList[i].name + "==Terrain(" + x + "," + z + ")" + " [" +
-                terrList[i].name.Equals("Terrain(" + x + "," + z + ")") + "]{" +
-                i + "}");
+        Debug.Log(
+            terrains[i].terrList.name + "==Terrain(" + x + "," + z + ")" +
+            " [" +
+            terrains[i].terrList.name.Equals("Terrain(" + x + "," + z + ")") +
+            "]{" + i + "}");
 #endif
-      if (terrList[i].name.Equals("Terrain(" + x + "," + z + ")")) {
         return i;
       }
     }
@@ -1408,12 +1432,12 @@ Debug.Log("C4 Out");
   }
 
   private int GetTerrainWithData(TerrainData terr) {
-    for (int i = 0; i < terrList.Count; i++) {
+    for (int i = 0; i < terrains.Count; i++) {
 #if DEBUG_ARRAY
-      Debug.Log(terrData[i] + "==" + terr + " [" + (terrData[i] == terr) +
-                " (" + i + ")]");
+      Debug.Log(terrains[i].terrData + "==" + terr + " [" +
+                (terrains[i].terrData == terr) + " (" + i + ")]");
 #endif
-      if (terrData[i] == terr) {
+      if (terrains[i].terrList && terrains[i].terrData == terr) {
         return i;
       }
     }
@@ -1421,20 +1445,22 @@ Debug.Log("C4 Out");
   }
 
   private int GetTerrainWithData(Terrain terr) {
-    for (int i = 0; i < terrList.Count; i++) {
+    for (int i = 0; i < terrains.Count; i++) {
 #if DEBUG_ARRAY
-      Debug.Log(terrList[i].name + "==" + terr.name + " [" +
-                (terrList[i].name == terr.name) + " (" + i + ")]");
+      Debug.Log(terrains[i].terrList.name + "==" + terr.name + " [" +
+                (terrains[i].terrList.name == terr.name) + " (" + i + ")]");
 #endif
-      if (terrList[i].name == terr.name) {
-        return i;
-      }
+      try {
+        if (terrains[i].terrList && terrains[i].terrList.name == terr.name) {
+          return i;
+        }
+      } catch (MissingReferenceException e) {}
     }
     return -1;
   }
 
   private int GetXCoord(int index) {
-    string name = terrList[index].name;
+    string name = terrains[index].terrList.name;
     int start = -1, end = -1;
     for (int i = 0; i < name.Length; i++) {
       if (name[i].Equals('(')) {
@@ -1451,7 +1477,7 @@ Debug.Log("C4 Out");
     int output;
     if (!Int32.TryParse(coord, out output)) {
       Debug.LogError("Failed to parse X Coordinate(" + index + "): " + coord +
-                     "\n" + name + "," + terrList[index].name);
+                     "\n" + name + "," + terrains[index].terrList.name);
       return -1;
     } else {
       return output;
@@ -1459,7 +1485,7 @@ Debug.Log("C4 Out");
   }
 
   private int GetZCoord(int index) {
-    string name = terrList[index].name;
+    string name = terrains[index].terrList.name;
     int start = -1, end = -1;
     for (int i = 0; i < name.Length; i++) {
       if (name[i].Equals(',')) {
@@ -1476,7 +1502,7 @@ Debug.Log("C4 Out");
     int output;
     if (!Int32.TryParse(coord, out output)) {
       Debug.LogError("Failed to parse Z Coordinate(" + index + "): " + coord +
-                     "\n" + name + "," + terrList[index].name);
+                     "\n" + name + "," + terrains[index].terrList.name);
       return -1;
     } else {
       return output;
