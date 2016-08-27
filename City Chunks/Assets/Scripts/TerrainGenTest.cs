@@ -122,7 +122,7 @@ public class TerrainGenTest : MonoBehaviour {
   float lastUpdate;
   float PeakModifier = 1;
   int lastTerrUpdateLoc = 0;
-  int lastTerrUpdated = 0;
+  Terrain lastTerrUpdated = new Terrain();
   float[, ] TerrUpdatePoints;
   float lowest = 1.0f;
   float highest = 0.0f;
@@ -134,8 +134,11 @@ public class TerrainGenTest : MonoBehaviour {
     }
 
     times.lastUpdate = Time.time;
-    if (GenMode.Perlin && useSeed) Seed = (int)(100 * UnityEngine.Random.value);
+    if (GenMode.Perlin && useSeed) Seed = (int)(500 * UnityEngine.Random.value);
     if (Seed == 0) Seed++;
+    if (GenMode.Perlin)
+      Debug.Log("Seed*PerlinSeedModifier=" + Seed * PerlinSeedModifier);
+
     GenerateTerrainChunk(0,0);
     FractalNewTerrains(0,0);
     terrains[0].terrData.SetHeights(0,0, terrains[0].terrPoints);
@@ -367,9 +370,8 @@ public class TerrainGenTest : MonoBehaviour {
       LoadedChunkList += "\n";
     }
 
-    int tileCnt = lastTerrUpdated;
-    if (tileCnt <= 0 || terrains.Count <= tileCnt ||
-        !terrains[tileCnt].terrQueue) {
+    int tileCnt = GetTerrainWithData(lastTerrUpdated);
+    if (tileCnt <= 0 || !terrains[tileCnt].terrQueue) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].terrQueue) {
           tileCnt = i;
@@ -380,8 +382,7 @@ public class TerrainGenTest : MonoBehaviour {
         }
       }
     }
-    if (tileCnt > 0 && terrains.Count > tileCnt && terrains[tileCnt].terrList &&
-        terrains[tileCnt].terrQueue) {
+    if (tileCnt > 0 && terrains[tileCnt].terrQueue) {
       int lastTerrUpdateLoc_ = lastTerrUpdateLoc;
       for (int i = lastTerrUpdateLoc_;
            i < lastTerrUpdateLoc_ + GenMode.HeightmapSpeed; i++) {
@@ -430,11 +431,11 @@ public class TerrainGenTest : MonoBehaviour {
 
       terrains[tileCnt].terrList.GetComponent<Terrain>().Flush();
       // lastTerrUpdateLoc += GenMode.HeightmapSpeed - 1;
-      lastTerrUpdated = tileCnt;
+      lastTerrUpdated = terrains[tileCnt].terrList.GetComponent<Terrain>();
       if (!terrains[tileCnt].terrQueue) {
         TerrUpdatePoints = new float[ heightmapHeight, heightmapWidth ];
         lastTerrUpdateLoc = 0;
-        lastTerrUpdated = 0;
+        lastTerrUpdated = new Terrain();
       }
     }
 
@@ -678,9 +679,9 @@ public class TerrainGenTest : MonoBehaviour {
     // Debug.Log("Flagging Chunk for unload " + loc + " (" + GetXCoord(loc) + ", " +
     //           GetZCoord(loc) + ")");
      terrains.RemoveAt(loc);
-    if (lastTerrUpdated == loc) {
+    if (GetTerrainWithData(lastTerrUpdated) == loc) {
       lastTerrUpdateLoc = -1;
-      lastTerrUpdated = -1;
+      lastTerrUpdated = new Terrain();
     }
   }
 
@@ -1365,14 +1366,13 @@ Debug.Log("C4 Out");
           else
             points[r,c] = f2 + yShift;
         } else {
-          float noise =
-              3.0f * roughness *
-                  Mathf.PerlinNoise(
-                      Mathf.Pow(roughness, 1.2f) * (xShifted + c) /
-                          (w - 1f),
-                      Mathf.Pow(roughness, 1.2f) * (yShifted + r) /
-                          (h - 1f)) +
-              yShift;
+          float noise = 3.0f * roughness *
+                            Mathf.PerlinNoise(Mathf.Pow(roughness, 1.2f) *
+                                                  (xShifted + c) / (w - 1.0f),
+                                              Mathf.Pow(roughness, 1.2f) *
+                                                  (yShifted + r) / (h - 1.0f)) +
+                        yShift;
+
           // float noise = Mathf.PerlinNoise((xShifted+r)/(w-1f),(yShifted+c)/(h-1f));
 
           points[r,c] = noise;
@@ -1454,7 +1454,9 @@ Debug.Log("C4 Out");
         if (terrains[i].terrList && terrains[i].terrList.name == terr.name) {
           return i;
         }
-      } catch (MissingReferenceException e) {}
+      } catch (MissingReferenceException e) {
+      } catch (NullReferenceException e) {
+      }
     }
     return -1;
   }

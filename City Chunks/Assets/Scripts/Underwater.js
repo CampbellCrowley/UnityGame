@@ -1,14 +1,10 @@
-﻿var waterLevel : float;
+﻿/* var waterLevel : float;
 private var isUnderwater : boolean;
 @SerializeField
 public var normalColor : Color = new Color (0.5f, 0.5f, 0.5f, 0.5f);
 @SerializeField
 public var underwaterColor : Color = new Color (0.22f, 0.65f, 0.77f, 0.5f);
 
-/* function Start () {
-	normalColor = new Color (0.5f, 0.5f, 0.5f, 0.5f);
-	underwaterColor = new Color (0.22f, 0.65f, 0.77f, 0.5f);
-} */
 function Start () {
   SetNormal();
 }
@@ -30,7 +26,40 @@ function SetNormal() {
 
 function SetUnderwater () {
 	RenderSettings.fogColor = underwaterColor;
-	RenderSettings.fogDensity = 0.50f;
-  RenderSettings.fogStartDistance = 0.0f;
-  RenderSettings.fogEndDistance = 5.0f;
+	// RenderSettings.fogDensity = 0.50f;
+  // RenderSettings.fogStartDistance = 0.0f;
+  // RenderSettings.fogEndDistance = 10.0f;
+} */
+
+var underwaterLevel = 150;
+
+private
+var defaultFog = RenderSettings.fog;
+private
+var defaultFogColor = RenderSettings.fogColor;
+private
+var defaultFogDensity = RenderSettings.fogDensity;
+private
+var defaultSkybox = RenderSettings.skybox;
+var noSkybox : Material;
+
+function Start() {
+  // Set the background color
+  camera.backgroundColor = Color(0, 0.4, 0.7, 1);
+}
+
+function Update() {
+  if (transform.position.y < underwaterLevel) {
+    RenderSettings.fog = true;
+    RenderSettings.fogColor = Color(0, 0.4, 0.7, 0.6);
+    RenderSettings.fogDensity = 0.04;
+    RenderSettings.skybox = noSkybox;
+  }
+
+  else {
+    RenderSettings.fog = defaultFog;
+    RenderSettings.fogColor = defaultFogColor;
+    RenderSettings.fogDensity = defaultFogDensity;
+    RenderSettings.skybox = defaultSkybox;
+  }
 }
