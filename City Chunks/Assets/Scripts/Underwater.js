@@ -45,7 +45,7 @@ var noSkybox : Material;
 
 function Start() {
   // Set the background color
-  camera.backgroundColor = Color(0, 0.4, 0.7, 1);
+  GetComponent.<Camera>().backgroundColor = Color(0, 0.4, 0.7, 1);
 }
 
 function Update() {
