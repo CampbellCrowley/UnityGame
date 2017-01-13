@@ -135,7 +135,7 @@ public class TerrainGenTest : MonoBehaviour {
 
     times.lastUpdate = Time.time;
     if (GenMode.Perlin && useSeed) Seed = (int)(500 * UnityEngine.Random.value);
-    if (Seed == 0) Seed++;
+    if (Seed == 0) Seed=0;
     if (GenMode.Perlin)
       Debug.Log("Seed*PerlinSeedModifier=" + Seed * PerlinSeedModifier);
 
@@ -693,14 +693,16 @@ public class TerrainGenTest : MonoBehaviour {
     float iHeight = heightmapHeight;
     float iWidth = heightmapWidth;
     float[, ] points = new float[ (int)iWidth, (int)iHeight ];
+    float[, ] perlinPoints = points;
 
     for (int r = 0; r < iHeight; r++) {
       for (int c = 0; c < iHeight; c++) {
         points[ r, c ] = EmptyPoint;
+        perlinPoints[ r, c ] = EmptyPoint;
       }
     }
 
-    if(!GenMode.Perlin) {
+    if(GenMode.DisplaceDivide || GenMode.Reach || GenMode.Cube || GenMode.Distort) {
       // Generate heightmap of points by averaging all surrounding points then
       // displacing.
       if (useSeed) {
@@ -729,7 +731,7 @@ public class TerrainGenTest : MonoBehaviour {
       logCount = 11;
       if (!(changeX == 0 && changeZ == 0)) {
         MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
-      } else if (true) {
+      } else {
         for (int r = 0; r < 4; r++) {
           for (int c = 0; c < iHeight; c++) {
             int i, j;
@@ -767,9 +769,10 @@ public class TerrainGenTest : MonoBehaviour {
     // the heighmap actually takes.
     if(GenMode.Perlin) {
       // Use Perlin noise to generate heightmap
-      PerlinDivide(ref points, changeX, changeZ, iWidth, iHeight);
+      PerlinDivide(ref perlinPoints, changeX, changeZ, iWidth, iHeight);
       // MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
-    } else if (GenMode.DisplaceDivide) {
+    }
+    if (GenMode.DisplaceDivide) {
       // Divide chunk into 4 sections and displace the center thus creating 4
       // more sections per section until every pixel is defined.
       PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
@@ -778,7 +781,8 @@ public class TerrainGenTest : MonoBehaviour {
                     points[ (int)iWidth - 1, (int)iHeight - 1 ],
                     points[ (int)iWidth - 1, 0 ]);
       MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
-    } else {
+    }
+    if(!GenMode.DisplaceDivide && !GenMode.Perlin) {
       for (float r = 0; r < heightmapHeight; r++) {
         for (float c = 0; c < heightmapWidth; c++) {
           // points[ (int)r, (int)c ] =
@@ -865,6 +869,14 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
     // SmoothEdges(iWidth, iHeight, ref flippedPoints);
+
+    if(GenMode.Perlin && GenMode.DisplaceDivide) {
+      for (int r=0; r < iWidth; r++) {
+        for(int c=0; c< iHeight; c++) {
+          flippedPoints[r,c] = flippedPoints[r,c] + perlinPoints[r,c];
+        }
+      }
+    }
 
     times.DeltaGenerateHeightmap =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
