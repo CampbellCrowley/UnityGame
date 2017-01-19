@@ -5,7 +5,7 @@
 // #define DEBUG_BORDERS_3
 // #define DEBUG_BORDERS_4
 // #define DEBUG_CHUNK_LOADING
-// #define DEBUG_HEIGHTS
+#define DEBUG_HEIGHTS
 // #define DEBUG_MISC
 // #define DEBUG_POSITION
 // #define DEBUG_SEED
@@ -268,8 +268,8 @@ public class TerrainGenTest : MonoBehaviour {
       terrains[i].terrToUnload = true;
     }
 
-    for (int x = xCenter - radius; x <= xCenter; x++) {
-      for (int y = yCenter - radius; y <= yCenter; y++) {
+    for (int x = xCenter; x > xCenter - radius; x--) {
+      for (int y = yCenter; y > yCenter - radius; y--) {
         int xSym = xCenter - (x - xCenter);
         int ySym = yCenter - (y - yCenter);
         // don't have to take the square root, it's slow
@@ -780,7 +780,7 @@ public class TerrainGenTest : MonoBehaviour {
                     points[ 0, (int)iHeight - 1 ],
                     points[ (int)iWidth - 1, (int)iHeight - 1 ],
                     points[ (int)iWidth - 1, 0 ]);
-      MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
+      MatchEdges(iWidth, iHeight, changeX, changeZ, ref points, false);
     }
     if(!GenMode.DisplaceDivide && !GenMode.Perlin) {
       for (float r = 0; r < heightmapHeight; r++) {
@@ -857,8 +857,10 @@ public class TerrainGenTest : MonoBehaviour {
             if (r < iWidth - 1) p4 = flippedPoints[ c, r + 1 ];
             if (p4 <= 0) p4 = EmptyPoint;
             float p = AverageCorners(p1, p2, p3, p4);
-            if (p == EmptyPoint)
+            if (p == EmptyPoint) {
               p = Displace(iWidth + iHeight);
+              Debug.LogWarning("Flipping points found undefined area! (" + c + ", " + r + ")");
+            }
             else
               Displace(0);
             flippedPoints[ c, r ] = p;
@@ -878,6 +880,8 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
 
+    MatchEdges(iWidth, iHeight, changeX, changeZ, ref points, true);
+
     times.DeltaGenerateHeightmap =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
 
@@ -890,11 +894,12 @@ public class TerrainGenTest : MonoBehaviour {
 // Set the edge of the new chunk to the same values as the bordering chunks.
 // This is to create uniformity between chunks.
 #if DEBUG_HEIGHTS
-    Debug.Log(
-        "(0,0) InterpolatedHeight = " +
-        (terrList[0].GetComponent<Terrain>().terrainData.GetInterpolatedHeight(
-             0, 0) /
-         terrList[0].GetComponent<Terrain>().terrainData.size.y));
+    Debug.Log("MATCHING EDGES OF CHUNK (" + changeX + ", " + changeZ + ")");
+    // Debug.Log(
+    //     "(0,0) InterpolatedHeight = " +
+    //     (terrains[0].terrList.GetComponent<Terrain>().terrainData.GetInterpolatedHeight(
+    //          0, 0) /
+    //      terrains[0].terrList.GetComponent<Terrain>().terrainData.size.y));
 #endif
     int b1 = GetTerrainWithCoord(changeX - 1, changeZ);  // Left
     int b2 = GetTerrainWithCoord(changeX, changeZ + 1);  // Top
@@ -903,7 +908,7 @@ public class TerrainGenTest : MonoBehaviour {
     float[, ] newpoints = points;
     if(b1 >= 0 && terrains[b1].terrReady) {
 #if DEBUG_HEIGHTS
-      Debug.Log("Border1(0,0): " + terrains[b1].terrPoints[ 0, 0 ]);
+      Debug.Log("Border1(" + (changeX-1) + "," + changeZ + "),(0,0): " + terrains[b1].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iHeight; i++) {
         if(!flipped)
@@ -914,7 +919,7 @@ public class TerrainGenTest : MonoBehaviour {
     }
     if (b2 >= 0 && terrains[b2].terrReady) {  // top
 #if DEBUG_HEIGHTS
-      Debug.Log("Border2(0,0): " + terrains[b2].terrPoints[ 0, 0 ]);
+      Debug.Log("Border2(" + changeX + "," + (changeZ+1) + "),(0,0): " + terrains[b2].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iWidth; i++) {
         if(!flipped)
@@ -925,7 +930,7 @@ public class TerrainGenTest : MonoBehaviour {
     }
     if (b3 >= 0 && terrains[b3].terrReady) {  // right
 #if DEBUG_HEIGHTS
-      Debug.Log("Border3(0,0): " + terrains[b3].terrPoints[ 0, 0 ]);
+      Debug.Log("Border3(" + (changeX+1) + "," + changeZ + "),(0,0): " + terrains[b3].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iHeight; i++) {
         if(!flipped)
@@ -936,7 +941,7 @@ public class TerrainGenTest : MonoBehaviour {
     }
     if (b4 >= 0 && terrains[b4].terrReady) {  // bottom
 #if DEBUG_HEIGHTS
-      Debug.Log("Border4(0,0): " + terrains[b4].terrPoints[ 0, 0 ]);
+      Debug.Log("Border4(" + changeX + "," + (changeZ-1) + "),(0,0): " + terrains[b4].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iWidth; i++) {
         if(!flipped)
@@ -1103,7 +1108,7 @@ Debug.Log("C4 Out");
         c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
         c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
         c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
-      }  // else: use passed in values
+      }
       Middle = points[
         (int)Math.Floor((dX + dX + dwidth) / 2),
         (int)Math.Floor((dY + dY + dheight) / 2)

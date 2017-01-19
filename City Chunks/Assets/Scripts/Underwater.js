@@ -34,18 +34,22 @@ function SetUnderwater () {
 var underwaterLevel = 150;
 
 private
-var defaultFog = RenderSettings.fog;
+var defaultFog;
 private
-var defaultFogColor = RenderSettings.fogColor;
+var defaultFogColor;
 private
-var defaultFogDensity = RenderSettings.fogDensity;
+var defaultFogDensity;
 private
-var defaultSkybox = RenderSettings.skybox;
+var defaultSkybox;
 var noSkybox : Material;
 
 function Start() {
   // Set the background color
   GetComponent.<Camera>().backgroundColor = Color(0, 0.4, 0.7, 1);
+  defaultFog = RenderSettings.fog;
+  defaultFogColor = RenderSettings.fogColor;
+  defaultFogDensity = RenderSettings.fogDensity;
+  defaultSkybox = RenderSettings.skybox;
 }
 
 function Update() {
