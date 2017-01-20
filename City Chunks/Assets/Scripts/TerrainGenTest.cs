@@ -5,7 +5,7 @@
 // #define DEBUG_BORDERS_3
 // #define DEBUG_BORDERS_4
 // #define DEBUG_CHUNK_LOADING
-#define DEBUG_HEIGHTS
+// #define DEBUG_HEIGHTS
 // #define DEBUG_MISC
 // #define DEBUG_POSITION
 // #define DEBUG_SEED
@@ -14,6 +14,7 @@
 #define DEBUG_HUD_POS
 #define DEBUG_HUD_TIMES
 #define DEBUG_HUD_LOADED
+
 #pragma warning disable 0168
 
 using UnityEngine;
@@ -177,17 +178,12 @@ public class TerrainGenTest : MonoBehaviour {
     TerrUpdatePoints = new float[ heightmapWidth, heightmapHeight ];
   }
 
-  void Update() {  // generates terrain based on player transform and generated
-                   // terrain
+  void Update() {
+// generates terrain based on player transform and generated terrain
 // Determines when to load terrain by the corner terrain chunks of the
 // currently loaded map and compare their X and Z positions to
 // the player's position which is 1playerunit/2terrainunit (player x and z
 // increment 1/2 as fast as the terrain x and z over the same distance).
-
-// TODO:
-// Terrain should be stored in an ArrayList/List (DONE)
-// When loading, add and remove Terrain from an ArrayList/List
-// Generate Terrain based on neighbor
 
 #if DEBUG_POSITION
     Debug.Log ("P: ("
