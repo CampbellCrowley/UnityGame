@@ -124,6 +124,7 @@ public class TerrainGenTest : MonoBehaviour {
   [SerializeField] public GameObject waterTile;
   // Player for deciding when to load chunks based on position
   [SerializeField] public GameObject player;
+  [Header("Randomness")]
   // Whether or not to use the pre-determined seed or use Unity's random seed
   [SerializeField] public bool useSeed = true;
   [SerializeField] public int Seed = 4;
@@ -802,16 +803,18 @@ public class TerrainGenTest : MonoBehaviour {
       MatchEdges(iWidth, iHeight, changeX, changeZ, ref points, false);
     }
     if(!GenMode.DisplaceDivide && !GenMode.Perlin) {
-      for (float r = 0; r < heightmapHeight; r++) {
-        for (float c = 0; c < heightmapWidth; c++) {
+      for (float r = 0; r < iWidth; r++) {
+        for (float c = 0; c < iHeight; c++) {
           // points[ (int)r, (int)c ] =
           //     (Mathf.Sin(((r / heightmapHeight) + (c / heightmapWidth)) *
           //                Mathf.PI) +
           //      1f) /
           //     2f;
 
-          points[ (int)r, (int)c ] =
-              Mathf.Sqrt(changeX * changeX + changeZ * changeZ) / 10f;
+          // points[ (int)r, (int)c ] =
+          //     Mathf.Sqrt(changeX * changeX + changeZ * changeZ) / 10f + 0.00001f;
+
+          points[(int)r, (int)c] = Mathf.Sin((changeX*iWidth + r)/50f);
         }
       }
     }
@@ -854,6 +857,7 @@ public class TerrainGenTest : MonoBehaviour {
 #endif
 
     float[, ] flippedPoints = points;
+    logCount=10;
     if (!GenMode.Perlin) {
       for (int r = 0; r < iWidth; r++) {
         for (int c = 0; c < iHeight; c++) {
@@ -875,8 +879,11 @@ public class TerrainGenTest : MonoBehaviour {
             float p = AverageCorners(p1, p2, p3, p4);
             if (p == EmptyPoint) {
               p = Displace(iWidth + iHeight);
-              Debug.LogWarning("Flipping points found undefined area! (" + c +
-                               ", " + r + ")");
+              if(logCount>0) {
+                Debug.LogWarning("Flipping points found undefined area! (" +
+                         changeX + ", " + changeZ + "),(" + c + ", " + r + ")");
+              }
+              logCount--;
             } else
               Displace(0);
             flippedPoints[ c, r ] = p;
@@ -884,6 +891,9 @@ public class TerrainGenTest : MonoBehaviour {
             Displace(0);
           }
         }
+      }
+      if(logCount<0) {
+        Debug.LogWarning(logCount*-1 + " additional suppressed warnings.");
       }
     }
     // SmoothEdges(iWidth, iHeight, ref flippedPoints);
