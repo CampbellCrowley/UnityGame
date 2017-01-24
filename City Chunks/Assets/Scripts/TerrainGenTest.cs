@@ -18,7 +18,6 @@
 #define DEBUG_HUD_POS
 #define DEBUG_HUD_TIMES
 #define DEBUG_HUD_LOADED
-
 #pragma warning disable 0168
 
 using UnityEngine;
@@ -102,7 +101,7 @@ public class Terrains {
   public TerrainData terrData;
   // List of terrains for instantiating
   public GameObject terrList;
-  // List of terrain height map data points for setting heights over a period of
+  // List of terrain heightmap data points for setting heights over a period of
   // time.
   public float[, ] terrPoints;
   // List of chunks to be updated with points in terrPoints. True if points need
@@ -125,7 +124,6 @@ public class TerrainGenTest : MonoBehaviour {
   [SerializeField] public GameObject waterTile;
   // Player for deciding when to load chunks based on position
   [SerializeField] public GameObject player;
-  [Header("Randomness")]
   // Whether or not to use the pre-determined seed or use Unity's random seed
   [SerializeField] public bool useSeed = true;
   [SerializeField] public int Seed = 4;
@@ -569,7 +567,6 @@ public class TerrainGenTest : MonoBehaviour {
     int cntX = x;
     int cntZ = z;
     if (cntZ == 0 && cntX == 0) {
-      // Initialize home chunk.
       terrWidth = (int)this.GetComponent<Terrain>().terrainData.size.x;
       terrLength = (int)this.GetComponent<Terrain>().terrainData.size.z;
       heightmapWidth =
@@ -593,7 +590,6 @@ public class TerrainGenTest : MonoBehaviour {
     } else {
       float iTime2 = Time.realtimeSinceStartup;
 
-      // Add Terrain
       terrains.Add(new Terrains());
       terrains[terrains.Count-1].terrData = new TerrainData() as TerrainData;
       terrains[terrains.Count-1].terrData.heightmapResolution =
