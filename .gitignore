@@ -2,3 +2,6 @@
 */Library/*
 *.sln
 *.csproj
+*.swp
+*.swo
+*.swn

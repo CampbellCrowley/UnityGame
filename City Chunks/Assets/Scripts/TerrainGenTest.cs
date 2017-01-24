@@ -1,3 +1,7 @@
+////////////////////////////////////////////////////////////////////
+// WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
+//                      USE WITH CAUTION!                         //
+////////////////////////////////////////////////////////////////////
 // #define DEBUG_ARRAY
 // #define DEBUG_ATTRIBUTES
 // #define DEBUG_BORDERS_1
@@ -35,27 +39,61 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
 [Serializable] public class GeneratorModes {
   // Number of pixels to update per chunk per frame
   [Range(0, 100000)] public int HeightmapSpeed = 1000;
+  // Enables generator mode that displaces points randomly within ranges that
+  // vary by the distance to the center of the chunk and averages surrounding
+  // points.
   public bool DisplaceDivide = false;
+  // A modifier to Displace Divide that causes terrain to be smoother.
   public bool Reach = false;
+  // A modifier to Displace Divide that causes the terrain to look cube-ish.
   public bool Cube = false;
+
+  // Uses Perlin noise to generate terrain.
   public bool Perlin = true;
+  // A modifier to Perlin Noise that exaggerates heights increasingly the higher
+  // they get.
   public bool Distort = false;
 }
 [Serializable] public class Times {
+  // Shows a countdown until neighbors get updated again.
   public GUIText deltaNextUpdate;
+  // Shows timing for all other measured events.
   public GUIText deltaTimes;
+  // Time between neighbor updates in seconds.
   [Range(0.1f, 500f)] public float UpdateSpeed = 5;
+  // Previous amount of time updating neighbors took in milliseconds.
   public float lastUpdate = 0;
+  // Previous amount of time calculating heightmap data took in milliseconds.
   public float DeltaDivide = 0;
+  // Previous amount of time calculating heightmap data and initializing arrays
+  // took in milliseconds. (Theoretically should be similar to DeltaDivide?)
   public float DeltaFractal = 0;
+  // Previous amount of time instantiating a new chunk took in milliseconds.
   public float DeltaGenerate = 0;
+  // Previous amount of time instantiating a new terrain component of a chunk
+  // took in milliseconds.
   public float DeltaGenerateTerrain = 0;
+  // Previous amount of time instantiating a new water component of a chunk took
+  // in milliseconds.
   public float DeltaGenerateWater = 0;
+  // Same as DeltaDivide but includes time it took to flip points and possible
+  // additional logging.
   public float DeltaGenerateHeightmap = 0;
+  // Previous amount of time updating neighbors took in milliseconds.
   public float DeltaUpdate = 0;
+  // Previous amount of time it took for all steps to occur during one frame if
+  // something significant happened, otherwise it does not change until a
+  // significant event occurs.
   public float DeltaTotal = 0;
+  // Previous 1000 values of DeltaTotal for use in calculating the average total
+  // amount of time this script takes during a frame while doing everything.
   public float[] DeltaTotalAverageArray = new float[1000];
+  // Average total amount of time this script takes in one frame while doing
+  // everything necessary.
   public float DeltaTotalAverage = 0;
+  // Placeholder for next location to store DeltaTotal in DeltaTotalAverageArray
+  // which is especially important when the array is full and we loop back from
+  // the beginning and overwrite old data.
   public int avgEnd = -1;
 }
 public class Terrains {
@@ -64,7 +102,7 @@ public class Terrains {
   public TerrainData terrData;
   // List of terrains for instantiating
   public GameObject terrList;
-  // List of terrain heightmap data points for setting heights over a period of
+  // List of terrain height map data points for setting heights over a period of
   // time.
   public float[, ] terrPoints;
   // List of chunks to be updated with points in terrPoints. True if points need
@@ -82,19 +120,25 @@ public class TerrainGenTest : MonoBehaviour {
 
   public List<Terrains> terrains = new List<Terrains>();
 
+  [Header("Game Objects")]
   // Water Tile to instantiate with the terrain when generating a new chunk
   [SerializeField] public GameObject waterTile;
   // Player for deciding when to load chunks based on position
   [SerializeField] public GameObject player;
+  [Header("Randomness")]
   // Whether or not to use the pre-determined seed or use Unity's random seed
   [SerializeField] public bool useSeed = true;
   [SerializeField] public int Seed = 4;
   // Modifier to shift the perlin noise map in order to reduce chance of finding
   // the same patch of terrain again. This value is multiplied by the seed.
   [SerializeField] public float PerlinSeedModifier = 100000.12f;
+  [Header("HUD Text for Debug")]
   // The GUIText object that is used to display information on the HUD
   [SerializeField] public GUIText positionInfo;
   [SerializeField] public GUIText chunkListInfo;
+  // GUIText of debugging data to show on the HUD
+  [SerializeField] public Times times;
+  [Header("Generator Settings")]
   // Show list of available terrain generators
   [SerializeField] public GeneratorModes GenMode;
   // Distance from chunk for it to be loaded
@@ -106,27 +150,33 @@ public class TerrainGenTest : MonoBehaviour {
   // Number of terrain chunks to generate initially before the player spawns
   [SerializeField] public int maxX = 2;
   [SerializeField] public int maxZ = 2;
+  [Header("Visuals")]
   // Array of textures to apply to the terrain
-  // TODO(Campbell): Actually do something useful with this
   [SerializeField] public Texture2D[] TerrainTextures;
-  // GUIText of debugging data to show on the HUD
-  [SerializeField] public Times times;
-  // Used to identify the corners of the loaded terrain when not generating in a
-  // radius from the player
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
   int heightmapWidth;  // The size of an individual heightmap of each chunk.
   int heightmapHeight;
+  // Used to identify the corners of the loaded terrain when not generating in a
+  // radius from the player
   int width;  // Total size of heightmaps combined
   int height;
+  // Remaining number of messages to send to the console. Setting a limit
+  // greatly improves performance since the maximum messages is limited, and it
+  // makes reading the output easier since there are fewer lines to look at.
   int logCount = 1;
   float lastUpdate;
   float PeakModifier = 1;
+  // Previous terrain index whose heightmap was being applied.
   int lastTerrUpdateLoc = 0;
+  // Chunk whose heightmap is being applied.
   Terrain lastTerrUpdated = new Terrain();
+  // Array of points currently applied to the chunk.
   float[, ] TerrUpdatePoints;
+  // Lowest and highest points of loaded terrain.
   float lowest = 1.0f;
   float highest = 0.0f;
+  // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
 
   void Start() {
@@ -155,21 +205,12 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
 
-    /* times.DeltaGenerate =
-       (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
-    iTime = Time.realtimeSinceStartup;
-    FractalTerrains();
-    times.DeltaFractal =
-        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);*/
     float playerX = maxX * terrains[0].terrData.size.x / 2f;
     float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
-    // float playerY = 700f;
     float playerY =
         terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)].terrList
             .GetComponent<Terrain>()
             .SampleHeight(new Vector3(playerX, 0, playerZ));
-            // .terrainData.GetHeight((int)(maxX / 2 / heightmapWidth),
-            //                       (int)(maxZ / 2 / heightmapHeight));
     try {
       (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
     } catch (NullReferenceException e) {
@@ -179,7 +220,7 @@ public class TerrainGenTest : MonoBehaviour {
   }
 
   void Update() {
-// generates terrain based on player transform and generated terrain
+// Generates terrain based on player transform and generated terrain.
 // Determines when to load terrain by the corner terrain chunks of the
 // currently loaded map and compare their X and Z positions to
 // the player's position which is 1playerunit/2terrainunit (player x and z
@@ -201,28 +242,16 @@ public class TerrainGenTest : MonoBehaviour {
     }
 
     // Make sure the player stays above the terrain
-    /* if(player.transform.position.y < 0) {
-      (player.GetComponent<InitPlayer>()).updatePosition(
-          player.transform.position.x,
-          602.0f,
-          player.transform.position.z);
-    } */
     int xCenter = Mathf.RoundToInt(
         (player.transform.position.x - terrWidth / 2) / terrWidth);
     int yCenter = Mathf.RoundToInt(
         (player.transform.position.z - terrLength / 2) / terrLength);
     int radius = Mathf.RoundToInt(loadDist / ((terrWidth + terrLength) / 2.0f));
-    // float PlayerX = xCenter;
-    // float PlayerZ = yCenter;
-    // float PlayerX = player.transform.position.x;
-    // float PlayerZ = player.transform.position.z;
-    // int terrLoc = GetTerrainWithCoord((int)(PlayerX / terrWidth),
-    // (int)(PlayerZ / terrLength));
     int terrLoc = GetTerrainWithCoord(xCenter,yCenter);
     if(terrLoc != -1) {
       float TerrainHeight =
           terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
-              player.transform.position /*new Vector3(PlayerX,0,PlayerZ)*/);
+              player.transform.position);
 
 #if DEBUG_HUD_POS
       positionInfo.text =
@@ -257,13 +286,16 @@ public class TerrainGenTest : MonoBehaviour {
     float iTime = -1;
     bool done = false;
 #if DEBUG_HUD_LOADED
-    LoadedChunkList = "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
+    LoadedChunkList =
+        "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
 #endif
 
     for (int i = 0; i < terrains.Count; i++) {
       terrains[i].terrToUnload = true;
     }
 
+    // Load chunks within radius, but only one per frame to help with
+    // performance.
     for (int x = xCenter; x > xCenter - radius; x--) {
       for (int y = yCenter; y > yCenter - radius; y--) {
         int xSym = xCenter - (x - xCenter);
@@ -366,18 +398,18 @@ public class TerrainGenTest : MonoBehaviour {
       LoadedChunkList += "\n";
     }
 
+    // Find next chunk that needs heightmap to be applied.
     int tileCnt = GetTerrainWithData(lastTerrUpdated);
     if (tileCnt <= 0 || !terrains[tileCnt].terrQueue) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].terrQueue) {
           tileCnt = i;
-          // Debug.Log("Loading Chunk " + tileCnt + " (" + GetXCoord(tileCnt) +
-          //           ", " + GetZCoord(tileCnt) + ")");
           lastTerrUpdateLoc = 0;
           break;
         }
       }
     }
+    // Apply heightmap to chunk GenMode.HeightmapSpeed points at a time.
     if (tileCnt > 0 && terrains[tileCnt].terrQueue) {
       int lastTerrUpdateLoc_ = lastTerrUpdateLoc;
       for (int i = lastTerrUpdateLoc_;
@@ -426,7 +458,6 @@ public class TerrainGenTest : MonoBehaviour {
       }
 
       terrains[tileCnt].terrList.GetComponent<Terrain>().Flush();
-      // lastTerrUpdateLoc += GenMode.HeightmapSpeed - 1;
       lastTerrUpdated = terrains[tileCnt].terrList.GetComponent<Terrain>();
       if (!terrains[tileCnt].terrQueue) {
         TerrUpdatePoints = new float[ heightmapHeight, heightmapWidth ];
@@ -497,7 +528,6 @@ public class TerrainGenTest : MonoBehaviour {
 
   void UpdateTerrainNeighbors(int X, int Z, int count = 2) {
     if (count > 0) {
-      // Debug.Log("Updating (" + X + ", " + Z + ") (" + count + ")");
       Terrain LeftTerr = null, TopTerr = null, RightTerr = null,
               BottomTerr = null;
       try {
@@ -539,6 +569,7 @@ public class TerrainGenTest : MonoBehaviour {
     int cntX = x;
     int cntZ = z;
     if (cntZ == 0 && cntX == 0) {
+      // Initialize home chunk.
       terrWidth = (int)this.GetComponent<Terrain>().terrainData.size.x;
       terrLength = (int)this.GetComponent<Terrain>().terrainData.size.z;
       heightmapWidth =
@@ -558,12 +589,11 @@ public class TerrainGenTest : MonoBehaviour {
 #if DEBUG_MISC
       Debug.Log("Added Terrain (0,0){" + terrains.Count-1 + "}");
 #endif
-      // lastX = cntX;
-      // lastZ = cntZ;
       gBigSize = terrWidth + terrLength;
     } else {
       float iTime2 = Time.realtimeSinceStartup;
 
+      // Add Terrain
       terrains.Add(new Terrains());
       terrains[terrains.Count-1].terrData = new TerrainData() as TerrainData;
       terrains[terrains.Count-1].terrData.heightmapResolution =
@@ -672,8 +702,6 @@ public class TerrainGenTest : MonoBehaviour {
   public void UnloadTerrainChunk(int loc) {
     if( loc == 0 ) return;
     Destroy ( terrains[loc].terrList );
-    // Debug.Log("Flagging Chunk for unload " + loc + " (" + GetXCoord(loc) + ", " +
-    //           GetZCoord(loc) + ")");
      terrains.RemoveAt(loc);
     if (GetTerrainWithData(lastTerrUpdated) == loc) {
       lastTerrUpdateLoc = -1;
@@ -698,13 +726,13 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
 
-    if(GenMode.DisplaceDivide || GenMode.Reach || GenMode.Cube || GenMode.Distort) {
+    if (GenMode.DisplaceDivide || GenMode.Reach || GenMode.Cube ||
+        GenMode.Distort) {
       // Generate heightmap of points by averaging all surrounding points then
       // displacing.
       if (useSeed) {
         UnityEngine.Random.InitState(
             (int)(Seed + PerfectlyHashThem((short)changeX, (short)changeZ)));
-        // UnityEngine.Random.seed = Seed;
       }
 #if DEBUG_SEED
       Debug.Log("Seed: (" + changeX + ", " + changeZ + ") = " +
@@ -762,11 +790,10 @@ public class TerrainGenTest : MonoBehaviour {
     float iTime2 = Time.realtimeSinceStartup;
 
     // Separate if statement in order to allow for timing how long generating
-    // the heighmap actually takes.
+    // the heightmap actually takes.
     if(GenMode.Perlin) {
       // Use Perlin noise to generate heightmap
       PerlinDivide(ref perlinPoints, changeX, changeZ, iWidth, iHeight);
-      // MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
     }
     if (GenMode.DisplaceDivide) {
       // Divide chunk into 4 sections and displace the center thus creating 4
@@ -793,8 +820,6 @@ public class TerrainGenTest : MonoBehaviour {
       }
     }
 
-    times.DeltaGenerateHeightmap =
-        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
     times.DeltaDivide =
         (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
 
@@ -832,9 +857,8 @@ public class TerrainGenTest : MonoBehaviour {
         iWidth + ", iHeight: " + iHeight);
 #endif
 
-    // float[, ] flippedPoints = new float[ (int)iHeight, (int)iWidth ];
     float[, ] flippedPoints = points;
-    if(!GenMode.Perlin) {
+    if (!GenMode.Perlin) {
       for (int r = 0; r < iWidth; r++) {
         for (int c = 0; c < iHeight; c++) {
           flippedPoints[ c, r ] = points[ r, c ];
@@ -855,9 +879,9 @@ public class TerrainGenTest : MonoBehaviour {
             float p = AverageCorners(p1, p2, p3, p4);
             if (p == EmptyPoint) {
               p = Displace(iWidth + iHeight);
-              Debug.LogWarning("Flipping points found undefined area! (" + c + ", " + r + ")");
-            }
-            else
+              Debug.LogWarning("Flipping points found undefined area! (" + c +
+                               ", " + r + ")");
+            } else
               Displace(0);
             flippedPoints[ c, r ] = p;
           } else {
@@ -868,10 +892,10 @@ public class TerrainGenTest : MonoBehaviour {
     }
     // SmoothEdges(iWidth, iHeight, ref flippedPoints);
 
-    if(GenMode.Perlin && GenMode.DisplaceDivide) {
-      for (int r=0; r < iWidth; r++) {
-        for(int c=0; c< iHeight; c++) {
-          flippedPoints[r,c] = flippedPoints[r,c] + perlinPoints[r,c];
+    if (GenMode.Perlin && GenMode.DisplaceDivide) {
+      for (int r = 0; r < iWidth; r++) {
+        for (int c = 0; c < iHeight; c++) {
+          flippedPoints[ r, c ] = flippedPoints[ r, c ] + perlinPoints[ r, c ];
         }
       }
     }
@@ -891,23 +915,24 @@ public class TerrainGenTest : MonoBehaviour {
 // This is to create uniformity between chunks.
 #if DEBUG_HEIGHTS
     Debug.Log("MATCHING EDGES OF CHUNK (" + changeX + ", " + changeZ + ")");
-    // Debug.Log(
-    //     "(0,0) InterpolatedHeight = " +
-    //     (terrains[0].terrList.GetComponent<Terrain>().terrainData.GetInterpolatedHeight(
-    //          0, 0) /
-    //      terrains[0].terrList.GetComponent<Terrain>().terrainData.size.y));
+// Debug.Log(
+//     "(0,0) InterpolatedHeight = " +
+//     (terrains[0].terrList.GetComponent<Terrain>().terrainData.GetInterpolatedHeight(
+//          0, 0) /
+//      terrains[0].terrList.GetComponent<Terrain>().terrainData.size.y));
 #endif
     int b1 = GetTerrainWithCoord(changeX - 1, changeZ);  // Left
     int b2 = GetTerrainWithCoord(changeX, changeZ + 1);  // Top
     int b3 = GetTerrainWithCoord(changeX + 1, changeZ);  // Right
     int b4 = GetTerrainWithCoord(changeX, changeZ - 1);  // Bottom
     float[, ] newpoints = points;
-    if(b1 >= 0 && terrains[b1].terrReady) {
+    if (b1 >= 0 && terrains[b1].terrReady) {
 #if DEBUG_HEIGHTS
-      Debug.Log("Border1(" + (changeX-1) + "," + changeZ + "),(0,0): " + terrains[b1].terrPoints[ 0, 0 ]);
+      Debug.Log("Border1(" + (changeX - 1) + "," + changeZ + "),(0,0): " +
+                terrains[b1].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iHeight; i++) {
-        if(!flipped)
+        if (!flipped)
           newpoints[ 0, i ] = terrains[b1].terrPoints[ (int)iWidth - 1, i ];
         else
           newpoints[ 0, i ] = terrains[b1].terrPoints[ i, (int)iWidth - 1 ];
@@ -915,10 +940,11 @@ public class TerrainGenTest : MonoBehaviour {
     }
     if (b2 >= 0 && terrains[b2].terrReady) {  // top
 #if DEBUG_HEIGHTS
-      Debug.Log("Border2(" + changeX + "," + (changeZ+1) + "),(0,0): " + terrains[b2].terrPoints[ 0, 0 ]);
+      Debug.Log("Border2(" + changeX + "," + (changeZ + 1) + "),(0,0): " +
+                terrains[b2].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iWidth; i++) {
-        if(!flipped)
+        if (!flipped)
           newpoints[ i, (int)iHeight - 1 ] = terrains[b2].terrPoints[ i, 0 ];
         else
           newpoints[ i, (int)iHeight - 1 ] = terrains[b2].terrPoints[ 0, i ];
@@ -926,10 +952,11 @@ public class TerrainGenTest : MonoBehaviour {
     }
     if (b3 >= 0 && terrains[b3].terrReady) {  // right
 #if DEBUG_HEIGHTS
-      Debug.Log("Border3(" + (changeX+1) + "," + changeZ + "),(0,0): " + terrains[b3].terrPoints[ 0, 0 ]);
+      Debug.Log("Border3(" + (changeX + 1) + "," + changeZ + "),(0,0): " +
+                terrains[b3].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iHeight; i++) {
-        if(!flipped)
+        if (!flipped)
           newpoints[ (int)iWidth - 1, i ] = terrains[b3].terrPoints[ 0, i ];
         else
           newpoints[ (int)iWidth - 1, i ] = terrains[b3].terrPoints[ i, 0 ];
@@ -937,7 +964,8 @@ public class TerrainGenTest : MonoBehaviour {
     }
     if (b4 >= 0 && terrains[b4].terrReady) {  // bottom
 #if DEBUG_HEIGHTS
-      Debug.Log("Border4(" + changeX + "," + (changeZ-1) + "),(0,0): " + terrains[b4].terrPoints[ 0, 0 ]);
+      Debug.Log("Border4(" + changeX + "," + (changeZ - 1) + "),(0,0): " +
+                terrains[b4].terrPoints[ 0, 0 ]);
 #endif
       for (int i = 0; i < iWidth; i++) {
         if(!flipped)
@@ -946,12 +974,6 @@ public class TerrainGenTest : MonoBehaviour {
           newpoints[ i, 0 ] = terrains[b4].terrPoints[ (int)iHeight - 1, i ];
       }
     }
-    /* for (int i = 0; i < iWidth * iHeight; i++) {
-      int x = i % (int)iWidth;
-      int z = (int)Math.Floor((float)i / iHeight);
-      points[ x, z ] = newpoints[ x, z ];
-      // points[x,z] = 0.5f;
-    } */
     points = newpoints;
   }
 
@@ -992,61 +1014,8 @@ public class TerrainGenTest : MonoBehaviour {
     }
   }
 
-  public void DivideGrid(ref float[, ] points, float dX, float dY, float dwidth,
-                  float dheight, float c1, float c2, float c3, float c4) {
-    if (logCount > 0) {
-      Debug.Log("DX: " + dX + ", DY: " + dY + ", dwidth: " + dwidth +
-                ", dheight: " + dheight);
-      logCount--;
-    }
-    float Edge1, Edge2, Edge3, Edge4, Middle;
-    float newWidth = (float)Math.Floor(dwidth / 2);
-    float newHeight = (float)Math.Floor(dheight / 2);
-    if (dwidth > 1 || dheight > 1) {
-      Middle =
-          ((c1 + c2 + c3 + c4) / 4) +
-          Displace(newWidth + newHeight);  // Randomly displace the midpoint!
-      Edge1 = ((c1 + c2) / 2);
-      Edge2 = ((c2 + c3) / 2);
-      Edge3 = ((c3 + c4) / 2);
-      Edge4 = ((c4 + c1) / 2);
-
-      // Make sure that the midpoint doesn't accidentally "randomly displaced"
-      // past the boundaries!
-      Middle = Rectify(Middle);
-      Edge1 = Rectify(Edge1);
-      Edge2 = Rectify(Edge2);
-      Edge3 = Rectify(Edge3);
-      Edge4 = Rectify(Edge4);
-
-      // Do the operation over again for each of the four new grids.
-      DivideGrid(ref points, dX, dY, newWidth, newHeight, c1, Edge1, Middle,
-                 Edge4);
-      DivideGrid(ref points, dX + newWidth, dY, dwidth - newWidth, newHeight,
-                 Edge1, c2, Edge2, Middle);
-      DivideGrid(ref points, dX + newWidth, dY + newHeight, dwidth - newWidth,
-                 dheight - newHeight, Middle, Edge2, c3, Edge3);
-      DivideGrid(ref points, dX, dY + newHeight, newWidth, dheight - newHeight,
-                 Edge4, Middle, Edge3, c4);
-    } else {
-      // The four corners of the grid piece will be averaged and drawn as a
-      // single pixel.
-      Displace(0);
-      float c = (c1 + c2 + c3 + c4) / 4;
-      points[ (int)(dX), (int)(dY) ] = c;
-      if (dwidth == 2) {
-        points[ (int)(dX + 1), (int)(dY) ] = c;
-      }
-      if (dheight == 2) {
-        points[ (int)(dX), (int)(dY + 1) ] = c;
-      }
-      if ((dwidth == 2) && (dheight == 2)) {
-        points[ (int)(dX + 1), (int)(dY + 1) ] = c;
-      }
-    }
-  }
-
-  public void DivideNewGrid(ref float[, ] points, float dX, float dY, float dwidth,
+ public
+  void DivideNewGrid(ref float[, ] points, float dX, float dY, float dwidth,
                      float dheight, float c1, float c2, float c3, float c4) {
     if (logCount > -1 && dwidth != dheight) {
       Debug.Log("Width-Height Mismatch: Expected square grid.\nDX: " + dX +
@@ -1061,7 +1030,6 @@ public class TerrainGenTest : MonoBehaviour {
       logCount--;
     }
 #endif
-    // float c1, c2, c3, c4;
     float Edge1, Edge2, Edge3, Edge4, Middle;
     float newWidth = (float)Math.Floor(dwidth / 2);
     float newHeight = (float)Math.Floor(dheight / 2);
@@ -1071,33 +1039,21 @@ public class TerrainGenTest : MonoBehaviour {
           c1 = points[ (int)dX - 1, (int)dY ];
         } catch (IndexOutOfRangeException e) {
           c1 = points[ (int)dX, (int)dY ];
-          /*if(logCount>0) {
-Debug.Log("C1 Out");
-}*/
         }
         try {
           c2 = points[ (int)dX, (int)dY + (int)dheight ];
         } catch (IndexOutOfRangeException e) {
           c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
-          /*if(logCount>0) {
-Debug.Log("C2 Out");
-}*/
         }
         try {
           c3 = points[ (int)dX + (int)dwidth, (int)dY + (int)dheight ];
         } catch (IndexOutOfRangeException e) {
           c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
-          /*if(logCount>0) {
-Debug.Log("C3 Out");
-}*/
         }
         try {
           c4 = points[ (int)dX + (int)dwidth - 1, (int)dY - 1 ];
         } catch (IndexOutOfRangeException e) {
           c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
-          /*if(logCount>0) {
-Debug.Log("C4 Out");
-}*/
         }
       } else if (GenMode.Cube) {
         c1 = points[ (int)dX, (int)dY ];
@@ -1353,16 +1309,12 @@ Debug.Log("C4 Out");
   void PerlinDivide(ref float[, ] points, float x, float y, float w, float h) {
     float xShifted = (x + (Seed * PerlinSeedModifier)) * (w - 1f);
     float yShifted = (y + (Seed * PerlinSeedModifier)) * (h - 1f);
-    // Debug.Log("X: " + x + "\nY: " + y + "\nxShifted: " + xShifted + "(" +
-    //           (xShifted / (w - 1)) + ")\nyShifted: " + yShifted + "(" +
-    //           (yShifted / (h - 1)) + ")");
     for (int r = 0; r < h; r++) {
       for (int c = 0; c < w; c++) {
         if(GenMode.Distort) {
           float noise =
               Mathf.PerlinNoise(roughness * (xShifted + c) / (w - 1f),
                                 roughness * (yShifted + r) / (h - 1f));
-          // float noise = (r + c) / (w + h);
           float f1 = Mathf.Log(1 - noise) * -roughness * 0.3f;
           float f2 = -1/(1+Mathf.Pow(2.718f, 10 * (noise - 0.90f))) + 1;
           // e approx 2.718
@@ -1386,7 +1338,8 @@ Debug.Log("C4 Out");
                                                   (yShifted + r) / (h - 1.0f)) +
                         yShift;
 
-          // float noise = Mathf.PerlinNoise((xShifted+r)/(w-1f),(yShifted+c)/(h-1f));
+          // float noise =
+          // Mathf.PerlinNoise((xShifted+r)/(w-1f),(yShifted+c)/(h-1f));
 
           points[r,c] = noise;
         }
@@ -1413,7 +1366,6 @@ Debug.Log("C4 Out");
   }
 
   private void UpdateTexture(TerrainData terrainData, int num = 0) {
-    // TerrainData terrainData = terrain.GetComponent<TerrainData>();
     SplatPrototype[] tex = new SplatPrototype[TerrainTextures.Length];
     for (int i = 0; i < TerrainTextures.Length; i++) {
       tex[i] = new SplatPrototype();
@@ -1421,8 +1373,6 @@ Debug.Log("C4 Out");
       tex[i].tileSize = new Vector2(1, 1);  // Sets the size of the texture
     }
     terrainData.splatPrototypes = tex;
-    // terrainData = Terrain.CreateTerrainGameObject
-    // (terrainData).GetComponent<TerrainData> ();
   }
 
   private int GetTerrainWithCoord(int x, int z) {
@@ -1439,8 +1389,6 @@ Debug.Log("C4 Out");
         return i;
       }
     }
-    // Debug.LogError ("Could not find terrain with coord (" + x + "," + z +
-    // ")");
     return -1;
   }
 
