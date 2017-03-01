@@ -17,153 +17,131 @@
 // #define DEBUG_UPDATES
 #define DEBUG_HUD_POS
 #define DEBUG_HUD_TIMES
-#define DEBUG_HUD_LOADED
+//#define DEBUG_HUD_LOADED
 #pragma warning disable 0168
 
 using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-/// Acronym definitions:
-/// P = Player
-/// T = Terrain
-/// F = First
-/// L = Last
-/// X = xpos
-/// Y = ypos
 
-// allows for the multi-dim List
+// Allows for the multi-dim List.
 public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
 
 [Serializable] public class GeneratorModes {
   [Header("Displace Divide")]
-  // Enables generator mode that displaces points randomly within ranges that
-  // vary by the distance to the center of the chunk and averages surrounding
-  // points.
+  [Tooltip("Enables generator mode that displaces points randomly within ranges that vary by the distance to the center of the chunk and averages surrounding points.")]
   public bool DisplaceDivide = false;
-  // A modifier to Displace Divide that causes terrain to be smoother.
+  [Tooltip("A modifier to Displace Divide that causes terrain to be smoother.")]
   public bool Reach = false;
-  // A modifier to Displace Divide that causes the terrain to look cube-ish.
+  [Tooltip("A modifier to Displace Divide that causes the terrain to look cube-ish.")]
   public bool Cube = false;
 
   [Header("Perlin Noise")]
-  // Uses Perlin noise to generate terrain.
+  [Tooltip("Uses Perlin noise to generate terrain.")]
   public bool Perlin = true;
-  // A modifier to Perlin Noise that exaggerates heights increasingly the higher
-  // they get.
+  [Tooltip("A modifier to Perlin Noise that exaggerates heights increasingly the higher they get.")]
   public bool Distort = false;
 
   [Header("Settings")]
-  // Used in a Lerp function between DisplaceDivide and Perlin.
+  [Tooltip("Used in a Lerp function between DisplaceDivide and Perlin.")]
   [Range(0.0f, 1.0f)]public float mixtureAmount = 0.5f;
-  // Number of pixels to update per chunk per frame
-  [Range(0, 129*129)] public int HeightmapSpeed = 1000;
+  [Tooltip("Number of pixels to update per chunk per frame.")]
+  [Range(0, 65*65)] public int HeightmapSpeed = 1000;
 }
 [Serializable] public class Times {
-  // Shows a countdown until neighbors get updated again.
+  [Tooltip("Shows a countdown until neighbors get updated again.")]
   public GUIText deltaNextUpdate;
-  // Shows timing for all other measured events.
+  [Tooltip("Shows timing for all other measured events.")]
   public GUIText deltaTimes;
-  // Time between neighbor updates in seconds.
+  [Tooltip("Time between neighbor updates in seconds.")]
   [Range(0.1f, 500f)] public float UpdateSpeed = 5;
-  // Previous amount of time updating neighbors took in milliseconds.
+  [Tooltip("The last time neighbors were updated in seconds.")]
   public float lastUpdate = 0;
-  // Previous amount of time calculating heightmap data took in milliseconds.
+  [Tooltip("Previous amount of time calculating heightmap data took in milliseconds.")]
   public float DeltaDivide = 0;
-  // Previous amount of time calculating heightmap data and initializing arrays
-  // took in milliseconds. (Theoretically should be similar to DeltaDivide?)
+  [Tooltip("Previous amount of time calculating heightmap data and initializing arrays took in milliseconds. (Theoretically should be similar to DeltaDivide?)")]
   public float DeltaFractal = 0;
-  // Previous amount of time instantiating a new chunk took in milliseconds.
+  [Tooltip("Previous amount of time instantiating a new chunk took in milliseconds.")]
   public float DeltaGenerate = 0;
-  // Previous amount of time instantiating a new terrain component of a chunk
-  // took in milliseconds.
+  [Tooltip("Previous amount of time instantiating a new terrain component of a chunk took in milliseconds.")]
   public float DeltaGenerateTerrain = 0;
-  // Previous amount of time instantiating a new water component of a chunk took
-  // in milliseconds.
+  [Tooltip("Previous amount of time instantiating a new water component of a chunk took in milliseconds.")]
   public float DeltaGenerateWater = 0;
-  // Same as DeltaDivide but includes time it took to flip points and possible
-  // additional logging.
+  [Tooltip("Same as DeltaDivide but includes time it took to flip points and possible additional logging.")]
   public float DeltaGenerateHeightmap = 0;
-  // Amount of time it took to update the previous chunk textures. This is
-  // a part of DeltaGenerate.
+  [Tooltip("Previous amount of time updating chunk textures took in milliseconds.")]
   public float DeltaTextureUpdate = 0;
-  // Previous amount of time updating neighbors took in milliseconds.
+  [Tooltip("Previous amount of time updating neighbors took in milliseconds.")]
   public float DeltaUpdate = 0;
-  // Previous amount of time it took for all steps to occur during one frame if
-  // something significant happened, otherwise it does not change until a
-  // significant event occurs.
+  [Tooltip("Previous amount of time it took for all steps to occur during one frame if something significant happened, otherwise it does not change until a significant event occurs.")]
   public float DeltaTotal = 0;
-  // Previous 1000 values of DeltaTotal for use in calculating the average total
-  // amount of time this script takes during a frame while doing everything.
+  [Tooltip("Previous 1000 values of DeltaTotal for use in calculating the average total amount of time this script takes during a frame while doing everything.")]
   public float[] DeltaTotalAverageArray = new float[1000];
-  // Average total amount of time this script takes in one frame while doing
-  // everything necessary.
+  [Tooltip("Average total amount of time this script takes in one frame while doing everything necessary.")]
   public float DeltaTotalAverage = 0;
-  // Placeholder for next location to store DeltaTotal in DeltaTotalAverageArray
-  // which is especially important when the array is full and we loop back from
-  // the beginning and overwrite old data.
+  [Tooltip("Placeholder for next location to store DeltaTotal in DeltaTotalAverageArray which is especially important when the array is full and we loop back from the beginning and overwrite old data.")]
   public int avgEnd = -1;
 }
 public class Terrains {
-  // List of terrain data for setting heights. Equivalent to
-  // terrList[].GetComponent<Terrain>().terrainData
+  [Tooltip("List of terrain data for setting heights. Equivalent to terrList[].GetComponent<Terrain>().terrainData.")]
   public TerrainData terrData;
-  // List of terrains for instantiating
+  [Tooltip("List of terrains for instantiating.")]
   public GameObject terrList;
-  // List of terrain heightmap data points for setting heights over a period of
-  // time.
+  [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the DeltaDivide Generator.")]
   public float[, ] terrPoints;
+  [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the Perlin generator.")]
   public float[, ] terrPerlinPoints;
+  [Tooltip("Whether this terrain chunk is ready for its textures to be updated.")]
   public bool texQueue = false;
-  // List of chunks to be updated with points in terrPoints. True if points need
-  // to be flushed to terrainData.
+  [Tooltip("Whether this terrain chunk is ready to be updated with points in terrPoints. True if points need to be flushed to terrainData.")]
   public bool terrQueue = false;
-  // List of chunks. True if all points have been defined in terrPoints.
-  // Used for determining adjacent chunk heightmaps
+  [Tooltip("True if all points have been defined in terrPoints. Used for determining adjacent chunk heightmaps.")]
   public bool terrReady = false;
-  // List of chunks. True if the chunk needs to be unloaded.
+  [Tooltip("True if the chunk can be unloaded.")]
   public bool terrToUnload = false;
-
 }
 public class TerrainGenerator : MonoBehaviour {
-  public static float EmptyPoint = -100;
+  public static float EmptyPoint = -100f;
 
-  public List<Terrains> terrains = new List<Terrains>();
+  List<Terrains> terrains = new List<Terrains>();
 
   [Header("Game Objects")]
-  // Water Tile to instantiate with the terrain when generating a new chunk
+  [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
   [SerializeField] public GameObject waterTile;
-  // Player for deciding when to load chunks based on position
-  [SerializeField] public GameObject player;
-  // Whether or not to use the pre-determined seed or use Unity's random seed
+  // Player for deciding when to load chunks based on position.
+  GameObject player;
+  [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
   [SerializeField] public bool useSeed = true;
+  [Tooltip("The predetermined seed to use if Use Seed is false.")]
   [SerializeField] public int Seed = 4;
-  // Modifier to shift the perlin noise map in order to reduce chance of finding
-  // the same patch of terrain again. This value is multiplied by the seed.
-  [SerializeField] public float PerlinSeedModifier = 100000.12f;
+  [Tooltip("Modifier to shift the perlin noise map in order to reduce chance of finding the same patch of terrain again. The perlin noise map loops at every integer. This value is multiplied by the seed.")]
+  [SerializeField] public float PerlinSeedModifier = 0.1213546f;
   [Header("HUD Text for Debug")]
-  // The GUIText object that is used to display information on the HUD
+  [Tooltip("The GUIText object that is used to display the position of the player.")]
   [SerializeField] public GUIText positionInfo;
+  [Tooltip("The GUIText object that is used to display the list of loaded chunks.")]
   [SerializeField] public GUIText chunkListInfo;
-  // GUIText of debugging data to show on the HUD
+  [Tooltip("Tracking of how long certain events take.")]
   [SerializeField] public Times times;
   [Header("Generator Settings")]
-  // Show list of available terrain generators
+  [Tooltip("List of available terrain generators.")]
   [SerializeField] public GeneratorModes GenMode;
-  // Distance from chunk for it to be loaded
-  [SerializeField] public int loadDist = 50;  // chunk load distance
-  // Roughness of terrain is modified by this value
+  [Tooltip("Distance the player must be from a chunk for it to be loaded.")]
+  [SerializeField] public int loadDist = 50;
+  [Tooltip("Roughness of terrain is modified by this value.")]
   [SerializeField] public float roughness = 1.0f;
+  [Tooltip("Roughness of terrain is modified by this value.")]
   [SerializeField] public float PerlinRoughness = 0.2f;
-  // Maximum height of Perlin Generator in percentage.
+  [Tooltip("Maximum height of Perlin Generator in percentage.")]
   [SerializeField] public float PerlinHeight = 0.8f;
-  // Vertical shift of values pre-rectification
+  [Tooltip("Vertical shift of values pre-rectification.")]
   [SerializeField] public float yShift = 0.0f;
   // Number of terrain chunks to generate initially before the player spawns
   private int maxX = 1;
   private int maxZ = 1;
   [Header("Visuals")]
-  // Array of textures to apply to the terrain
+  [Tooltip("Array of textures to apply to the terrain.")]
   [SerializeField] public Texture2D[] TerrainTextures;
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
@@ -174,8 +152,10 @@ public class TerrainGenerator : MonoBehaviour {
   int width;  // Total size of heightmaps combined
   int height;
   // Remaining number of messages to send to the console. Setting a limit
-  // greatly improves performance since the maximum messages is limited, and it
-  // makes reading the output easier since there are fewer lines to look at.
+  // greatly improves performance since sending large amounts to the console in
+  // a short amount of time is slow, and this limits the amount sent to the
+  // console in a short amount of time. It also makes reading the output easier
+  // since there are fewer lines to look at.
   int logCount = 1;
   float lastUpdate;
   float PeakModifier = 1;
@@ -195,19 +175,23 @@ public class TerrainGenerator : MonoBehaviour {
   String LoadedChunkList = "";
 #endif
 
-  void Awake() { Debug.Log("Terrain Generator Enabled!"); }
+  void Awake() { Debug.Log("Terrain Generator Awake"); }
 
   void Start() {
+    Debug.Log("Terrain Generator Start!");
+    // Fill array with -1 so we know there is no data yet.
     for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
       times.DeltaTotalAverageArray[i] = -1;
     }
 
     times.lastUpdate = Time.time;
-    if (GenMode.Perlin && !useSeed)
+    if (GenMode.Perlin && !useSeed) {
       Seed = (int)(500 * UnityEngine.Random.value);
-    if (Seed == 0) Seed = 0;
-    if (GenMode.Perlin)
+    }
+    if (Seed == 0) Seed = 1;
+    if (GenMode.Perlin) {
       Debug.Log("Seed*PerlinSeedModifier=" + Seed * PerlinSeedModifier);
+    }
     if (GenMode.Perlin && GenMode.DisplaceDivide) {
       Debug.Log("Adjusting Roughness");
       roughness *= 2f;
@@ -222,9 +206,12 @@ public class TerrainGenerator : MonoBehaviour {
     FractalNewTerrains(0, 0);
     Debug.Log("Applying spawn chunk height map");
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
-    // Load chunks before player spawns to hide chunk loading. (Not really used)
+    terrains[0].terrQueue = false;
+    terrains[0].texQueue = true;
+    // Load chunks before player spawns to hide chunk loading. (Deprecated)
     for (int x = 0; x < maxX; x++) {
       for (int z = 0; z < maxZ; z++) {
+        if (x == 0 && z == 0) continue;
         Debug.Log("Repeating for chunk (" + x + ", " + z + ")");
         GenerateTerrainChunk(x, z);
         FractalNewTerrains(x, z);
@@ -246,12 +233,17 @@ public class TerrainGenerator : MonoBehaviour {
                         .terrList.GetComponent<Terrain>()
                         .SampleHeight(new Vector3(playerX, 0, playerZ));
 
-    // TODO: Remove the try-catch because they are ugly.
-    try {
+    InitPlayer[] players = GameObject.FindObjectsOfType<InitPlayer>();
+    if (players.Length != 1) {
+      Debug.LogError(
+          "Could not find player with InitPlayer script attatched to it. " +
+          "Make sure there is exactly one GameObject with this script per " +
+          "scene");
+    } else {
+      player = players[0].gameObject;
+      Debug.Log("Valid player found: " + player.transform.name);
       // Tell the player where to spawn.
       (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-    } catch (NullReferenceException e) {
-      Debug.LogError("Invalid Player or Player does not have InitPlayer");
     }
     TerrUpdatePoints = new float[ heightmapWidth, heightmapHeight ];
     TerrTemplatePoints = new float[ heightmapWidth, heightmapHeight ];
@@ -328,8 +320,7 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
 
     // Flag all chunks to be unloaded. If they should not be unloaded, they will
-    // be flagged to stay loaded while finding all chunks to load before any
-    // chunks are actually unloaded.
+    // be unflagged and stay loaded before any chunks are actually unloaded.
     for (int i = 0; i < terrains.Count; i++) {
       terrains[i].terrToUnload = true;
     }
@@ -445,9 +436,8 @@ public class TerrainGenerator : MonoBehaviour {
 
     // Delay applying textures until later if a chunk was loaded this frame to
     // help with performance.
-    bool skipTextureApplication = done;
     bool textureUpdated = false;
-    if (!skipTextureApplication) {
+    if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].texQueue) {
           UpdateTexture(terrains[i].terrData);
@@ -558,8 +548,7 @@ public class TerrainGenerator : MonoBehaviour {
                 (int)Math.Floor(player.transform.position.z / terrWidth) + ")");
 #endif
       times.lastUpdate = Time.time;
-      times.DeltaUpdate =
-          (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
+      times.DeltaUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
 
 #if DEBUG_HUD_LOADED
@@ -581,8 +570,7 @@ public class TerrainGenerator : MonoBehaviour {
 
     // Figure out timings and averages.
     if (iTime > -1) {
-      times.DeltaTotal =
-          (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
+      times.DeltaTotal = (Time.realtimeSinceStartup - iTime) * 1000;
       times.avgEnd++;
       if (times.avgEnd >= times.DeltaTotalAverageArray.Length) times.avgEnd = 0;
       times.DeltaTotalAverageArray[times.avgEnd] = times.DeltaTotal;
@@ -598,19 +586,16 @@ public class TerrainGenerator : MonoBehaviour {
     }
 #if DEBUG_HUD_TIMES
     times.deltaNextUpdate.text =
-        (times.UpdateSpeed - (int)Math.Ceiling(Time.time - times.lastUpdate))
-            .ToString() +
-        "s";
+        (times.UpdateSpeed - Time.time - times.lastUpdate).ToString() + "s";
     times.deltaTimes.text =
-        "Delta Times:\n" +
         "Generate(" + times.DeltaGenerate + "ms)<--" +
           "T(" + times.DeltaGenerateTerrain + "ms)<--" +
-          "W(" + times.DeltaGenerateWater + "ms)<--" +
-          "Tex("+ times.DeltaTextureUpdate + "ms),\n" +
-        "Heightmap(" + times.DeltaGenerateHeightmap + "ms)\n" +
+          "W(" + times.DeltaGenerateWater + "ms),\n" +
+        "Tex("+ times.DeltaTextureUpdate + "ms),\n" +
+        "Heightmap(" + times.DeltaGenerateHeightmap + "ms),\n" +
         "Fractal(" + times.DeltaFractal + "ms)<--" +
           "Divide(" + times.DeltaDivide + "ms),\n" +
-        "Last Total(" + times.DeltaTotal + "ms) " +
+        "Last Total(" + times.DeltaTotal + "ms) -- " +
           "Avg: " + times.DeltaTotalAverage + ",\n" +
         "Update Neighbors(" + times.DeltaUpdate + "ms)";
 #else
@@ -657,11 +642,9 @@ public class TerrainGenerator : MonoBehaviour {
 
   // Instantiate a new chunk and define its properties based off of the spawn
   // chunk.
-  void GenerateTerrainChunk(int x, int z) {
-    if (GetTerrainWithCoord(x, z) != -1) return;
+  void GenerateTerrainChunk(int cntX, int cntZ) {
+    if (GetTerrainWithCoord(cntX, cntZ) != -1) return;
     float iTime = Time.realtimeSinceStartup;
-    int cntX = x;
-    int cntZ = z;
     if (cntZ == 0 && cntX == 0) {
       terrWidth = (int)this.GetComponent<Terrain>().terrainData.size.x;
       terrLength = (int)this.GetComponent<Terrain>().terrainData.size.z;
@@ -691,21 +674,20 @@ public class TerrainGenerator : MonoBehaviour {
     } else {
       float iTime2 = Time.realtimeSinceStartup;
 
+      // Add Terrain
       terrains.Add(new Terrains());
       terrains[terrains.Count - 1].terrData = new TerrainData() as TerrainData;
       terrains[terrains.Count - 1].terrData.heightmapResolution =
           terrains[0].terrData.heightmapResolution;
       terrains[terrains.Count - 1].terrData.size = terrains[0].terrData.size;
-      // UpdateTexture(terrains[terrains.Count - 1].terrData);
-
       terrains[terrains.Count - 1].terrList = Terrain.CreateTerrainGameObject(
           terrains[terrains.Count - 1].terrData);
       terrains[terrains.Count - 1].terrList.name =
           "Terrain(" + cntX + "," + cntZ + ")";
       terrains[terrains.Count - 1].terrList.transform.Translate(
           cntX * terrWidth, 0f, cntZ * terrLength);
-      times.DeltaGenerateTerrain =
-          (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
+
+      times.DeltaGenerateTerrain = (Time.realtimeSinceStartup - iTime2) * 1000;
 
       // Add Water
       iTime2 = Time.realtimeSinceStartup;
@@ -720,17 +702,15 @@ public class TerrainGenerator : MonoBehaviour {
         Instantiate(waterTile, waterVector3, Quaternion.identity,
                     terrains[terrains.Count - 1].terrList.transform);
       }
-      times.DeltaGenerateWater =
-          (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
+      times.DeltaGenerateWater = (Time.realtimeSinceStartup - iTime2) * 1000;
 
       terrains[terrains.Count - 1].terrPoints =
           new float[ terrWidth, terrLength ];
       terrains[terrains.Count - 1].terrPerlinPoints =
           new float[ terrWidth, terrLength ];
 
-      times.DeltaGenerate =
-          (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
     }
+    times.DeltaGenerate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
   // Generate a heightmap for a chunk.
@@ -749,8 +729,7 @@ public class TerrainGenerator : MonoBehaviour {
               terrains[tileCnt].terrData + "\nTerrain Name: " +
               terrains[tileCnt].terrList.name);
 #endif
-    // TODO: Remove try-catch.
-    try {
+    if (tileCnt >= 0 || tileCnt < terrains.Count) {
       GenerateNew(changeX, changeZ, roughness);
       terrains[tileCnt].terrQueue = true;
       terrains[tileCnt].terrReady = true;
@@ -791,13 +770,12 @@ public class TerrainGenerator : MonoBehaviour {
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
                                                                           1));
 #endif
-    } catch (ArgumentOutOfRangeException e) {
+    } else {
       Debug.LogError("Invalid tileCnt: " + tileCnt +
                      "\nTried to find Terrain(" + changeX + "," + changeZ +
-                     ")\n\n" + e);
+                     ")");
     }
-    times.DeltaFractal =
-        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
+    times.DeltaFractal = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
   // Unload a chunk by destroying its GameObject then removing it from the array
@@ -940,8 +918,7 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
 
-    times.DeltaDivide =
-        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
+    times.DeltaDivide = (Time.realtimeSinceStartup - iTime2) * 1000;
 
 #if DEBUG_HEIGHTS
     Debug.Log("Fractal:\n"
@@ -1038,8 +1015,7 @@ public class TerrainGenerator : MonoBehaviour {
     // Double check that all the edges match up.
     MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints);
 
-    times.DeltaGenerateHeightmap =
-        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
+    times.DeltaGenerateHeightmap = (Time.realtimeSinceStartup - iTime) * 1000;
 
     int terrLoc = GetTerrainWithCoord(changeX, changeZ);
     // Save each heightmap to the array to be applied later.
@@ -1512,8 +1488,7 @@ public class TerrainGenerator : MonoBehaviour {
       tex[i].tileSize = new Vector2(1, 1);  // Sets the size of the texture
     }
     terrainData.splatPrototypes = tex;
-    times.DeltaTextureUpdate =
-        (int)Math.Ceiling((Time.realtimeSinceStartup - iTime) * 1000);
+    times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
   // Give array index from coordinates.

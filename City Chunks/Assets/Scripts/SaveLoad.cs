@@ -47,9 +47,8 @@ class SaveLoad : MonoBehaviour {
  private
   static byte[] FloatToBytes(float[, ] input) {
     byte[] output = new byte[input.GetLength(0) * input.GetLength(1)];
-    System.Buffer.BlockCopy(
-        input, 0, output, 0,
-        (int)Mathf.Pow(input.GetLength(0) * input.GetLength(1), 2f));
+    System.Buffer.BlockCopy(input, 0, output, 0,
+                            input.GetLength(0) * input.GetLength(1));
 
     string debug = "";
     for (int i = 0; i < output.Length; i++) {
