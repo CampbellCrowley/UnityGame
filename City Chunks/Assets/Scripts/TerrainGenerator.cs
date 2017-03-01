@@ -190,8 +190,12 @@ public class TerrainGenerator : MonoBehaviour {
   // Lowest and highest points of loaded terrain.
   float lowest = 1.0f;
   float highest = 0.0f;
+#if DEBUG_HUD_LOADED
   // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
+#endif
+
+  void Awake() { Debug.Log("Terrain Generator Enabled!"); }
 
   void Start() {
     for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
@@ -571,7 +575,9 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
 
+#if DEBUG_HUD_LOADED
     chunkListInfo.text = LoadedChunkList;
+#endif
 
     // Figure out timings and averages.
     if (iTime > -1) {
@@ -703,15 +709,17 @@ public class TerrainGenerator : MonoBehaviour {
 
       // Add Water
       iTime2 = Time.realtimeSinceStartup;
-      Vector3 terrVector3 = terrains[terrains.Count - 1]
-                                .terrList.GetComponent<Terrain>()
-                                .transform.position;
-      Vector3 waterVector3 = terrVector3;
-      waterVector3.y += 150;
-      waterVector3.x += terrWidth / 2;
-      waterVector3.z += terrLength / 2;
-      Instantiate(waterTile, waterVector3, Quaternion.identity,
-                  terrains[terrains.Count - 1].terrList.transform);
+      if (waterTile != null) {
+        Vector3 terrVector3 = terrains[terrains.Count - 1]
+                                  .terrList.GetComponent<Terrain>()
+                                  .transform.position;
+        Vector3 waterVector3 = terrVector3;
+        waterVector3.y += 150;
+        waterVector3.x += terrWidth / 2;
+        waterVector3.z += terrLength / 2;
+        Instantiate(waterTile, waterVector3, Quaternion.identity,
+                    terrains[terrains.Count - 1].terrList.transform);
+      }
       times.DeltaGenerateWater =
           (int)Math.Ceiling((Time.realtimeSinceStartup - iTime2) * 1000);
 
@@ -1662,6 +1670,30 @@ public class TerrainGenerator : MonoBehaviour {
                                     GenMode.mixtureAmount);
       }
       return output;
+    }
+  }
+ public
+  float GetTerrainHeight() {
+    int xCenter = Mathf.RoundToInt(
+        (player.transform.position.x - terrWidth / 2) / terrWidth);
+    int yCenter = Mathf.RoundToInt(
+        (player.transform.position.z - terrLength / 2) / terrLength);
+    int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
+    if (terrLoc != -1) {
+      float TerrainHeight =
+          terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
+              player.transform.position);
+      return TerrainHeight;
+    }
+    return 0;
+  }
+ public
+  void movePlayerToTop() {
+    // Make sure the player stays above the terrain
+    if (player != null) {
+      (player.GetComponent<InitPlayer>())
+          .updatePosition(player.transform.position.x, GetTerrainHeight(),
+                          player.transform.position.z);
     }
   }
 }
