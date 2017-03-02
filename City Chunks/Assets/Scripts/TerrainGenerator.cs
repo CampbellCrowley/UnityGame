@@ -111,6 +111,8 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public GameObject waterTile;
   // Player for deciding when to load chunks based on position.
   GameObject player;
+  InitPlayer[] players;
+  int numIdentifiedPlayers = 0;
   [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
   [SerializeField] public bool useSeed = true;
   [Tooltip("The predetermined seed to use if Use Seed is false.")]
@@ -233,12 +235,21 @@ public class TerrainGenerator : MonoBehaviour {
                         .terrList.GetComponent<Terrain>()
                         .SampleHeight(new Vector3(playerX, 0, playerZ));
 
-    InitPlayer[] players = GameObject.FindObjectsOfType<InitPlayer>();
-    if (players.Length != 1) {
+    players = GameObject.FindObjectsOfType<InitPlayer>();
+    if (players.Length == 0) {
       Debug.LogError(
           "Could not find player with InitPlayer script attatched to it. " +
           "Make sure there is exactly one GameObject with this script per " +
           "scene");
+    } else if (players.Length > 1) {
+      Debug.Log("Multiplayer detected!");
+      numIdentifiedPlayers = players.Length;
+      for(int i=0; i<players.Length; i++) {
+        player = players[i].gameObject;
+        Debug.Log("Valid player found: " + player.transform.name);
+        // Tell the player where to spawn.
+        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+      }
     } else {
       player = players[0].gameObject;
       Debug.Log("Valid player found: " + player.transform.name);
@@ -272,6 +283,42 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
 
+    //////////////////////////
+    // Multiplayer Handling //
+    //////////////////////////
+    players = GameObject.FindObjectsOfType<InitPlayer>();
+    // Choose player spawn location based off of the center of all pre-loaded
+    // chunks.
+    float playerX = maxX * terrains[0].terrData.size.x / 2f;
+    float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
+    // Get the player spawn height from the heightmap height at the
+    // coordinates
+    // where the player will spawn.
+    float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
+                        .terrList.GetComponent<Terrain>()
+                        .SampleHeight(new Vector3(playerX, 0, playerZ));
+    if(player == null) {
+      if (players.Length == 1) {
+        player = players[0].gameObject;
+        Debug.Log("Valid player found: " + player.transform.name);
+        // Tell the player where to spawn.
+        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+      } else {
+        return;
+      }
+    }
+    if (players.Length > 1 && numIdentifiedPlayers < players.Length) {
+      Debug.Log("New player connected!");
+      numIdentifiedPlayers = players.Length;
+      player = players[players.Length - 1].gameObject;
+      Debug.Log("Valid player found: " + player.transform.name);
+      // Tell the player where to spawn.
+      (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+    } else if(numIdentifiedPlayers > players.Length) {
+      Debug.Log("Player disconnected.");
+      numIdentifiedPlayers = players.Length;
+    }
+    player = players[0].gameObject;
     // Make sure the player stays above the terrain
     int xCenter = Mathf.RoundToInt(
         (player.transform.position.x - terrWidth / 2) / terrWidth);
@@ -283,6 +330,7 @@ public class TerrainGenerator : MonoBehaviour {
       float TerrainHeight =
           terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
               player.transform.position);
+
 
 #if DEBUG_HUD_POS
       positionInfo.text =
@@ -301,14 +349,9 @@ public class TerrainGenerator : MonoBehaviour {
                   (int)(xCenter) + ", " + (int)(yCenter) + ")" + "\nPlayer(" +
                   player.transform.position + ")" + "\nTerrain Height: " +
                   TerrainHeight + "\n\n");
-        // TODO: Remove try catch because it is ugly.
-        try {
-          (player.GetComponent<InitPlayer>())
-              .updatePosition(player.transform.position.x, TerrainHeight,
-                              player.transform.position.z);
-        } catch (NullReferenceException e) {
-          Debug.LogError("Invalid Player");
-        }
+        (player.GetComponent<InitPlayer>())
+            .updatePosition(player.transform.position.x, TerrainHeight,
+                            player.transform.position.z);
       }
     }
 

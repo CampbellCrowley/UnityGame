@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.Networking;
 // using UnityStandardAssets.CrossPlatformInput;
 using UnityStandardAssets.Utility;
 using Random = UnityEngine.Random;
@@ -8,7 +9,7 @@ namespace UnityStandardAssets.Characters.FirstPerson
 {
 	[RequireComponent(typeof(CharacterController))]
 	[RequireComponent(typeof(AudioSource))]
-	public class FirstPersonController : MonoBehaviour
+	public class FirstPersonController : NetworkBehaviour
 	{
 		[SerializeField]
 		private bool m_IsWalking;
@@ -91,6 +92,8 @@ namespace UnityStandardAssets.Characters.FirstPerson
 		// Update is called once per frame
 		private void Update ()
 		{
+      if (!isLocalPlayer)
+        return;
       for (int i = 0;i < 20; i++) {
         if(Input.GetKeyDown("joystick 1 button "+i)){
           print("joystick 1 button "+i);
