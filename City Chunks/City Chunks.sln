@@ -1,11 +1,11 @@
+﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2008
-
-Project("{F2DB61AB-0F4E-2E5A-4037-7F94589B0C21}") = "City Chunks", "Assembly-CSharp-firstpass.csproj", "{F0DD8ACC-FDAE-2ECA-A837-DFC5E26FE62E}"
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "City Chunks", "Assembly-CSharp-firstpass.csproj", "{F0DD8ACC-FDAE-2ECA-A837-DFC5E26FE62E}"
 EndProject
-Project("{F2DB61AB-0F4E-2E5A-4037-7F94589B0C21}") = "City Chunks", "Assembly-CSharp.csproj", "{08D88E3C-C49A-11F1-4318-2484F3020597}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "City Chunks", "Assembly-CSharp.csproj", "{08D88E3C-C49A-11F1-4318-2484F3020597}"
 EndProject
-Project("{F2DB61AB-0F4E-2E5A-4037-7F94589B0C21}") = "City Chunks", "Assembly-CSharp-Editor.csproj", "{F0F242FF-DEE3-17E0-7C71-A0E62CBDE659}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "City Chunks", "Assembly-CSharp-Editor.csproj", "{F0F242FF-DEE3-17E0-7C71-A0E62CBDE659}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
