@@ -47,7 +47,7 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
   [Tooltip("Used in a Lerp function between DisplaceDivide and Perlin.")]
   [Range(0.0f, 1.0f)]public float mixtureAmount = 0.5f;
   [Tooltip("Number of pixels to update per chunk per frame.")]
-  [Range(0, 65*65)] public int HeightmapSpeed = 1000;
+  [Range(0, 129*129)] public int HeightmapSpeed = 1000;
 }
 [Serializable] public class Times {
   [Tooltip("Shows a countdown until neighbors get updated again.")]
