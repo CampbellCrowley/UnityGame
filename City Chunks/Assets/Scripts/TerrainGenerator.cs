@@ -48,6 +48,8 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
   [Range(0.0f, 1.0f)]public float mixtureAmount = 0.5f;
   [Tooltip("Number of pixels to update per chunk per frame.")]
   [Range(0, 129*129)] public int HeightmapSpeed = 1000;
+  [Tooltip("Splits calculating the heightmap among 4 frames instead of doing it all in 1")]
+  public bool slowHeightmap = true;
 }
 [Serializable] public class Times {
   [Tooltip("Shows a countdown until neighbors get updated again.")]
@@ -60,6 +62,8 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
   public float lastUpdate = 0;
   [Tooltip("Previous amount of time calculating heightmap data took in milliseconds.")]
   public float DeltaDivide = 0;
+  [Tooltip("Previous amount of time calculating heightmap data took in milliseconds divided by the number of divisions.")]
+  public float DeltaDivideOnce = 0;
   [Tooltip("Previous amount of time calculating heightmap data and initializing arrays took in milliseconds. (Theoretically should be similar to DeltaDivide?)")]
   public float DeltaFractal = 0;
   [Tooltip("Previous amount of time instantiating a new chunk took in milliseconds.")]
@@ -96,6 +100,8 @@ public class Terrains {
   public bool texQueue = false;
   [Tooltip("Whether this terrain chunk is ready to be updated with points in terrPoints. True if points need to be flushed to terrainData.")]
   public bool terrQueue = false;
+  [Tooltip("True if the heightmap is still being generated.")]
+  public bool isDividing = false;
   [Tooltip("True if all points have been defined in terrPoints. Used for determining adjacent chunk heightmaps.")]
   public bool terrReady = false;
   [Tooltip("True if the chunk can be unloaded.")]
@@ -170,6 +176,8 @@ public class TerrainGenerator : MonoBehaviour {
   // Lowest and highest points of loaded terrain.
   float lowest = 1.0f;
   float highest = 0.0f;
+  // Number of times Displace Divide is called per chunk.
+  int divideAmount = 0;
 #if DEBUG_HUD_LOADED
   // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
@@ -202,12 +210,17 @@ public class TerrainGenerator : MonoBehaviour {
     // the spawn chunk to arrays for later reference.
     GenerateTerrainChunk(0, 0);
     Debug.Log("Creating spawn chunk fractal");
-    // Generate height map.
+    // Generate height map. Disable slowing the generation because we want
+    // everything do be done in this frame, but then return the feature to its
+    // initial state later as the user may want it.
+    bool slowHeightmap = GenMode.slowHeightmap;
+    GenMode.slowHeightmap = false;
     FractalNewTerrains(0, 0);
     Debug.Log("Applying spawn chunk height map");
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
     terrains[0].terrQueue = false;
     terrains[0].texQueue = true;
+    terrains[0].terrReady = true;
     // Load chunks before player spawns to hide chunk loading. (Deprecated)
     for (int x = 0; x < maxX; x++) {
       for (int z = 0; z < maxZ; z++) {
@@ -219,9 +232,11 @@ public class TerrainGenerator : MonoBehaviour {
         terrains[terrID].terrData.SetHeights(0, 0, MixHeights(terrID));
         terrains[terrID].terrQueue = false;
         terrains[terrID].terrToUnload = false;
-        terrains[terrID].terrReady = true;
+        if (!GenMode.slowHeightmap) terrains[terrID].terrReady = true;
+        else terrains[terrID].terrReady = false;
       }
     }
+    GenMode.slowHeightmap = slowHeightmap;
 
     // Choose player spawn location based off of the center of all pre-loaded
     // chunks.
@@ -336,10 +351,16 @@ public class TerrainGenerator : MonoBehaviour {
             radius * radius) {
           // If the chunk has not been loaded yet, create it. Otherwise, make
           // sure the chunk doesn't get unloaded.
-          if (GetTerrainWithCoord(x, y) == -1) {
+          int pointIndex = GetTerrainWithCoord(x, y);
+          if (pointIndex == -1) {
             if (iTime == -1) iTime = Time.realtimeSinceStartup;
             if (!done) {
               GenerateTerrainChunk(x, y);
+              FractalNewTerrains(x, y);
+              done = true;
+            }
+          } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
+            if (!done) {
               FractalNewTerrains(x, y);
               done = true;
             }
@@ -356,11 +377,16 @@ public class TerrainGenerator : MonoBehaviour {
                         " Out of Range (" + terrains.Count + ")");
             }
           }
-          if (!(x == xSym && y == ySym) &&
-              GetTerrainWithCoord(xSym, ySym) == -1) {
+          pointIndex = GetTerrainWithCoord(xSym, ySym);
+          if (!(x == xSym && y == ySym) && pointIndex == -1) {
             if (iTime == -1) iTime = Time.realtimeSinceStartup;
             if (!done) {
               GenerateTerrainChunk(xSym, ySym);
+              FractalNewTerrains(xSym, ySym);
+              done = true;
+            }
+          } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
+            if (!done) {
               FractalNewTerrains(xSym, ySym);
               done = true;
             }
@@ -378,10 +404,16 @@ public class TerrainGenerator : MonoBehaviour {
               }
             }
           }
-          if (y != ySym && GetTerrainWithCoord(x, ySym) == -1) {
+          pointIndex = GetTerrainWithCoord(x, ySym);
+          if (y != ySym && pointIndex == -1) {
             if (iTime == -1) iTime = Time.realtimeSinceStartup;
             if (!done) {
               GenerateTerrainChunk(x, ySym);
+              FractalNewTerrains(x, ySym);
+              done = true;
+            }
+          } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
+            if (!done) {
               FractalNewTerrains(x, ySym);
               done = true;
             }
@@ -399,10 +431,16 @@ public class TerrainGenerator : MonoBehaviour {
               }
             }
           }
-          if (x != xSym && GetTerrainWithCoord(xSym, y) == -1) {
+          pointIndex = GetTerrainWithCoord(xSym, y);
+          if (x != xSym && pointIndex == -1) {
             if (iTime == -1) iTime = Time.realtimeSinceStartup;
             if (!done) {
               GenerateTerrainChunk(xSym, y);
+              FractalNewTerrains(xSym, y);
+              done = true;
+            }
+          } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
+            if (!done) {
               FractalNewTerrains(xSym, y);
               done = true;
             }
@@ -594,7 +632,9 @@ public class TerrainGenerator : MonoBehaviour {
         "Tex("+ times.DeltaTextureUpdate + "ms),\n" +
         "Heightmap(" + times.DeltaGenerateHeightmap + "ms),\n" +
         "Fractal(" + times.DeltaFractal + "ms)<--" +
-          "Divide(" + times.DeltaDivide + "ms),\n" +
+          "Divide(" + times.DeltaDivide + "ms)<--" +
+          "Once(" + times.DeltaDivide / divideAmount + "ms)*" +
+          "(" + divideAmount + " points),\n" +
         "Last Total(" + times.DeltaTotal + "ms) -- " +
           "Avg: " + times.DeltaTotalAverage + ",\n" +
         "Update Neighbors(" + times.DeltaUpdate + "ms)";
@@ -729,10 +769,8 @@ public class TerrainGenerator : MonoBehaviour {
               terrains[tileCnt].terrData + "\nTerrain Name: " +
               terrains[tileCnt].terrList.name);
 #endif
-    if (tileCnt >= 0 || tileCnt < terrains.Count) {
+    if (tileCnt >= 0 && tileCnt < terrains.Count) {
       GenerateNew(changeX, changeZ, roughness);
-      terrains[tileCnt].terrQueue = true;
-      terrains[tileCnt].terrReady = true;
 #if DEBUG_HEIGHTS
       Debug.Log("Top Right = " +
                 terrains[tileCnt]
@@ -806,6 +844,7 @@ public class TerrainGenerator : MonoBehaviour {
     float iWidth = heightmapWidth;
     float[, ] points = new float[ (int)iWidth, (int)iHeight ];
     float[, ] perlinPoints = new float[ (int)iWidth, (int)iHeight ];
+    int terrIndex = GetTerrainWithCoord(changeX, changeZ);
 
     // Ensure the matrices begin with something other than 0 since 0 is a valid
     // point and we want to be able to find errors.
@@ -831,13 +870,9 @@ public class TerrainGenerator : MonoBehaviour {
                 UnityEngine.Random.seed);
 #endif
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
-      Debug.Log(terrains[GetTerrainWithCoord(changeX, changeZ)]
-                    .terrList.GetComponent<Terrain>()
-                    .name +
+      Debug.Log(terrains[terrIndex].terrList.GetComponent<Terrain>().name +
                 ",(0,0): " + points[ 0, 0 ]);
-      Debug.Log(terrains[GetTerrainWithCoord(changeX, changeZ)]
-                    .terrList.GetComponent<Terrain>()
-                    .name +
+      Debug.Log(terrains[terrIndex].terrList.GetComponent<Terrain>().name +
                 ",(" + iWidth + "," + iHeight + "): " +
                 points[ (int)iWidth - 1, (int)iHeight - 1 ]);
 #endif
@@ -881,26 +916,60 @@ public class TerrainGenerator : MonoBehaviour {
         // Make sure each chunk aligns with the one next to it before we
         // generate the heightmap so we don't get any gaps and it meshes
         // smoother.
-        MatchEdges(iWidth, iHeight, changeX, changeZ, ref points);
+        if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref points))
+          return;
       }
     }
 
     float iTime2 = Time.realtimeSinceStartup;
 
-    // If the Perlin Noise generator is being used, create a heightmap with it.
-    if (GenMode.Perlin) {
-      PerlinDivide(ref perlinPoints, changeX, changeZ, iWidth, iHeight);
-    }
     // If the Displace Divide generator is being used, create a heightmap with
     // this generator.
     if (GenMode.DisplaceDivide) {
       // Divide chunk into 4 sections and displace the center thus creating 4
       // more sections per section until every pixel is defined.
       PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
-      DivideNewGrid(ref points, 0, 0, iWidth, iHeight, points[ 0, 0 ],
-                    points[ 0, (int)iHeight - 1 ],
-                    points[ (int)iWidth - 1, (int)iHeight - 1 ],
-                    points[ (int)iWidth - 1, 0 ]);
+      divideAmount = 0;
+      if (GenMode.slowHeightmap && terrIndex != 0) {
+        if (terrIndex == -1) {
+          Debug.LogError("Chunk was not generated before fractaling!\nIndex: " +
+                         terrIndex + ", Coord(" + changeX + ", " + changeZ +
+                         ")");
+          return;
+        } else if (terrains[terrIndex].isDividing) {
+          if (terrains[terrIndex].terrReady) {
+            points = terrains[terrIndex].terrPoints;
+            terrains[terrIndex].isDividing = false;
+            terrains[terrIndex].terrToUnload = false;
+          } else {
+            terrains[terrIndex].terrToUnload = false;
+            return;
+          }
+        } else {
+          Debug.Log("Dividing new grid.\nIndex: " + terrIndex + ", Coord(" +
+                    changeX + ", " + changeZ + ")");
+          terrains[terrIndex].terrPoints = points;
+          terrains[terrIndex].isDividing = true;
+          terrains[terrIndex].terrToUnload = false;
+          StartCoroutine(
+              DivideNewGrid(terrIndex, 0, 0, iWidth, iHeight, points[ 0, 0 ],
+                            points[ 0, (int)iHeight - 1 ],
+                            points[ (int)iWidth - 1, (int)iHeight - 1 ],
+                            points[ (int)iWidth - 1, 0 ], true));
+        }
+      } else {
+        DivideNewGrid(ref points, 0, 0, iWidth, iHeight, points[ 0, 0 ],
+                      points[ 0, (int)iHeight - 1 ],
+                      points[ (int)iWidth - 1, (int)iHeight - 1 ],
+                      points[ (int)iWidth - 1, 0 ]);
+        // Debug.Log("Divided " + divideAmount + " times.");
+      }
+    }
+    Debug.Log("Finished dividing new grid.\nIndex: " + terrIndex + ", Coord(" +
+              changeX + ", " + changeZ + ")");
+    // If the Perlin Noise generator is being used, create a heightmap with it.
+    if (GenMode.Perlin) {
+      PerlinDivide(ref perlinPoints, changeX, changeZ, iWidth, iHeight);
     }
     // If neither generator is used, then use some debugging pattern.
     if (!GenMode.DisplaceDivide && !GenMode.Perlin) {
@@ -1018,19 +1087,21 @@ public class TerrainGenerator : MonoBehaviour {
     // SmoothEdges(iWidth, iHeight, ref flippedPoints);
 
     // Double check that all the edges match up.
-    MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints);
+    if(!MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints)) {
+      Debug.LogError("This shouldn't happen... (You broke something)");
+    }
 
     times.DeltaGenerateHeightmap = (Time.realtimeSinceStartup - iTime) * 1000;
 
-    int terrLoc = GetTerrainWithCoord(changeX, changeZ);
     // Save each heightmap to the array to be applied later.
-    terrains[terrLoc].terrPoints = flippedPoints;
-    terrains[terrLoc].terrPerlinPoints = perlinPoints;
+    terrains[terrIndex].terrPoints = flippedPoints;
+    terrains[terrIndex].terrPerlinPoints = perlinPoints;
+    terrains[terrIndex].terrQueue = true;
   }
 
   // Set the edge of the new chunk to the same values as the bordering chunks.
   // This is to create uniformity between chunks.
-  void MatchEdges(float iWidth, float iHeight, int changeX, int changeZ,
+  bool MatchEdges(float iWidth, float iHeight, int changeX, int changeZ,
                   ref float[, ] points) {
 #if DEBUG_HEIGHTS || DEBUG_BORDERS_1 || DEBUG_BORDERS_2 || DEBUG_BORDERS_3 || DEBUG_BORDERS_4
     Debug.Log("MATCHING EDGES OF CHUNK (" + changeX + ", " + changeZ + ")");
@@ -1053,7 +1124,7 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < iHeight; i++) {
         newpoints[ i, 0 ] = terrains[b1].terrPoints[ i, (int)iWidth - 1 ];
       }
-    }
+    } else if(b1 >= 0) return false;
     if (b2 >= 0 && terrains[b2].terrReady) {  // top
 #if DEBUG_BORDERS_2
       Debug.Log("Border2(" + changeX + "," + (changeZ + 1) + "),(0,0): " +
@@ -1062,7 +1133,7 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < iWidth; i++) {
         newpoints[ (int)iHeight - 1, i ] = terrains[b2].terrPoints[ 0, i ];
       }
-    }
+    } else if(b2 >= 0) return false;
     if (b3 >= 0 && terrains[b3].terrReady) {  // right
 #if DEBUG_BORDERS_3
       Debug.Log("Border3(" + (changeX + 1) + "," + changeZ + "),(0,0): " +
@@ -1071,7 +1142,7 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < iHeight; i++) {
         newpoints[ i, (int)iWidth - 1 ] = terrains[b3].terrPoints[ i, 0 ];
       }
-    }
+    } else if(b3 >= 0) return false;
     if (b4 >= 0 && terrains[b4].terrReady) {  // bottom
 #if DEBUG_BORDERS_4
       Debug.Log("Border4(" + changeX + "," + (changeZ - 1) + "),(0,0): " +
@@ -1080,8 +1151,9 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < iWidth; i++) {
         newpoints[ 0, i ] = terrains[b4].terrPoints[ (int)iHeight - 1, i ];
       }
-    }
+    } else if(b4 >= 0) return false;
     points = newpoints;
+    return true;
   }
 
   // This looks at how each chunk ends a tries to match them better so the
@@ -1130,6 +1202,7 @@ public class TerrainGenerator : MonoBehaviour {
   // point of the heightmap is defined.
   void DivideNewGrid(ref float[, ] points, float dX, float dY, float dwidth,
                      float dheight, float c1, float c2, float c3, float c4) {
+    divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
       Debug.Log("Width-Height Mismatch: Expected square grid.\nDX: " + dX +
                 ", DY: " + dY + ", dwidth: " + dwidth + ", dheight: " +
@@ -1408,7 +1481,7 @@ public class TerrainGenerator : MonoBehaviour {
       }
       // The four corners of the grid piece will be averaged and drawn as a
       // single pixel.
-      float c = (c1 + c2 + c3 + c4) / 4;
+      float c = AverageCorners(c1, c2, c3, c4);
       points[ (int)(dX), (int)(dY) ] = c;
       if (dwidth == 2) {
         points[ (int)(dX + 1), (int)(dY) ] = c;
@@ -1423,7 +1496,334 @@ public class TerrainGenerator : MonoBehaviour {
       // it cannot be divided further and we are done.
     }
   }
+  // Same as above, but splits up work between frames.
+  IEnumerator DivideNewGrid(int index, float dX, float dY, float dwidth,
+                            float dheight, float c1, float c2, float c3,
+                            float c4, bool top = false) {
+    divideAmount++;
+    if (logCount > -1 && dwidth != dheight) {
+      Debug.Log("Width-Height Mismatch: Expected square grid.\nDX: " + dX +
+                ", DY: " + dY + ", dwidth: " + dwidth + ", dheight: " +
+                dheight);
+      logCount--;
+    }
+#if DEBUG_ATTRIBUTES
+    else if (logCount > 10) {
+      Debug.Log("DX: " + dX + ", DY: " + dY + ", dwidth: " + dwidth +
+                ", dheight: " + dheight);
+      logCount--;
+    }
+#endif
+    float Edge1, Edge2, Edge3, Edge4, Middle;
+    float newWidth = (float)Math.Floor(dwidth / 2);
+    float newHeight = (float)Math.Floor(dheight / 2);
+    if (dwidth > 1 || dheight > 1) {
+      // Reach and Cube are things I tried that had interesting outcomes that I
+      // thought were cool and wanted to keep, but are not supported.
+      if (GenMode.Reach) {
+        // TODO: Remove try-catches
+        try {
+          c1 = terrains[index].terrPoints[ (int)dX - 1, (int)dY ];
+        } catch (IndexOutOfRangeException e) {
+          c1 = terrains[index].terrPoints[ (int)dX, (int)dY ];
+        }
+        try {
+          c2 = terrains[index].terrPoints[ (int)dX, (int)dY + (int)dheight ];
+        } catch (IndexOutOfRangeException e) {
+          c2 = terrains[index]
+                   .terrPoints[ (int)dX, (int)dY + (int)dheight - 1 ];
+        }
+        try {
+          c3 =
+              terrains[index]
+                  .terrPoints[ (int)dX + (int)dwidth, (int)dY + (int)dheight ];
+        } catch (IndexOutOfRangeException e) {
+          c3 = terrains[index].terrPoints
+               [ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
+        }
+        try {
+          c4 = terrains[index]
+                   .terrPoints[ (int)dX + (int)dwidth - 1, (int)dY - 1 ];
+        } catch (IndexOutOfRangeException e) {
+          c4 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ];
+        }
+      } else if (GenMode.Cube) {
+        c1 = terrains[index].terrPoints[ (int)dX, (int)dY ];
+        c2 = terrains[index].terrPoints[ (int)dX, (int)dY + (int)dheight - 1 ];
+        c3 = terrains[index].terrPoints
+             [ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
+        c4 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ];
+      }
+      Middle = terrains[index].terrPoints[
+        (int)Math.Floor((dX + dX + dwidth) / 2),
+        (int)Math.Floor((dY + dY + dheight) / 2)
+      ];
+      // Find the center point height of each side of the section.
+      Edge1 =
+          terrains[index]
+              .terrPoints[ (int)dX, (int)Math.Floor((dY + dY + dheight) / 2) ];
+      Edge2 =
+          terrains[index].terrPoints
+          [ (int)Math.Floor((dX + dX + dwidth) / 2), (int)(dY + dheight - 1) ];
+      Edge3 =
+          terrains[index].terrPoints
+          [ (int)(dX + dwidth - 1), (int)Math.Floor((dY + dY + dheight) / 2) ];
+      Edge4 =
+          terrains[index]
+              .terrPoints[ (int)Math.Floor((dX + dX + dwidth) / 2), (int)dY ];
 
+      if (c1 < 0) {
+        c1 = terrains[index].terrPoints[ (int)dX, (int)dY ];
+        // Only find a value for the point of it is not already defined.
+        if (c1 <= EmptyPoint)
+          c1 = AverageCorners(EmptyPoint, c2, c3, c4) +
+               Displace(newWidth + newHeight);
+        else
+          Displace(0);
+        // If it is somehow defined incorrectly, give it a random value because
+        // something went wrong and this is the best fix.
+        if (c1 < -1)
+          c1 = Displace(dwidth + dheight);
+        else
+          Displace(0);
+      } else {
+        Displace(0);
+        Displace(0);  // In order to maintain consistency with the random values
+                      // returned
+      }
+      if (c2 < 0) {
+        c2 = terrains[index].terrPoints[ (int)dX, (int)dY + (int)dheight - 1 ];
+        if (c2 <= EmptyPoint)
+          c2 = AverageCorners(c1, EmptyPoint, c3, c4) +
+               Displace(newWidth + newHeight);
+        else
+          Displace(0);
+        if (c2 < -1)
+          c2 = Displace(dwidth + dheight);
+        else
+          Displace(0);
+      } else {
+        Displace(0);
+        Displace(0);  // In order to maintain consistency with the random values
+                      // returned
+      }
+      if (c3 < 0) {
+        c3 = terrains[index].terrPoints
+             [ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
+        if (c3 <= EmptyPoint)
+          c3 = AverageCorners(c1, c2, EmptyPoint, c4) +
+               Displace(newWidth + newHeight);
+        else
+          Displace(0);
+        if (c3 < -1)
+          c3 = Displace(dwidth + dheight);
+        else
+          Displace(0);
+      } else {
+        Displace(0);
+        Displace(0);  // In order to maintain consistency with the random values
+                      // returned
+      }
+      if (c4 < 0) {
+        c4 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ];
+        if (c4 <= EmptyPoint)
+          c4 = AverageCorners(c1, c2, c3, EmptyPoint) +
+               Displace(newWidth + newHeight);
+        else
+          Displace(0);
+        if (c4 < -1)
+          c4 = Displace(dwidth + dheight);
+        else
+          Displace(0);
+      } else {
+        Displace(0);
+        Displace(0);  // In order to maintain consistency with the random values
+                      // returned
+      }
+      if (Middle < 0) {
+        Middle = ((c1 + c2 + c3 + c4) / 4) +
+                 Displace((dwidth + dheight) *
+                          PeakModifier);  // Randomly displace the midpoint!
+      } else {
+        Displace(0);  // In order to maintain consistency with the random values
+                      // returned
+      }
+      if (Edge1 < 0) {
+        Edge1 = ((c1 + c2) / 2);
+      }
+      if (Edge2 < 0) {
+        Edge2 = ((c2 + c3) / 2);
+      }
+      if (Edge3 < 0) {
+        Edge3 = ((c3 + c4) / 2);
+      }
+      if (Edge4 < 0) {
+        Edge4 = ((c4 + c1) / 2);
+      }
+
+      bool ShowWarning = false;
+      if (logCount > 0 && (Edge1 < 0 || Edge2 < 0 || Edge3 < 0 || Edge4 < 0 ||
+                           c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0)) {
+        ShowWarning = true;
+        Debug.LogWarning ("Divide(Pre-Rectify):\n"
+					+ "C1: (0, 0):      " + terrains[index].terrPoints [0, 0] + "/" + c1 + "\n"
+					+ "C2: (0, " + (int)(dheight - 1) + "):      " +
+			  		terrains[index].terrPoints [0, (int)dheight - 1] + "/" + c2 + "\n"
+					+ "C3: (" + (int)(dwidth - 1) + ", " + (int)(dheight - 1) + "):      " +
+			  		terrains[index].terrPoints [(int)dwidth - 1, (int)dheight - 1] + "/" + c3 + "\n"
+					+ "C4: (" + (int)(dwidth - 1) + ", 0):      " +
+			  		terrains[index].terrPoints [(int)dwidth - 1, 0] + "/" + c4 + "\n"
+
+					+ "Edge1: (0, " + (int)Math.Floor ((dheight) / 2) + "):      " +
+			  		terrains[index].terrPoints [0, (int)Math.Floor ((dheight) / 2)] + "/" + Edge1 + "\n"
+					+ "Edge2: (" + (int)Math.Floor ((dwidth) / 2) + ", " +
+					(int)(dheight - 1) + "):      " +
+			  		terrains[index].terrPoints [(int)Math.Floor ((dwidth) / 2), (int)dheight - 1] + "/" +
+                                                                    Edge2 + "\n"
+					+ "Edge3: (" + (int)(dwidth - 1) + ", " +
+			  		(int)Math.Floor ((dheight - 1) / 2) + "):      " +
+			  		terrains[index].terrPoints [(int)dwidth - 1, (int)Math.Floor ((dheight) / 2)] + "/" +
+                                                                    Edge3 + "\n"
+					+ "Edge4: (" + (int)Math.Floor ((dwidth) / 2) + ", 0):      " +
+					  terrains[index].terrPoints [(int)Math.Floor ((dwidth) / 2), 0] + "/" + Edge4 + "\n"
+
+					+ "Middle: (" + (int)Math.Floor ((dwidth - 1) / 2) + ", " +
+				  	(int)Math.Floor ((dheight - 1) / 2) + "):      " +
+				  	terrains[index].terrPoints [
+                (int)Math.Floor ((dwidth - 1) / 2),
+                (int)Math.Floor ((dheight - 1) / 2)
+				    ]
+					+ "/" + Middle + "\n"
+					+ "\n"
+					+ "dX: " + dX + ", dY: " + dY + ", dwidth: " +
+					  dwidth + ", dheight: " + dheight);
+        logCount--;
+      }
+
+      // Make sure that the midpoint doesn't accidentally randomly displace past
+      // the boundaries.
+      Middle = Rectify(Middle);
+      Edge1 = Rectify(Edge1);
+      Edge2 = Rectify(Edge2);
+      Edge3 = Rectify(Edge3);
+      Edge4 = Rectify(Edge4);
+
+      // Save points to array
+      terrains[index].terrPoints[
+        (int)Math.Floor((dX + dX + dwidth) / 2),
+        (int)Math.Floor((dY + dY + dheight) / 2)
+      ] = Middle;
+
+      terrains[index]
+          .terrPoints[ (int)dX, (int)Math.Floor((dY + dY + dheight) / 2) ] =
+          Edge1;
+      terrains[index].terrPoints[
+        (int)Math.Floor((dX + dX + dwidth) / 2),
+        (int)(dY + dheight - 1)
+      ] = Edge2;
+      terrains[index].terrPoints[
+        (int)(dX + dwidth - 1),
+        (int)Math.Floor((dY + dY + dheight) / 2)
+      ] = Edge3;
+      terrains[index]
+          .terrPoints[ (int)Math.Floor((dX + dX + dwidth) / 2), (int)dY ] =
+          Edge4;
+
+      // Rectify corners then save them to array.
+      c1 = Rectify(c1);
+      c2 = Rectify(c2);
+      c3 = Rectify(c3);
+      c4 = Rectify(c4);
+      terrains[index].terrPoints[ (int)dX, (int)dY ] = c1;
+      terrains[index].terrPoints[ (int)dX, (int)dY + (int)dheight - 1 ] = c2;
+      terrains[index].terrPoints
+          [ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ] = c3;
+      terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ] = c4;
+
+      if (ShowWarning) {
+        Debug.LogWarning ("Divide(Post-Rectify):\n"
+					+ "C1: (0, 0):      " + terrains[index].terrPoints [0, 0] + "/" + c1 + "\n"
+					+ "C2: (0, " + (int)(dheight - 1) + "):      " +
+			  		terrains[index].terrPoints [0, (int)dheight - 1] + "/" + c2 + "\n"
+					+ "C3: (" + (int)(dwidth - 1) + ", " + (int)(dheight - 1) + "):      " +
+			  		terrains[index].terrPoints [(int)dwidth - 1, (int)dheight - 1] + "/" + c3 + "\n"
+					+ "C4: (" + (int)(dwidth - 1) + ", 0):      " +
+			  		terrains[index].terrPoints [(int)dwidth - 1, 0] + "/" + c4 + "\n"
+
+					+ "Edge1: (0, " + (int)Math.Floor ((dheight) / 2) + "):      " +
+			  		terrains[index].terrPoints [0, (int)Math.Floor ((dheight) / 2)] + "/" + Edge1 + "\n"
+					+ "Edge2: (" + (int)Math.Floor ((dwidth) / 2) + ", " +
+					(int)(dheight - 1) + "):      " +
+			  		terrains[index].terrPoints [(int)Math.Floor ((dwidth) / 2), (int)dheight - 1] + "/" +
+                                                                    Edge2 + "\n"
+					+ "Edge3: (" + (int)(dwidth - 1) + ", " +
+			  		(int)Math.Floor ((dheight - 1) / 2) + "):      " +
+			  		terrains[index].terrPoints [(int)dwidth - 1, (int)Math.Floor ((dheight) / 2)] + "/" +
+                                                                    Edge3 + "\n"
+					+ "Edge4: (" + (int)Math.Floor ((dwidth) / 2) + ", 0):      " +
+					  terrains[index].terrPoints [(int)Math.Floor ((dwidth) / 2), 0] + "/" + Edge4 + "\n"
+
+					+ "Middle: (" + (int)Math.Floor ((dwidth - 1) / 2) + ", " +
+				  	(int)Math.Floor ((dheight - 1) / 2) + "):      " +
+				  	terrains[index].terrPoints [
+                (int)Math.Floor ((dwidth - 1) / 2),
+                (int)Math.Floor ((dheight - 1) / 2)
+				    ]
+					+ "/" + Middle + "\n"
+					+ "\n"
+					+ "dX: " + dX + ", dY: " + dY + ", dwidth: " +
+					  dwidth + ", dheight: " + dheight);
+      }
+
+      // Do the operation over again for each of the four new
+      // grids.
+      DivideNewGrid(index, dX, dY, newWidth, newHeight, c1, Edge1, Middle,
+                    Edge4);
+      if (top) yield return null;
+      DivideNewGrid(index, dX + newWidth, dY, newWidth, newHeight, Edge4,
+                    Middle, Edge3, c4);
+      if (top) yield return null;
+      DivideNewGrid(index, dX + newWidth, dY + newHeight, newWidth, newHeight,
+                    Middle, Edge2, c3, Edge3);
+      if (top) yield return null;
+      DivideNewGrid(index, dX, dY + newHeight, newWidth, newHeight, Edge1, c2,
+                    Edge2, Middle);
+      if (top) {
+        if (index >= terrains.Count || index < 0) {
+          Debug.LogError(
+              "Terrain divide has finished but has invalid index!\nIndex: " +
+              index + ", Terrains: " + terrains.Count);
+        } else {
+          terrains[index].terrReady = true;
+        }
+      }
+
+    } else {
+      if (dheight < 1) dheight = 1;
+      if (dwidth < 1) dwidth = 1;
+      if (GenMode.Cube || GenMode.Reach) {
+        c1 = terrains[index].terrPoints[ (int)dX, (int)dY ];
+        c2 = terrains[index].terrPoints[ (int)dX, (int)dY + (int)dheight - 1 ];
+        c3 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
+        c4 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ];
+      }
+      // The four corners of the grid piece will be averaged and drawn as a
+      // single pixel.
+      float c = AverageCorners(c1, c2, c3, c4);
+      terrains[index].terrPoints[ (int)(dX), (int)(dY) ] = c;
+      if (dwidth == 2) {
+        terrains[index].terrPoints[ (int)(dX + 1), (int)(dY) ] = c;
+      }
+      if (dheight == 2) {
+        terrains[index].terrPoints[ (int)(dX), (int)(dY + 1) ] = c;
+      }
+      if ((dwidth == 2) && (dheight == 2)) {
+        terrains[index].terrPoints[ (int)(dX + 1), (int)(dY + 1) ] = c;
+      }
+      // Does not repeat since the size of this section is 1x1. This means
+      // it cannot be divided further and we are done.
+    }
+  }
   // Uses perlin noise to define a heightmap.
   void PerlinDivide(ref float[, ] points, float x, float y, float w, float h) {
     float xShifted = (x + (Seed * PerlinSeedModifier)) * (w - 1f);
@@ -1468,11 +1868,13 @@ public class TerrainGenerator : MonoBehaviour {
 
   // Squash all values to a valid range.
   float Rectify(float iNum) {
-    if (iNum < 0 + yShift) {
-      iNum = 0 + yShift;
-    } else if (iNum > 1.0 + yShift) {
-      iNum = 1.0f + yShift;
-    }
+    iNum = iNum < 0 + yShift ? yShift
+                             : (iNum > 1 + yShift ? iNum = 1 + yShift : iNum);
+    // if (iNum < 0 + yShift) {
+    //   iNum = 0 + yShift;
+    // } else if (iNum > 1.0 + yShift) {
+    //   iNum = 1.0f + yShift;
+    // }
     return iNum;
   }
 
@@ -1546,7 +1948,7 @@ public class TerrainGenerator : MonoBehaviour {
     return -1;
   }
 
-  // Get the x coordinate from the array index.
+  // Get the X coordinate from the array index.
   int GetXCoord(int index) {
     string name = terrains[index].terrList.name;
     int start = -1, end = -1;
@@ -1598,8 +2000,8 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
-  // Find the average of up to 4 defined values. (EmptyPoint counts as
-  // undefined)
+  // Find the average of up to 4 defined values. EmptyPoint counts as undefined
+  // and is ignored.
   float AverageCorners(float c1, float c2, float c3, float c4) {
     int numAvg = 0;
     float Avg = 0;
@@ -1652,6 +2054,8 @@ public class TerrainGenerator : MonoBehaviour {
       return output;
     }
   }
+  // Returns the height of the terrain at the player's current location in
+  // global units.
  public
   float GetTerrainHeight() {
     int xCenter = Mathf.RoundToInt(
