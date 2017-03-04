@@ -9,10 +9,10 @@
 // #define DEBUG_BORDERS_3 // RIGHT +x
 // #define DEBUG_BORDERS_4 // BOTTOM -z
 // #define DEBUG_CHUNK_LOADING
+// #define DEBUG_DIVIDE
 // #define DEBUG_HEIGHTS
 // #define DEBUG_MISC
 // #define DEBUG_POSITION
-// #define DEBUG_SEED
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
 #define DEBUG_HUD_POS
@@ -861,14 +861,6 @@ public class TerrainGenerator : MonoBehaviour {
         GenMode.Distort) {
       // Give each chunk its own unique number which is offset by the seed so
       // that it will always generate the same way.
-      if (useSeed) {
-        UnityEngine.Random.InitState(
-            (int)(Seed + PerfectlyHashThem((short)changeX, (short)changeZ)));
-      }
-#if DEBUG_SEED
-      Debug.Log("Seed: (" + changeX + ", " + changeZ + ") = " +
-                UnityEngine.Random.seed);
-#endif
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
       Debug.Log(terrains[terrIndex].terrList.GetComponent<Terrain>().name +
                 ",(0,0): " + points[ 0, 0 ]);
@@ -930,43 +922,38 @@ public class TerrainGenerator : MonoBehaviour {
       // more sections per section until every pixel is defined.
       PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
       divideAmount = 0;
-      if (GenMode.slowHeightmap && terrIndex != 0) {
-        if (terrIndex == -1) {
-          Debug.LogError("Chunk was not generated before fractaling!\nIndex: " +
-                         terrIndex + ", Coord(" + changeX + ", " + changeZ +
-                         ")");
-          return;
-        } else if (terrains[terrIndex].isDividing) {
-          if (terrains[terrIndex].terrReady) {
-            points = terrains[terrIndex].terrPoints;
-            terrains[terrIndex].isDividing = false;
-            terrains[terrIndex].terrToUnload = false;
-          } else {
-            terrains[terrIndex].terrToUnload = false;
-            return;
-          }
-        } else {
-          Debug.Log("Dividing new grid.\nIndex: " + terrIndex + ", Coord(" +
-                    changeX + ", " + changeZ + ")");
-          terrains[terrIndex].terrPoints = points;
-          terrains[terrIndex].isDividing = true;
+      if (terrIndex == -1) {
+        Debug.LogError("Chunk was not generated before fractaling!\nIndex: " +
+                       terrIndex + ", Coord(" + changeX + ", " + changeZ + ")");
+        return;
+      } else if (terrains[terrIndex].isDividing) {
+        if (terrains[terrIndex].terrReady) {
+          points = terrains[terrIndex].terrPoints;
+          terrains[terrIndex].isDividing = false;
           terrains[terrIndex].terrToUnload = false;
-          StartCoroutine(
-              DivideNewGrid(terrIndex, 0, 0, iWidth, iHeight, points[ 0, 0 ],
-                            points[ 0, (int)iHeight - 1 ],
-                            points[ (int)iWidth - 1, (int)iHeight - 1 ],
-                            points[ (int)iWidth - 1, 0 ], true));
+        } else {
+          terrains[terrIndex].terrToUnload = false;
+          return;
         }
       } else {
-        DivideNewGrid(ref points, 0, 0, iWidth, iHeight, points[ 0, 0 ],
-                      points[ 0, (int)iHeight - 1 ],
-                      points[ (int)iWidth - 1, (int)iHeight - 1 ],
-                      points[ (int)iWidth - 1, 0 ]);
-        // Debug.Log("Divided " + divideAmount + " times.");
+#if DEBUG_DIVIDE
+        Debug.Log("Dividing new grid.\nIndex: " + terrIndex + ", Coord(" +
+                  changeX + ", " + changeZ + ")");
+#endif
+        terrains[terrIndex].terrPoints = points;
+        terrains[terrIndex].isDividing = true;
+        terrains[terrIndex].terrToUnload = false;
+        StartCoroutine(
+            DivideNewGrid(changeX, changeZ, 0, 0, iWidth, iHeight,
+                          points[ 0, 0 ], points[ 0, (int)iHeight - 1 ],
+                          points[ (int)iWidth - 1, (int)iHeight - 1 ],
+                          points[ (int)iWidth - 1, 0 ]));
+        // If we are using GenMode.slowHeightmap, then the terrain has not
+        // been finished being divided. Otherwise, the whole process should
+        // happen before the function returns.
+        if (!terrains[terrIndex].terrReady) return;
       }
     }
-    Debug.Log("Finished dividing new grid.\nIndex: " + terrIndex + ", Coord(" +
-              changeX + ", " + changeZ + ")");
     // If the Perlin Noise generator is being used, create a heightmap with it.
     if (GenMode.Perlin) {
       PerlinDivide(ref perlinPoints, changeX, changeZ, iWidth, iHeight);
@@ -1497,9 +1484,15 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
   // Same as above, but splits up work between frames.
-  IEnumerator DivideNewGrid(int index, float dX, float dY, float dwidth,
-                            float dheight, float c1, float c2, float c3,
-                            float c4, bool top = false) {
+  IEnumerator DivideNewGrid(int chunkX, int chunkY, float dX, float dY,
+                            float dwidth, float dheight, float c1, float c2,
+                            float c3, float c4) {
+    if (useSeed) {
+      UnityEngine.Random.InitState(
+          (int)(Seed +
+                PerfectlyHashThem((short)(chunkX * 3), (short)(chunkY * 3))));
+    }
+    int index = GetTerrainWithCoord(chunkX, chunkY);
     divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
       Debug.Log("Width-Height Mismatch: Expected square grid.\nDX: " + dX +
@@ -1777,25 +1770,98 @@ public class TerrainGenerator : MonoBehaviour {
 
       // Do the operation over again for each of the four new
       // grids.
-      DivideNewGrid(index, dX, dY, newWidth, newHeight, c1, Edge1, Middle,
-                    Edge4);
-      if (top) yield return null;
-      DivideNewGrid(index, dX + newWidth, dY, newWidth, newHeight, Edge4,
-                    Middle, Edge3, c4);
-      if (top) yield return null;
-      DivideNewGrid(index, dX + newWidth, dY + newHeight, newWidth, newHeight,
-                    Middle, Edge2, c3, Edge3);
-      if (top) yield return null;
-      DivideNewGrid(index, dX, dY + newHeight, newWidth, newHeight, Edge1, c2,
-                    Edge2, Middle);
-      if (top) {
-        if (index >= terrains.Count || index < 0) {
-          Debug.LogError(
-              "Terrain divide has finished but has invalid index!\nIndex: " +
-              index + ", Terrains: " + terrains.Count);
-        } else {
-          terrains[index].terrReady = true;
+      for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
+        if (GenMode.slowHeightmap) yield return null;
+          try {
+            index = GetTerrainWithCoord(chunkX, chunkY);
+          } catch (ArgumentOutOfRangeException e) {
+            Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
+                           index + "\n" + e);
+          }
+      }
+      if (index < 0 || index >= terrains.Count) {
+        Debug.LogError("Divide failed to find terrain index!");
+      } else {
+        if (useSeed) {
+          UnityEngine.Random.InitState(
+              (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
+                                             (short)(chunkY * 3 - 2))));
         }
+        DivideNewGrid(ref terrains[index].terrPoints, dX, dY, newWidth,
+                      newHeight, c1, Edge1, Middle, Edge4);
+        for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
+          if (GenMode.slowHeightmap) yield return null;
+          try {
+            index = GetTerrainWithCoord(chunkX, chunkY);
+          } catch (ArgumentOutOfRangeException e) {
+            Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
+                           index + "\n" + e);
+          }
+        }
+        if (index < 0 || index >= terrains.Count) {
+          Debug.LogError("Divide failed to find terrain index!");
+        } else {
+          if (useSeed) {
+            UnityEngine.Random.InitState(
+                (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
+                                               (short)(chunkY * 3 - 2))));
+          }
+          DivideNewGrid(ref terrains[index].terrPoints, dX + newWidth, dY,
+                        newWidth, newHeight, Edge4, Middle, Edge3, c4);
+          for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
+            if (GenMode.slowHeightmap) yield return null;
+            try {
+              index = GetTerrainWithCoord(chunkX, chunkY);
+            } catch (ArgumentOutOfRangeException e) {
+              Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
+                             index + "\n" + e);
+            }
+          }
+          if (index < 0 || index >= terrains.Count) {
+            Debug.LogError("Divide failed to find terrain index!");
+          } else {
+            if (useSeed) {
+              UnityEngine.Random.InitState(
+                  (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
+                                                 (short)(chunkY * 3 - 1))));
+            }
+            DivideNewGrid(ref terrains[index].terrPoints, dX + newWidth,
+                          dY + newHeight, newWidth, newHeight, Middle, Edge2,
+                          c3, Edge3);
+            for (int i = 0; i < 5 && index < 0 || index >= terrains.Count;
+                 i++) {
+              if (GenMode.slowHeightmap) yield return null;
+              try {
+                index = GetTerrainWithCoord(chunkX, chunkY);
+              } catch (ArgumentOutOfRangeException e) {
+                Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
+                               index + "\n" + e);
+              }
+            }
+            if (index < 0 || index >= terrains.Count) {
+              Debug.LogError("Divide failed to find terrain index!");
+            } else {
+              if (useSeed) {
+                UnityEngine.Random.InitState(
+                    (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
+                                                   (short)(chunkY * 3 - 1))));
+              }
+              DivideNewGrid(ref terrains[index].terrPoints, dX, dY + newHeight,
+                            newWidth, newHeight, Edge1, c2, Edge2, Middle);
+            }
+          }
+        }
+      }
+      if (index >= terrains.Count || index < 0) {
+        Debug.LogError(
+            "Terrain divide has finished but has invalid index!\nIndex: " +
+            index + ", Terrains: " + terrains.Count);
+      } else {
+#if DEBUG_DIVIDE
+        Debug.Log("Terrain divide has finished chunk " + index + " (" + chunkX +
+                  ", " + chunkY + ")");
+#endif
+        terrains[index].terrReady = true;
       }
 
     } else {
