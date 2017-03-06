@@ -15,7 +15,7 @@
 // #define DEBUG_SEED
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
-#define DEBUG_HUD_POS
+// #define DEBUG_HUD_POS
 #define DEBUG_HUD_TIMES
 //#define DEBUG_HUD_LOADED
 #pragma warning disable 0168
@@ -310,10 +310,11 @@ public class TerrainGenerator : MonoBehaviour {
     if (players.Length > 1 && numIdentifiedPlayers < players.Length) {
       Debug.Log("New player connected!");
       numIdentifiedPlayers = players.Length;
-      player = players[players.Length - 1].gameObject;
-      Debug.Log("Valid player found: " + player.transform.name);
-      // Tell the player where to spawn.
-      (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+      for (int i = 0; i < players.Length; i++) {
+        player = players[i].gameObject;
+        // Tell the player where to spawn.
+        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+      }
     } else if(numIdentifiedPlayers > players.Length) {
       Debug.Log("Player disconnected.");
       numIdentifiedPlayers = players.Length;
