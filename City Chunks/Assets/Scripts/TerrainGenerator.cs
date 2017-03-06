@@ -283,79 +283,6 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
 
-    //////////////////////////
-    // Multiplayer Handling //
-    //////////////////////////
-    players = GameObject.FindObjectsOfType<InitPlayer>();
-    // Choose player spawn location based off of the center of all pre-loaded
-    // chunks.
-    float playerX = maxX * terrains[0].terrData.size.x / 2f;
-    float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
-    // Get the player spawn height from the heightmap height at the
-    // coordinates
-    // where the player will spawn.
-    float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
-                        .terrList.GetComponent<Terrain>()
-                        .SampleHeight(new Vector3(playerX, 0, playerZ));
-    if(player == null) {
-      if (players.Length == 1) {
-        player = players[0].gameObject;
-        Debug.Log("Valid player found: " + player.transform.name);
-        // Tell the player where to spawn.
-        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-      } else {
-        return;
-      }
-    }
-    if (players.Length > 1 && numIdentifiedPlayers < players.Length) {
-      Debug.Log("New player connected!");
-      numIdentifiedPlayers = players.Length;
-      for (int i = 0; i < players.Length; i++) {
-        player = players[i].gameObject;
-        // Tell the player where to spawn.
-        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-      }
-    } else if(numIdentifiedPlayers > players.Length) {
-      Debug.Log("Player disconnected.");
-      numIdentifiedPlayers = players.Length;
-    }
-    player = players[0].gameObject;
-    // Make sure the player stays above the terrain
-    int xCenter = Mathf.RoundToInt(
-        (player.transform.position.x - terrWidth / 2) / terrWidth);
-    int yCenter = Mathf.RoundToInt(
-        (player.transform.position.z - terrLength / 2) / terrLength);
-    int radius = Mathf.RoundToInt(loadDist / ((terrWidth + terrLength) / 2.0f));
-    int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
-    if (terrLoc != -1) {
-      float TerrainHeight =
-          terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
-              player.transform.position);
-
-
-#if DEBUG_HUD_POS
-      positionInfo.text =
-          "Joystick(" + Input.GetAxis("Mouse X") + ", " +
-          Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") + ", " +
-          Input.GetAxis("Vertical") + "\n" + "Player" +
-          player.transform.position + "\n" + "Coord(" + (int)(xCenter) + ", " +
-          (int)(yCenter) + ")(" + terrLoc + ")\n" + "TerrainHeight: " +
-          TerrainHeight + "\nHighest Point: " + highest + "\nLowest Point: " +
-          lowest;
-#else
-      if (positionInfo != null) positionInfo.text = "";
-#endif
-      if (player.transform.position.y < TerrainHeight - 10.0f) {
-        Debug.Log("Player at " + player.transform.position + "\nCoord: (" +
-                  (int)(xCenter) + ", " + (int)(yCenter) + ")" + "\nPlayer(" +
-                  player.transform.position + ")" + "\nTerrain Height: " +
-                  TerrainHeight + "\n\n");
-        (player.GetComponent<InitPlayer>())
-            .updatePosition(player.transform.position.x, TerrainHeight,
-                            player.transform.position.z);
-      }
-    }
-
     float iTime = -1;
     bool done = false;
 #if DEBUG_HUD_LOADED
@@ -369,113 +296,192 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[i].terrToUnload = true;
     }
 
-    // Load chunks within radius, but only one per frame to help with
-    // performance.
-    for (int x = xCenter; x > xCenter - radius; x--) {
-      for (int y = yCenter; y > yCenter - radius; y--) {
-        int xSym = xCenter - (x - xCenter);
-        int ySym = yCenter - (y - yCenter);
-        // don't have to take the square root, it's slow
-        if ((x - xCenter) * (x - xCenter) + (y - yCenter) * (y - yCenter) <=
-            radius * radius) {
-          // If the chunk has not been loaded yet, create it. Otherwise, make
-          // sure the chunk doesn't get unloaded.
-          if (GetTerrainWithCoord(x, y) == -1) {
-            if (iTime == -1) iTime = Time.realtimeSinceStartup;
-            if (!done) {
-              GenerateTerrainChunk(x, y);
-              FractalNewTerrains(x, y);
-              done = true;
-            }
-          } else {
-#if DEBUG_HUD_LOADED
-            LoadedChunkList += "+(" + x + ", " + y + ") ";
-#endif
-            // TODO: Remove try-catch because it's ugly. Also, I do not think
-            // this one is necessary, this should never fail.
-            try {
-              terrains[GetTerrainWithCoord(x, y)].terrToUnload = false;
-            } catch (ArgumentOutOfRangeException e) {
-              Debug.Log("(" + x + ", " + y + "): " + GetTerrainWithCoord(x, y) +
-                        " Out of Range (" + terrains.Count + ")");
-            }
-          }
-          if (!(x == xSym && y == ySym) &&
-              GetTerrainWithCoord(xSym, ySym) == -1) {
-            if (iTime == -1) iTime = Time.realtimeSinceStartup;
-            if (!done) {
-              GenerateTerrainChunk(xSym, ySym);
-              FractalNewTerrains(xSym, ySym);
-              done = true;
-            }
-          } else {
-#if DEBUG_HUD_LOADED
-            LoadedChunkList += "+(" + xSym + ", " + ySym + ") ";
-#endif
-            if (GetTerrainWithCoord(xSym, ySym) != -1) {
-              try {
-                terrains[GetTerrainWithCoord(xSym, ySym)].terrToUnload = false;
-              } catch (ArgumentOutOfRangeException e) {
-                Debug.Log("(" + xSym + ", " + ySym + "): " +
-                          GetTerrainWithCoord(xSym, ySym) + " Out of Range (" +
-                          terrains.Count + ")");
-              }
-            }
-          }
-          if (y != ySym && GetTerrainWithCoord(x, ySym) == -1) {
-            if (iTime == -1) iTime = Time.realtimeSinceStartup;
-            if (!done) {
-              GenerateTerrainChunk(x, ySym);
-              FractalNewTerrains(x, ySym);
-              done = true;
-            }
-          } else {
-#if DEBUG_HUD_LOADED
-            LoadedChunkList += "+(" + x + ", " + ySym + ") ";
-#endif
-            if (GetTerrainWithCoord(x, ySym) != -1) {
-              try {
-                terrains[GetTerrainWithCoord(x, ySym)].terrToUnload = false;
-              } catch (ArgumentOutOfRangeException e) {
-                Debug.Log("(" + xSym + ", " + ySym + "): " +
-                          GetTerrainWithCoord(xSym, ySym) + " Out of Range (" +
-                          terrains.Count + ")");
-              }
-            }
-          }
-          if (x != xSym && GetTerrainWithCoord(xSym, y) == -1) {
-            if (iTime == -1) iTime = Time.realtimeSinceStartup;
-            if (!done) {
-              GenerateTerrainChunk(xSym, y);
-              FractalNewTerrains(xSym, y);
-              done = true;
-            }
-          } else {
-#if DEBUG_HUD_LOADED
-            LoadedChunkList += "+(" + xSym + ", " + y + ") ";
-#endif
-            if (GetTerrainWithCoord(xSym, y) != -1) {
-              try {
-                terrains[GetTerrainWithCoord(xSym, y)].terrToUnload = false;
-              } catch (ArgumentOutOfRangeException e) {
-                Debug.Log("(" + xSym + ", " + ySym + "): " +
-                          GetTerrainWithCoord(xSym, ySym) + " Out of Range (" +
-                          terrains.Count + ")");
-              }
-            }
-          }
-
-          // (x, y), (x, ySym), (xSym , y), (xSym, ySym) are in the circle
+    //////////////////////////
+    // Multiplayer Handling //
+    //////////////////////////
+    players = GameObject.FindObjectsOfType<InitPlayer>();
+    {
+      // Choose player spawn location based off of the center of all pre-loaded
+      // chunks.
+      float playerX = maxX * terrains[0].terrData.size.x / 2f;
+      float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
+      // Get the player spawn height from the heightmap height at the
+      // coordinates
+      // where the player will spawn.
+      float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
+                          .terrList.GetComponent<Terrain>()
+                          .SampleHeight(new Vector3(playerX, 0, playerZ));
+      if (player == null) {
+        if (players.Length == 1) {
+          player = players[0].gameObject;
+          Debug.Log("Valid player found: " + player.transform.name);
+          // Tell the player where to spawn.
+          (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
         } else {
-#if DEBUG_HUD_LOADED
-          LoadedChunkList +=
-              "-(" + Mathf.RoundToInt(x) + ", " + Mathf.RoundToInt(y) + ")\n";
-#endif
+          return;
         }
       }
-#if DEBUG_HUD_LOADED
-      LoadedChunkList += "\n";
+      if (players.Length > 1 && numIdentifiedPlayers < players.Length) {
+        Debug.Log("New player connected!");
+        numIdentifiedPlayers = players.Length;
+        for (int i = 0; i < players.Length; i++) {
+          player = players[i].gameObject;
+          // Tell the player where to spawn.
+          (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+        }
+      } else if (numIdentifiedPlayers > players.Length) {
+        Debug.Log("Player disconnected.");
+        numIdentifiedPlayers = players.Length;
+      }
+    }
+    for (int num = 0; num < players.Length; num++) {
+      player = players[num].gameObject;
+      // Make sure the player stays above the terrain
+      int xCenter = Mathf.RoundToInt(
+          (player.transform.position.x - terrWidth / 2) / terrWidth);
+      int yCenter = Mathf.RoundToInt(
+          (player.transform.position.z - terrLength / 2) / terrLength);
+      int radius =
+          Mathf.RoundToInt(loadDist / ((terrWidth + terrLength) / 2.0f));
+      int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
+      if (terrLoc != -1) {
+        float TerrainHeight =
+            terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
+                player.transform.position);
+
+#if DEBUG_HUD_POS
+        positionInfo.text =
+            "Joystick(" + Input.GetAxis("Mouse X") + ", " +
+            Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") +
+            ", " + Input.GetAxis("Vertical") + "\n" + "Player" +
+            player.transform.position + "\n" + "Coord(" + (int)(xCenter) +
+            ", " + (int)(yCenter) + ")(" + terrLoc + ")\n" + "TerrainHeight: " +
+            TerrainHeight + "\nHighest Point: " + highest + "\nLowest Point: " +
+            lowest;
+#else
+        if (positionInfo != null) positionInfo.text = "";
 #endif
+        if (player.transform.position.y < TerrainHeight - 10.0f) {
+          Debug.Log("Player at " + player.transform.position + "\nCoord: (" +
+                    (int)(xCenter) + ", " + (int)(yCenter) + ")" + "\nPlayer(" +
+                    player.transform.position + ")" + "\nTerrain Height: " +
+                    TerrainHeight + "\n\n");
+          (player.GetComponent<InitPlayer>())
+              .updatePosition(player.transform.position.x, TerrainHeight,
+                              player.transform.position.z);
+        }
+      }
+
+      // Load chunks within radius, but only one per frame to help with
+      // performance.
+      for (int x = xCenter; x > xCenter - radius; x--) {
+        for (int y = yCenter; y > yCenter - radius; y--) {
+          int xSym = xCenter - (x - xCenter);
+          int ySym = yCenter - (y - yCenter);
+          // don't have to take the square root, it's slow
+          if ((x - xCenter) * (x - xCenter) + (y - yCenter) * (y - yCenter) <=
+              radius * radius) {
+            // If the chunk has not been loaded yet, create it. Otherwise, make
+            // sure the chunk doesn't get unloaded.
+            if (GetTerrainWithCoord(x, y) == -1) {
+              if (iTime == -1) iTime = Time.realtimeSinceStartup;
+              if (!done) {
+                GenerateTerrainChunk(x, y);
+                FractalNewTerrains(x, y);
+                done = true;
+              }
+            } else {
+#if DEBUG_HUD_LOADED
+              LoadedChunkList += "+(" + x + ", " + y + ") ";
+#endif
+              // TODO: Remove try-catch because it's ugly. Also, I do not think
+              // this one is necessary, this should never fail.
+              try {
+                terrains[GetTerrainWithCoord(x, y)].terrToUnload = false;
+              } catch (ArgumentOutOfRangeException e) {
+                Debug.Log("(" + x + ", " + y + "): " +
+                          GetTerrainWithCoord(x, y) + " Out of Range (" +
+                          terrains.Count + ")");
+              }
+            }
+            if (!(x == xSym && y == ySym) &&
+                GetTerrainWithCoord(xSym, ySym) == -1) {
+              if (iTime == -1) iTime = Time.realtimeSinceStartup;
+              if (!done) {
+                GenerateTerrainChunk(xSym, ySym);
+                FractalNewTerrains(xSym, ySym);
+                done = true;
+              }
+            } else {
+#if DEBUG_HUD_LOADED
+              LoadedChunkList += "+(" + xSym + ", " + ySym + ") ";
+#endif
+              if (GetTerrainWithCoord(xSym, ySym) != -1) {
+                try {
+                  terrains[GetTerrainWithCoord(xSym, ySym)].terrToUnload =
+                      false;
+                } catch (ArgumentOutOfRangeException e) {
+                  Debug.Log("(" + xSym + ", " + ySym + "): " +
+                            GetTerrainWithCoord(xSym, ySym) +
+                            " Out of Range (" + terrains.Count + ")");
+                }
+              }
+            }
+            if (y != ySym && GetTerrainWithCoord(x, ySym) == -1) {
+              if (iTime == -1) iTime = Time.realtimeSinceStartup;
+              if (!done) {
+                GenerateTerrainChunk(x, ySym);
+                FractalNewTerrains(x, ySym);
+                done = true;
+              }
+            } else {
+#if DEBUG_HUD_LOADED
+              LoadedChunkList += "+(" + x + ", " + ySym + ") ";
+#endif
+              if (GetTerrainWithCoord(x, ySym) != -1) {
+                try {
+                  terrains[GetTerrainWithCoord(x, ySym)].terrToUnload = false;
+                } catch (ArgumentOutOfRangeException e) {
+                  Debug.Log("(" + xSym + ", " + ySym + "): " +
+                            GetTerrainWithCoord(xSym, ySym) +
+                            " Out of Range (" + terrains.Count + ")");
+                }
+              }
+            }
+            if (x != xSym && GetTerrainWithCoord(xSym, y) == -1) {
+              if (iTime == -1) iTime = Time.realtimeSinceStartup;
+              if (!done) {
+                GenerateTerrainChunk(xSym, y);
+                FractalNewTerrains(xSym, y);
+                done = true;
+              }
+            } else {
+#if DEBUG_HUD_LOADED
+              LoadedChunkList += "+(" + xSym + ", " + y + ") ";
+#endif
+              if (GetTerrainWithCoord(xSym, y) != -1) {
+                try {
+                  terrains[GetTerrainWithCoord(xSym, y)].terrToUnload = false;
+                } catch (ArgumentOutOfRangeException e) {
+                  Debug.Log("(" + xSym + ", " + ySym + "): " +
+                            GetTerrainWithCoord(xSym, ySym) +
+                            " Out of Range (" + terrains.Count + ")");
+                }
+              }
+            }
+
+            // (x, y), (x, ySym), (xSym , y), (xSym, ySym) are in the circle
+          } else {
+#if DEBUG_HUD_LOADED
+            LoadedChunkList +=
+                "-(" + Mathf.RoundToInt(x) + ", " + Mathf.RoundToInt(y) + ")\n";
+#endif
+          }
+        }
+#if DEBUG_HUD_LOADED
+        LoadedChunkList += "\n";
+#endif
+      }
     }
 
     // Delay applying textures until later if a chunk was loaded this frame to

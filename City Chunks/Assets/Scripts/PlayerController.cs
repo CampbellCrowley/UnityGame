@@ -125,20 +125,18 @@ class PlayerController : NetworkBehaviour {
     GameData.showCursor = false;
   }
 
-  void Start() {
+ public
+  override void OnStartLocalPlayer() {
     UnDead();
 
     anim = GetComponent<Animator>();
     rbody = GetComponent<Rigidbody>();
 
-    if (!isLocalPlayer) {
-      Camera.GetComponent<Camera>().enabled = false;
-      Camera.GetComponent<AudioListener>().enabled = false;
-      return;
-    }
     Camera.transform.parent = null;
     Camera.GetComponent<Camera>().enabled = true;
     Camera.GetComponent<AudioListener>().enabled = true;
+
+    GetComponent<MeshRenderer>().material.color = Color.blue;
 
     levelStartTime = Time.time;
     lastGroundedTime = Time.time;
@@ -149,6 +147,7 @@ class PlayerController : NetworkBehaviour {
 
   void Update() {
     if (!isLocalPlayer) return;
+
     if (isDead && Time.realtimeSinceStartup - deathTime >= 5f) {
       if (GameData.health > 0)
         GameData.restartLevel();
