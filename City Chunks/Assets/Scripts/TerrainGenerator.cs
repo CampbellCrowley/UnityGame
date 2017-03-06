@@ -1965,14 +1965,21 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   // Give array index from coordinates.
+  System.Text.StringBuilder GetTerrainNameHolder =
+      new System.Text.StringBuilder((int)("Terrain(0000,0000)".Length));
   int GetTerrainWithCoord(int x, int z) {
     for (int i = 0; i < terrains.Count; i++) {
-      if (terrains[i].terrList.name.Equals("Terrain(" + x + "," + z + ")")) {
+      GetTerrainNameHolder.Length = 0;
+      GetTerrainNameHolder.Append("Terrain(");
+      GetTerrainNameHolder.Append(x);
+      GetTerrainNameHolder.Append(",");
+      GetTerrainNameHolder.Append(z);
+      GetTerrainNameHolder.Append(")");
+      if (terrains[i].terrList.name.Equals(GetTerrainNameHolder.ToString())) {
 #if DEBUG_ARRAY
         Debug.Log(
-            terrains[i].terrList.name + "==Terrain(" + x + "," + z + ")" +
-            " [" +
-            terrains[i].terrList.name.Equals("Terrain(" + x + "," + z + ")") +
+            terrains[i].terrList.name + "==" + GetTerrainNameHolder + " [" +
+            terrains[i].terrList.name.Equals(GetTerrainNameHolder.ToString()) +
             "]{" + i + "}");
 #endif
         return i;
