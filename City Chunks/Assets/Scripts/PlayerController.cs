@@ -94,6 +94,8 @@ class PlayerController : NetworkBehaviour {
  private
   bool isSprinting = false;
  private
+  bool godMode = false;
+ private
   bool isDead = false;
  private
   float endTime = 0f;
@@ -159,6 +161,7 @@ class PlayerController : NetworkBehaviour {
     float moveVertical = Input.GetAxis("Vertical");
     float lookHorizontal = Input.GetAxis("Mouse X");
     float lookVertical = Input.GetAxis("Mouse Y");
+    if(Input.GetButtonDown("GodMode")) godMode = !godMode;
     RaycastHit hitinfo;
     isGrounded = Physics.SphereCast(transform.position + Vector3.up * -0.49f,
                                     0.0f, Vector3.down, out hitinfo, 0.55f);
@@ -272,8 +275,11 @@ class PlayerController : NetworkBehaviour {
       forward = movement.magnitude / 6f;
     }
     movement += ((jump ? (moveSpeed * jumpMultiplier) : 0.0f) +
-                 (rbody.velocity.y - 9.81f * Time.deltaTime)) *
+                 (godMode ?
+                  (Input.GetAxis("Jump") > 0.5f ? (moveSpeed*jumpMultiplier) : 1.0f)
+                  : (rbody.velocity.y - 9.81f * Time.deltaTime))) *
                 Vector3.up;
+    if(godMode) movement *= 30f;
     movement =
         Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0) * movement;
     rbody.velocity = Vector3.Lerp(movement, rbody.velocity, 0.5f);
@@ -463,5 +469,5 @@ class PlayerController : NetworkBehaviour {
         Destroy(player.gameObject);
     }
   }
-  void OnDestroy() { DestroyImmediate(Camera); }
+  void OnDestroy() { DestroyImmediate(Camera, true); }
 }
