@@ -116,25 +116,24 @@ class PlayerController : NetworkBehaviour {
  private
   Vector3 lastFloorTransformPosition;
 
-  void Awake() {
+ public
+  override void OnStartLocalPlayer() {
     if (sounds.LandSound != null) sounds.LandSound.LoadAudioData();
     if (sounds.JumpSound != null) sounds.JumpSound.LoadAudioData();
     foreach (AudioClip step in sounds.FootSteps) {
       if (step != null) step.LoadAudioData();
     }
     GameData.showCursor = false;
-  }
-
- public
-  override void OnStartLocalPlayer() {
     UnDead();
 
     anim = GetComponent<Animator>();
     rbody = GetComponent<Rigidbody>();
 
+    Camera = Instantiate(Camera);
     Camera.transform.parent = null;
     Camera.GetComponent<Camera>().enabled = true;
     Camera.GetComponent<AudioListener>().enabled = true;
+    Camera.name = "CameraFor" + netId;
 
     GetComponent<MeshRenderer>().material.color = Color.blue;
 
@@ -154,10 +153,7 @@ class PlayerController : NetworkBehaviour {
       else
         GameData.MainMenu();
     }
-  }
 
-  void FixedUpdate() {
-    if (!isLocalPlayer) return;
     // Inputs
     float moveHorizontal = Input.GetAxis("Horizontal");
     float moveVertical = Input.GetAxis("Vertical");
@@ -467,4 +463,5 @@ class PlayerController : NetworkBehaviour {
         Destroy(player.gameObject);
     }
   }
+  void OnDestroy() { DestroyImmediate(Camera); }
 }

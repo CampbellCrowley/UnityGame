@@ -400,112 +400,15 @@ public class TerrainGenerator : MonoBehaviour {
               radius * radius) {
             // If the chunk has not been loaded yet, create it. Otherwise, make
             // sure the chunk doesn't get unloaded.
-            int pointIndex = GetTerrainWithCoord(x, y);
-            if (pointIndex == -1) {
-              if (iTime == -1) iTime = Time.realtimeSinceStartup;
-              if (!done) {
-                GenerateTerrainChunk(x, y);
-                FractalNewTerrains(x, y);
-                done = true;
-              }
-            } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
-              if (!done) {
-                FractalNewTerrains(x, y);
-                done = true;
-              }
-            } else {
-#if DEBUG_HUD_LOADED
-              LoadedChunkList += "+(" + x + ", " + y + ") ";
-#endif
-              // TODO: Remove try-catch because it's ugly. Also, I do not think
-              // this one is necessary, this should never fail.
-              try {
-                terrains[pointIndex].terrToUnload = false;
-              } catch (ArgumentOutOfRangeException e) {
-                Debug.Log("(" + x + ", " + y + "): " + pointIndex +
-                          " Out of Range (" + terrains.Count + ")");
-              }
+            BeginChunkLoading(x, y, ref done);
+            if (y != ySym && x != xSym) {
+              BeginChunkLoading(xSym, ySym, ref done);
             }
-
-            pointIndex = GetTerrainWithCoord(xSym, ySym);
-            if (y != ySym && x != xSym && pointIndex == -1) {
-              if (iTime == -1) iTime = Time.realtimeSinceStartup;
-              if (!done) {
-                GenerateTerrainChunk(xSym, ySym);
-                FractalNewTerrains(xSym, ySym);
-                done = true;
-              }
-            } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
-              if (!done) {
-                FractalNewTerrains(xSym, ySym);
-                done = true;
-              }
-            } else {
-#if DEBUG_HUD_LOADED
-              LoadedChunkList += "+(" + xSym + ", " + ySym + ") ";
-#endif
-              if (pointIndex != -1) {
-                try {
-                  terrains[pointIndex].terrToUnload = false;
-                } catch (ArgumentOutOfRangeException e) {
-                  Debug.Log("(" + xSym + ", " + ySym + "): " + pointIndex +
-                            " Out of Range (" + terrains.Count + ")");
-                }
-              }
+            if (x != xSym) {
+              BeginChunkLoading(xSym, y, ref done);
             }
-
-            pointIndex = GetTerrainWithCoord(xSym, y);
-            if (x != xSym && pointIndex == -1) {
-              if (iTime == -1) iTime = Time.realtimeSinceStartup;
-              if (!done) {
-                GenerateTerrainChunk(xSym, y);
-                FractalNewTerrains(xSym, y);
-                done = true;
-              }
-            } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
-              if (!done) {
-                FractalNewTerrains(xSym, y);
-                done = true;
-              }
-            } else {
-#if DEBUG_HUD_LOADED
-              LoadedChunkList += "+(" + xSym + ", " + y + ") ";
-#endif
-              if (pointIndex != -1) {
-                try {
-                  terrains[pointIndex].terrToUnload = false;
-                } catch (ArgumentOutOfRangeException e) {
-                  Debug.Log("(" + xSym + ", " + y + "): " + pointIndex +
-                            " Out of Range (" + terrains.Count + ")");
-                }
-              }
-            }
-
-            pointIndex = GetTerrainWithCoord(x, ySym);
-            if (y != ySym && pointIndex == -1) {
-              if (iTime == -1) iTime = Time.realtimeSinceStartup;
-              if (!done) {
-                GenerateTerrainChunk(x, ySym);
-                FractalNewTerrains(x, ySym);
-                done = true;
-              }
-            } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
-              if (!done) {
-                FractalNewTerrains(x, ySym);
-                done = true;
-              }
-            } else {
-#if DEBUG_HUD_LOADED
-              LoadedChunkList += "+(" + x + ", " + ySym + ") ";
-#endif
-              if (pointIndex != -1) {
-                try {
-                  terrains[pointIndex].terrToUnload = false;
-                } catch (ArgumentOutOfRangeException e) {
-                  Debug.Log("(" + x + ", " + ySym + "): " + pointIndex +
-                            " Out of Range (" + terrains.Count + ")");
-                }
-              }
+            if (y != ySym) {
+              BeginChunkLoading(x, ySym, ref done);
             }
             // (x, y), (x, ySym), (xSym , y), (xSym, ySym) are in the circle
           } else {
@@ -725,6 +628,35 @@ public class TerrainGenerator : MonoBehaviour {
                               .terrList.GetComponent<Terrain>();
         MidTerr.SetNeighbors(LeftTerr, TopTerr, RightTerr, BottomTerr);
       } catch (ArgumentOutOfRangeException e) {
+      }
+    }
+  }
+
+  void BeginChunkLoading(int x, int z, ref bool done) {
+    int pointIndex = GetTerrainWithCoord(x, z);
+    if (pointIndex == -1) {
+      // if (iTime == -1) iTime = Time.realtimeSinceStartup;
+      if (!done) {
+        GenerateTerrainChunk(x, z);
+        FractalNewTerrains(x, z);
+        done = true;
+      }
+    } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
+      if (!done) {
+        FractalNewTerrains(x, z);
+        done = true;
+      }
+    } else {
+#if DEBUG_HUD_LOADED
+      LoadedChunkList += "+(" + x + ", " + z + ") ";
+#endif
+      // TODO: Remove try-catch because it's ugly. Also, I do not think
+      // this one is necessary, this should never fail.
+      try {
+        terrains[pointIndex].terrToUnload = false;
+      } catch (ArgumentOutOfRangeException e) {
+        Debug.Log("(" + x + ", " + z + "): " + pointIndex + " Out of Range (" +
+                  terrains.Count + ")");
       }
     }
   }
