@@ -22,9 +22,12 @@ class GameData : MonoBehaviour {
  public
   static int health = 5;
  public
-  static bool showCursor = false;
+  static bool showCursor = true;
  public
   static bool isPaused = false;
+
+ public
+  static string username = "Username";
 
  public
   static int getLevel() { return SceneManager.GetActiveScene().buildIndex; }
@@ -52,9 +55,9 @@ class GameData : MonoBehaviour {
  public
   void Update() {
     Cursor.visible = showCursor;
-    if (Input.GetAxis("Skip") > 0.5f) {
+    /*if (Input.GetAxis("Skip") > 0.5f) {
       nextLevel();
-    }
+    }*/
     if (MusicPlayer != null) MusicPlayer.volume = music ? 0.5f : 0.0f;
   }
 
