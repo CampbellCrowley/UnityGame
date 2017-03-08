@@ -80,6 +80,8 @@ class PlayerController : NetworkBehaviour {
  private
   Animator anim;
  private
+  TextMesh nameplate;
+ private
   float turn = 0f;
  private
   float forward = 0f;
@@ -118,6 +120,8 @@ class PlayerController : NetworkBehaviour {
  private
   Vector3 lastFloorTransformPosition;
 
+  [SyncVar] public string username = "Username";
+
  public
   override void OnStartLocalPlayer() {
     if (sounds.LandSound != null) sounds.LandSound.LoadAudioData();
@@ -139,6 +143,8 @@ class PlayerController : NetworkBehaviour {
 
     GetComponent<MeshRenderer>().material.color = Color.blue;
 
+    CmdChangeName(GameData.username);
+
     levelStartTime = Time.time;
     lastGroundedTime = Time.time;
     lastSprintTime = Time.time;
@@ -146,7 +152,16 @@ class PlayerController : NetworkBehaviour {
     lastFootstepTime = Time.time;
   }
 
+  [Command] public void CmdChangeName(string name) { username = name; }
+
   void Update() {
+    nameplate = GetComponentInChildren<TextMesh>();
+    if (username != "Username") {
+      nameplate.text = username;
+    } else {
+      nameplate.text = "Player " + netId;
+    }
+
     if (!isLocalPlayer) return;
 
     if (isDead && Time.realtimeSinceStartup - deathTime >= 5f) {
@@ -200,6 +215,7 @@ class PlayerController : NetworkBehaviour {
       moveVertical = 0;
       lookHorizontal = 0;
       lookVertical = 0;
+      rbody.velocity = Vector3.up * 0f;
       jump = false;
     }
 
@@ -261,6 +277,8 @@ class PlayerController : NetworkBehaviour {
     }
 
     // Movement
+    transform.position = rbody.transform.position;
+    transform.rotation = rbody.transform.rotation;
     Vector3 movement =
         moveHorizontal * Vector3.right + moveVertical * Vector3.forward;
     Vector3.ClampMagnitude(movement, 1.0f);
@@ -274,11 +292,23 @@ class PlayerController : NetworkBehaviour {
       movement *= moveSpeed * 1.0f;
       forward = movement.magnitude / 6f;
     }
-    movement += ((jump ? (moveSpeed * jumpMultiplier) : 0.0f) +
-                 (godMode ?
-                  (Input.GetAxis("Jump") > 0.5f ? (moveSpeed*jumpMultiplier) : 1.0f)
-                  : (rbody.velocity.y - 9.81f * Time.deltaTime))) *
-                Vector3.up;
+
+    movement += (jump ? (moveSpeed * jumpMultiplier) : 0.0f) * Vector3.up;
+    if(godMode) {
+      if(isCrouched) {
+        movement -= moveSpeed * Vector3.up;
+      } else if(Input.GetAxis("Jump") > 0.5f) {
+        movement += moveSpeed * Vector3.up;
+      }
+    } else {
+      if(jump) {
+        movement += (moveSpeed * jumpMultiplier) * Vector3.up;
+      } else {
+        movement +=
+            (rbody.velocity.y - 9.81f * 5f * Time.deltaTime) * Vector3.up;
+      }
+    }
+
     if(godMode) movement *= 30f;
     movement =
         Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0) * movement;
@@ -286,7 +316,7 @@ class PlayerController : NetworkBehaviour {
 
     // Rotation
     if (rotateWithCamera) {
-      transform.rotation = Quaternion.Euler(
+      rbody.transform.rotation = Quaternion.Euler(
           transform.eulerAngles.x, transform.eulerAngles.y + lookHorizontal,
           transform.eulerAngles.z);
     } else {
@@ -303,15 +333,15 @@ class PlayerController : NetworkBehaviour {
             Mathf.LerpAngle(rbody.transform.eulerAngles.y, moveAngle, 0.07f),
             0f);
 
-        rbody.transform.rotation = Quaternion.identity;
-        transform.rotation = rotation;
+        transform.rotation = Quaternion.identity;
+        rbody.transform.rotation = rotation;
       }
     }
 
     // Camera
     if (CameraObjectAvoidance) {
       RaycastHit hit;
-      Physics.Linecast(transform.position + Vector3.up * 2f,
+      Physics.Linecast(rbody.transform.position + Vector3.up * 2f,
                        Camera.transform.position, out hit,
                        ~LayerMask.GetMask("Enemy"));
       if (hit.transform != Camera.transform && hit.transform != transform &&
@@ -325,7 +355,7 @@ class PlayerController : NetworkBehaviour {
       }
     }
     Vector3 newCameraPos =
-        transform.position + Vector3.up * 2f +
+        rbody.transform.position + Vector3.up * 2f +
         Vector3.ClampMagnitude(
             (Vector3.left *
                  (Mathf.Sin(Camera.transform.eulerAngles.y / 180f * Mathf.PI) -
@@ -469,5 +499,6 @@ class PlayerController : NetworkBehaviour {
         Destroy(player.gameObject);
     }
   }
-  void OnDestroy() { DestroyImmediate(Camera, true); }
+  // void OnDestroy() { DestroyImmediate(Camera, true); }
+  void onDestroy() { GameData.showCursor = true; }
 }
