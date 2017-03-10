@@ -73,6 +73,8 @@ class PlayerController : NetworkBehaviour {
  public
  float GameTime = 10f;
  public
+  float sendFreqency = 0.1f;
+ public
   GameObject Ragdoll;
 
  private
@@ -114,6 +116,8 @@ class PlayerController : NetworkBehaviour {
  private
   float lastFootstepTime = 0.0f;
  private
+  float lastSendTime = 0.0f;
+ private
   float deathTime = 0.0f;
  private
   Transform lastFloorTransform;
@@ -121,6 +125,8 @@ class PlayerController : NetworkBehaviour {
   Vector3 lastFloorTransformPosition;
 
   [SyncVar] public string username = "Username";
+  [SyncVar] private Vector3 rbodyPosition, rbodyVelocity, transformPosition;
+  [SyncVar] private Quaternion rbodyRotation, transformRotation;
 
  public
   override void OnStartLocalPlayer() {
@@ -129,7 +135,6 @@ class PlayerController : NetworkBehaviour {
     foreach (AudioClip step in sounds.FootSteps) {
       if (step != null) step.LoadAudioData();
     }
-    GameData.showCursor = false;
     UnDead();
 
     anim = GetComponent<Animator>();
@@ -143,26 +148,47 @@ class PlayerController : NetworkBehaviour {
 
     GetComponent<MeshRenderer>().material.color = Color.blue;
 
+    Debug.Log("Send Freqency: " + sendFreqency);
     CmdChangeName(GameData.username);
+    CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
+                           transform.position, transform.rotation);
 
     levelStartTime = Time.time;
     lastGroundedTime = Time.time;
     lastSprintTime = Time.time;
     lastJumpSoundTimejump = Time.time;
     lastFootstepTime = Time.time;
+    lastSendTime = Time.realtimeSinceStartup;
+
   }
 
   [Command] public void CmdChangeName(string name) { username = name; }
+  [Command] public void CmdUpdatePlayer(Vector3 rposition, Vector3 rvelocity,
+                                        Quaternion rrotation, Vector3 tposition,
+                                        Quaternion trotation) {
+    rbodyPosition = rposition;
+    rbodyVelocity = rvelocity;
+    rbodyRotation = rrotation;
+    transformPosition = tposition;
+    transformRotation = trotation;
+  }
 
   void Update() {
+    rbody = GetComponent<Rigidbody>();
     nameplate = GetComponentInChildren<TextMesh>();
     if (username != "Username") {
       nameplate.text = username;
     } else {
       nameplate.text = "Player " + netId;
     }
-
-    if (!isLocalPlayer) return;
+    if (!isLocalPlayer) {
+      rbody.position = rbodyPosition;
+      rbody.velocity = rbodyVelocity;
+      rbody.rotation = rbodyRotation;
+      transform.position = transformPosition;
+      transform.rotation = transformRotation;
+      return;
+    }
 
     if (isDead && Time.realtimeSinceStartup - deathTime >= 5f) {
       if (GameData.health > 0)
@@ -434,6 +460,14 @@ class PlayerController : NetworkBehaviour {
     }
 
     if (isGrounded) lastGroundedTime = Time.time;
+    if (Time.realtimeSinceStartup - lastSendTime > sendFreqency) {
+      lastSendTime = Time.realtimeSinceStartup;
+      CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
+                      transform.position, transform.rotation);
+    }
+  }
+
+  void FixedUpdate() {
   }
 
   void Dead() {
