@@ -1942,8 +1942,7 @@ public class TerrainGenerator : MonoBehaviour {
     times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
-  // Give array index from coordinates. Using StringBuilder because it is
-  // faster.
+  // Give array index from coordinates. Using StringBuilder because it is faster.
   System.Text.StringBuilder GetTerrainNameHolder =
       new System.Text.StringBuilder((int)("Terrain(0000,0000)".Length));
   int GetTerrainWithCoord(int x, int z) {
