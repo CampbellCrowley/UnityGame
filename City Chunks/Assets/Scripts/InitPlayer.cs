@@ -3,8 +3,8 @@ using System.Collections;
 
 public
 class InitPlayer : MonoBehaviour {
-  [SerializeField] public float spawnHeight =
-      2;  // Height off the ground to spawn
+  // Height off the ground to spawn
+  [SerializeField] public float spawnHeight = 2;
  private
   bool spawned = false;
  public

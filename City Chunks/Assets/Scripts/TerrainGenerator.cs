@@ -15,9 +15,9 @@
 // #define DEBUG_POSITION
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
-#define DEBUG_HUD_POS
-#define DEBUG_HUD_TIMES
-#define DEBUG_HUD_LOADED
+// #define DEBUG_HUD_POS
+// #define DEBUG_HUD_TIMES
+// #define DEBUG_HUD_LOADED
 #pragma warning disable 0168
 
 using UnityEngine;
@@ -380,10 +380,12 @@ public class TerrainGenerator : MonoBehaviour {
         if (positionInfo != null) positionInfo.text = "";
 #endif
         if (player.transform.position.y < TerrainHeight - 10.0f) {
+#if DEBUG_POSITION
           Debug.Log("Player at " + player.transform.position + "\nCoord: (" +
                     (int)(xCenter) + ", " + (int)(yCenter) + ")" + "\nPlayer(" +
                     player.transform.position + ")" + "\nTerrain Height: " +
                     TerrainHeight + "\n\n");
+#endif
           (player.GetComponent<InitPlayer>())
               .updatePosition(player.transform.position.x, TerrainHeight,
                               player.transform.position.z);
@@ -641,7 +643,8 @@ public class TerrainGenerator : MonoBehaviour {
         FractalNewTerrains(x, z);
         done = true;
       }
-    } else if (pointIndex > 0 && terrains[pointIndex].isDividing) {
+    } else if (pointIndex > 0 && pointIndex < terrains.Count &&
+               terrains[pointIndex].isDividing) {
       if (!done) {
         FractalNewTerrains(x, z);
         done = true;
@@ -1176,9 +1179,9 @@ public class TerrainGenerator : MonoBehaviour {
                      float dheight, float c1, float c2, float c3, float c4) {
     divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
-      Debug.Log("Width-Height Mismatch: Expected square grid.\nDX: " + dX +
-                ", DY: " + dY + ", dwidth: " + dwidth + ", dheight: " +
-                dheight);
+      Debug.LogWarning("Width-Height Mismatch: Expected square grid.\nDX: " +
+                       dX + ", DY: " + dY + ", dwidth: " + dwidth +
+                       ", dheight: " + dheight);
       logCount--;
     }
 #if DEBUG_ATTRIBUTES
@@ -1480,9 +1483,9 @@ public class TerrainGenerator : MonoBehaviour {
     int index = GetTerrainWithCoord(chunkX, chunkY);
     divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
-      Debug.Log("Width-Height Mismatch: Expected square grid.\nDX: " + dX +
-                ", DY: " + dY + ", dwidth: " + dwidth + ", dheight: " +
-                dheight);
+      Debug.LogWarning("Width-Height Mismatch: Expected square grid.\nDX: " +
+                       dX + ", DY: " + dY + ", dwidth: " + dwidth +
+                       ", dheight: " + dheight);
       logCount--;
     }
 #if DEBUG_ATTRIBUTES
@@ -1757,15 +1760,13 @@ public class TerrainGenerator : MonoBehaviour {
       // grids.
       for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
         if (GenMode.slowHeightmap) yield return null;
-          try {
-            index = GetTerrainWithCoord(chunkX, chunkY);
-          } catch (ArgumentOutOfRangeException e) {
-            Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
-                           index + "\n" + e);
-          }
+        index = GetTerrainWithCoord(chunkX, chunkY);
       }
+      // 1/4
       if (index < 0 || index >= terrains.Count) {
-        Debug.LogError("Divide failed to find terrain index!");
+        Debug.LogError(
+            "Divide failed to find terrain index! The terrain may have been " +
+            "unloaded during divide!");
       } else {
         if (useSeed) {
           UnityEngine.Random.InitState(
@@ -1776,15 +1777,13 @@ public class TerrainGenerator : MonoBehaviour {
                       newHeight, c1, Edge1, Middle, Edge4);
         for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
           if (GenMode.slowHeightmap) yield return null;
-          try {
-            index = GetTerrainWithCoord(chunkX, chunkY);
-          } catch (ArgumentOutOfRangeException e) {
-            Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
-                           index + "\n" + e);
-          }
+          index = GetTerrainWithCoord(chunkX, chunkY);
         }
+        // 2/4
         if (index < 0 || index >= terrains.Count) {
-          Debug.LogError("Divide failed to find terrain index!");
+          Debug.LogError(
+              "Divide failed to find terrain index! The terrain may have " +
+              "been unloaded during divide!");
         } else {
           if (useSeed) {
             UnityEngine.Random.InitState(
@@ -1795,15 +1794,13 @@ public class TerrainGenerator : MonoBehaviour {
                         newWidth, newHeight, Edge4, Middle, Edge3, c4);
           for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
             if (GenMode.slowHeightmap) yield return null;
-            try {
-              index = GetTerrainWithCoord(chunkX, chunkY);
-            } catch (ArgumentOutOfRangeException e) {
-              Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
-                             index + "\n" + e);
-            }
+            index = GetTerrainWithCoord(chunkX, chunkY);
           }
+          // 3/4
           if (index < 0 || index >= terrains.Count) {
-            Debug.LogError("Divide failed to find terrain index!");
+            Debug.LogError(
+                "Divide failed to find terrain index! The terrain may have " +
+                "been unloaded during divide!");
           } else {
             if (useSeed) {
               UnityEngine.Random.InitState(
@@ -1816,13 +1813,9 @@ public class TerrainGenerator : MonoBehaviour {
             for (int i = 0; i < 5 && index < 0 || index >= terrains.Count;
                  i++) {
               if (GenMode.slowHeightmap) yield return null;
-              try {
-                index = GetTerrainWithCoord(chunkX, chunkY);
-              } catch (ArgumentOutOfRangeException e) {
-                Debug.LogError("X: " + chunkX + ", Y: " + chunkY + ", Index: " +
-                               index + "\n" + e);
-              }
+              index = GetTerrainWithCoord(chunkX, chunkY);
             }
+            // 4/4
             if (index < 0 || index >= terrains.Count) {
               Debug.LogError("Divide failed to find terrain index!");
             } else {
@@ -1949,7 +1942,8 @@ public class TerrainGenerator : MonoBehaviour {
     times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
-  // Give array index from coordinates.
+  // Give array index from coordinates. Using StringBuilder because it is
+  // faster.
   System.Text.StringBuilder GetTerrainNameHolder =
       new System.Text.StringBuilder((int)("Terrain(0000,0000)".Length));
   int GetTerrainWithCoord(int x, int z) {
