@@ -290,7 +290,8 @@ public class TerrainGenerator : MonoBehaviour {
             + ")");
 #endif
 
-    // Remove all undefined chunks from the array because they have been unloaded.
+    // Remove all undefined chunks from the array because they have been
+    // unloaded.
     for (int i = 0; i < terrains.Count; i++) {
       if (!terrains[i].terrList) {
         terrains.RemoveAt(i);
@@ -900,6 +901,11 @@ public class TerrainGenerator : MonoBehaviour {
     if (GenMode.DisplaceDivide) {
       // Divide chunk into 4 sections and displace the center thus creating 4
       // more sections per section until every pixel is defined.
+      if (useSeed) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(changeX * 3 - 3),
+                                           (short)(changeZ * 3 - 3))));
+      }
       PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
       divideAmount = 0;
       if (terrIndex == -1) {
