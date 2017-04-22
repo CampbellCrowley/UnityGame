@@ -290,7 +290,8 @@ public class TerrainGenerator : MonoBehaviour {
             + ")");
 #endif
 
-    // Remove all undefined chunks from the array because they have been unloaded.
+    // Remove all undefined chunks from the array because they have been
+    // unloaded.
     for (int i = 0; i < terrains.Count; i++) {
       if (!terrains[i].terrList) {
         terrains.RemoveAt(i);
@@ -300,10 +301,6 @@ public class TerrainGenerator : MonoBehaviour {
 
     float iTime = -1;
     bool done = false;
-#if DEBUG_HUD_LOADED
-    LoadedChunkList =
-        "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
-#endif
 
     // Flag all chunks to be unloaded. If they should not be unloaded, they will
     // be unflagged and stay loaded before any chunks are actually unloaded.
@@ -365,6 +362,10 @@ public class TerrainGenerator : MonoBehaviour {
         float TerrainHeight =
             terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
                 player.transform.position);
+#if DEBUG_HUD_LOADED
+        LoadedChunkList =
+            "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
+#endif
 
 #if DEBUG_HUD_POS
         positionInfo.text =
@@ -424,6 +425,9 @@ public class TerrainGenerator : MonoBehaviour {
         LoadedChunkList += "\n";
 #endif
       }
+#if DEBUG_HUD_LOADED
+      LoadedChunkList += "\nUnloading: ";
+#endif
     }
 
     // Delay applying textures until later if a chunk was loaded this frame to
@@ -542,10 +546,6 @@ public class TerrainGenerator : MonoBehaviour {
       times.lastUpdate = Time.time;
       times.DeltaUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
-
-#if DEBUG_HUD_LOADED
-    LoadedChunkList += "\nUnloading: ";
-#endif
     // Unload all chunks flagged for unloading.
     for (int i = 0; i < terrains.Count; i++) {
       if (terrains[i].terrToUnload) {
@@ -904,6 +904,11 @@ public class TerrainGenerator : MonoBehaviour {
     if (GenMode.DisplaceDivide) {
       // Divide chunk into 4 sections and displace the center thus creating 4
       // more sections per section until every pixel is defined.
+      if (useSeed) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(changeX * 3 - 3),
+                                           (short)(changeZ * 3 - 3))));
+      }
       PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
       divideAmount = 0;
       if (terrIndex == -1) {
@@ -996,74 +1001,69 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
 
     // Flip points across the line y=x because Unity is dumb and likes
-    // heightmaps
-    // given as (z,x).
-    // This doesn't flip points anymore since this was moved to where the
-    // heightmap
-    // is being applied since this is easier for matching edges. This does,
-    // however,
-    // still check every point and find and fix any undefined points.
+    // heightmaps given as (z,x). This doesn't flip points anymore since this
+    // was moved to where the heightmap is being applied since this is easier
+    // for matching edges. This does, however, still check every point and find
+    // and fix any undefined points.
     float[, ] flippedPoints = points;
-    logCount = 10;
-    for (int r = 0; r < iWidth; r++) {
-      for (int c = 0; c < iHeight; c++) {
-        // flippedPoints[ c, r ] = points[ r, c ];
+    if (GenMode.DisplaceDivide) {
+      for (int r = 0; r < iWidth; r++) {
+        for (int c = 0; c < iHeight; c++) {
+          // flippedPoints[ c, r ] = points[ r, c ];
 
-        // If point is undefined, average surrounding points or
-        // just choose a random location. Should only happen if something is
-        // broken.
-        if (flippedPoints[ c, r ] <= 0) {
-          float p1 = EmptyPoint, p2 = EmptyPoint, p3 = EmptyPoint,
-                p4 = EmptyPoint;
-          if (c > 0) p1 = flippedPoints[ c - 1, r ];
-          if (p1 <= 0) p1 = EmptyPoint;
-          if (r > 0) p2 = flippedPoints[ c, r - 1 ];
-          if (p2 <= 0) p2 = EmptyPoint;
-          if (c < iHeight - 1) p3 = flippedPoints[ c + 1, r ];
-          if (p3 <= 0) p3 = EmptyPoint;
-          if (r < iWidth - 1) p4 = flippedPoints[ c, r + 1 ];
-          if (p4 <= 0) p4 = EmptyPoint;
-          if (p1 == EmptyPoint || p2 == EmptyPoint || p3 == EmptyPoint ||
-              p4 == EmptyPoint) {
-            // Warn if a point was undefined. This was happening a lot so I
-            // commented this out to disable it temporarily since everything
-            // still seems to be working even though not everything is being
-            // defined...
+          // If point is undefined, average surrounding points or
+          // just choose a random location. Should only happen if something is
+          // broken.
+          if (flippedPoints[ c, r ] <= 0) {
+            float p1 = EmptyPoint, p2 = EmptyPoint, p3 = EmptyPoint,
+                  p4 = EmptyPoint;
+            if (c > 0) p1 = flippedPoints[ c - 1, r ];
+            if (p1 <= 0) p1 = EmptyPoint;
+            if (r > 0) p2 = flippedPoints[ c, r - 1 ];
+            if (p2 <= 0) p2 = EmptyPoint;
+            if (c < iHeight - 1) p3 = flippedPoints[ c + 1, r ];
+            if (p3 <= 0) p3 = EmptyPoint;
+            if (r < iWidth - 1) p4 = flippedPoints[ c, r + 1 ];
+            if (p4 <= 0) p4 = EmptyPoint;
+            if (p1 == EmptyPoint || p2 == EmptyPoint || p3 == EmptyPoint ||
+                p4 == EmptyPoint) {
+              // Warn if a point was undefined. This was happening a lot so I
+              // commented this out to disable it temporarily since everything
+              // still seems to be working even though not everything is being
+              // defined...
 
-            /* Debug.LogWarning("Flipping points found undefined point. (" +
-                             changeX + ", " + changeZ + "),(" + c + ", " + r +
-                             ")");*/
-          }
-          float p = AverageCorners(p1, p2, p3, p4);
-          if (p == EmptyPoint) {
-            p = Displace(iWidth + iHeight);
-            // This is really bad. If a point is undefined and surrounded by
-            // undefined points then the terrain may appear broken. This also
-            // means that there is something very wrong with the generator.
-            if (logCount >= 0) {
+              /* Debug.LogWarning("Flipping points found undefined point. (" +
+                               changeX + ", " + changeZ + "),(" + c + ", " + r +
+                               ")");*/
+            }
+            float p = AverageCorners(p1, p2, p3, p4);
+            if (p == EmptyPoint) {
+              p = Displace(iWidth + iHeight);
+              // This is really bad. If a point is undefined and surrounded by
+              // undefined points then the terrain may appear broken. This also
+              // means that there is something very wrong with the generator.
               Debug.LogWarning("Flipping points found undefined area! (" + c +
                                ", " + r + ")");
+            } else {
+              Displace(0);
             }
-            logCount--;
+            flippedPoints[ c, r ] = p;
           } else {
             Displace(0);
           }
-          flippedPoints[ c, r ] = p;
-        } else {
-          Displace(0);
+        }
+        if (logCount < 0) {
+          Debug.LogWarning(logCount * -1 + " additional suppressed warnings.");
         }
       }
-      if(logCount<0) {
-        Debug.LogWarning(logCount*-1 + " additional suppressed warnings.");
+      // Smooth the edge of chunks where they meet in order to hide seams
+      // better.
+      // SmoothEdges(iWidth, iHeight, ref flippedPoints);
+
+      // Double check that all the edges match up.
+      if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints)) {
+        Debug.LogError("This shouldn't happen... (You broke something)");
       }
-    }
-
-    // Smooth the edge of chunks where they meet in order to hide seams better.
-    // SmoothEdges(iWidth, iHeight, ref flippedPoints);
-
-    // Double check that all the edges match up.
-    if(!MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints)) {
-      Debug.LogError("This shouldn't happen... (You broke something)");
     }
 
     times.DeltaGenerateHeightmap = (Time.realtimeSinceStartup - iTime) * 1000;
