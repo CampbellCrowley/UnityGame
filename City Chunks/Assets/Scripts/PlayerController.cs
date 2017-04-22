@@ -176,6 +176,8 @@ class PlayerController : NetworkBehaviour {
   void Update() {
     rbody = GetComponent<Rigidbody>();
     nameplate = GetComponentInChildren<TextMesh>();
+    nameplate.transform.LookAt(Camera.transform.position);
+    nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
     if (username != "Username") {
       nameplate.text = username;
     } else {
