@@ -107,6 +107,17 @@ public class Terrains {
   [Tooltip("True if the chunk can be unloaded.")]
   public bool terrToUnload = false;
 }
+[Serializable] public class Textures {
+  public int Length = 4;
+  [Tooltip("Common/Backup Texture.")]
+  public Texture2D Grass;
+  [Tooltip("For beaches.")]
+  public Texture2D Sand;
+  [Tooltip("For steep slopes")]
+  public Texture2D Rock;
+  [Tooltip("For high altitudes")]
+  public Texture2D Snow;
+}
 public class TerrainGenerator : MonoBehaviour {
   public static float EmptyPoint = -100f;
 
@@ -145,12 +156,13 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public float PerlinHeight = 0.8f;
   [Tooltip("Vertical shift of values pre-rectification.")]
   [SerializeField] public float yShift = 0.0f;
-  // Number of terrain chunks to generate initially before the player spawns
+  // Number of terrain chunks to generate initially in each direction before the
+  // player spawns.
   private int maxX = 1;
   private int maxZ = 1;
   [Header("Visuals")]
   [Tooltip("Array of textures to apply to the terrain.")]
-  [SerializeField] public Texture2D[] TerrainTextures;
+  [SerializeField] public Textures TerrainTextures;
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
   int heightmapWidth;  // The size of an individual heightmap of each chunk.
@@ -317,8 +329,7 @@ public class TerrainGenerator : MonoBehaviour {
     float playerX = maxX * terrains[0].terrData.size.x / 2f;
     float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
     // Get the player spawn height from the heightmap height at the
-    // coordinates
-    // where the player will spawn.
+    // coordinates where the player will spawn.
     float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
                         .terrList.GetComponent<Terrain>()
                         .SampleHeight(new Vector3(playerX, 0, playerZ));
@@ -558,6 +569,8 @@ public class TerrainGenerator : MonoBehaviour {
 
 #if DEBUG_HUD_LOADED
     chunkListInfo.text = LoadedChunkList;
+#else
+    if (chunkListInfo != null) chunkListInfo.text = "";
 #endif
 
     // Figure out timings and averages.
@@ -594,6 +607,7 @@ public class TerrainGenerator : MonoBehaviour {
         "Update Neighbors(" + times.DeltaUpdate + "ms)";
 #else
     if (times.deltaTimes != null) times.deltaTimes.text = "";
+    if (times.deltaNextUpdate != null) times.deltaNextUpdate.text = "";
 #endif
   }
 
@@ -1930,14 +1944,30 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   // Create and apply a texture to a chunk.
-  void UpdateTexture(TerrainData terrainData, int num = 0) {
+  void UpdateTexture(TerrainData terrainData) {
     float iTime = Time.realtimeSinceStartup;
     SplatPrototype[] tex = new SplatPrototype[TerrainTextures.Length];
+
     for (int i = 0; i < TerrainTextures.Length; i++) {
       tex[i] = new SplatPrototype();
-      tex[i].texture = TerrainTextures[i];  // Sets the texture
+    }
+
+    if (TerrainTextures.Grass != null) tex[0].texture = TerrainTextures.Grass;
+    else {
+      Debug.LogError("Grass Texture must be defined within script!");
+      return;
+    }
+    if (TerrainTextures.Sand != null) tex[1].texture = TerrainTextures.Sand;
+    else tex[1].texture = tex[0].texture;
+    if (TerrainTextures.Rock != null) tex[2].texture = TerrainTextures.Rock;
+    else tex[2].texture = tex[0].texture;
+    if (TerrainTextures.Snow != null) tex[3].texture = TerrainTextures.Snow;
+    else tex[3].texture = tex[0].texture;
+
+    for (int i = 0; i < TerrainTextures.Length; i++) {
       tex[i].tileSize = new Vector2(1, 1);  // Sets the size of the texture
     }
+
     terrainData.splatPrototypes = tex;
     times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
