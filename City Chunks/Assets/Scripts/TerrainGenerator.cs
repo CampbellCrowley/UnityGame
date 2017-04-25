@@ -96,6 +96,8 @@ public class Terrains {
   public float[, ] terrPoints;
   [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the Perlin generator.")]
   public float[, ] terrPerlinPoints;
+  [Tooltip("The water GameObject attatched to this chunk.")]
+  public GameObject waterTile;
   [Tooltip("Whether this terrain chunk is ready for its textures to be updated.")]
   public bool texQueue = false;
   [Tooltip("Whether this terrain chunk is ready to be updated with points in terrPoints. True if points need to be flushed to terrainData.")]
@@ -313,6 +315,10 @@ public class TerrainGenerator : MonoBehaviour {
 
     float iTime = -1;
     bool done = false;
+#if DEBUG_HUD_LOADED
+    LoadedChunkList =
+        "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
+#endif
 
     // Flag all chunks to be unloaded. If they should not be unloaded, they will
     // be unflagged and stay loaded before any chunks are actually unloaded.
@@ -542,7 +548,8 @@ public class TerrainGenerator : MonoBehaviour {
     }
 
     // Update terrain neighbors every times.UpdateSpeed seconds.
-    // TODO: Is this even necessary? I don't really know what this does.
+    // TODO: Is this even necessary? I don't really know what updating neighbors
+    // does.
     if (Time.time > times.lastUpdate + times.UpdateSpeed) {
       float iTime2 = Time.realtimeSinceStartup;
       UpdateTerrainNeighbors(
@@ -557,6 +564,10 @@ public class TerrainGenerator : MonoBehaviour {
       times.lastUpdate = Time.time;
       times.DeltaUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
+
+#if DEBUG_HUD_LOADED
+    LoadedChunkList += "\nUnloading: ";
+#endif
     // Unload all chunks flagged for unloading.
     for (int i = 0; i < terrains.Count; i++) {
       if (terrains[i].terrToUnload) {
@@ -734,11 +745,12 @@ public class TerrainGenerator : MonoBehaviour {
                                   .terrList.GetComponent<Terrain>()
                                   .transform.position;
         Vector3 waterVector3 = terrVector3;
-        waterVector3.y += 150;
+        waterVector3.y += 300;
         waterVector3.x += terrWidth / 2;
         waterVector3.z += terrLength / 2;
-        Instantiate(waterTile, waterVector3, Quaternion.identity,
-                    terrains[terrains.Count - 1].terrList.transform);
+        terrains[terrains.Count - 1].waterTile =
+            Instantiate(waterTile, waterVector3, Quaternion.identity,
+                        terrains[terrains.Count - 1].terrList.transform);
       }
       times.DeltaGenerateWater = (Time.realtimeSinceStartup - iTime2) * 1000;
 
@@ -822,8 +834,9 @@ public class TerrainGenerator : MonoBehaviour {
     UnloadTerrainChunk(GetTerrainWithCoord(X, Z));
   }
   void UnloadTerrainChunk(int loc) {
-    if (loc == 0) return;
+    if (loc == 0) return; // Spawn chunk may not be unloaded.
     Destroy(terrains[loc].terrList);
+    Destroy(terrains[loc].waterTile);
     terrains.RemoveAt(loc);
     if (GetTerrainWithData(lastTerrUpdated) == loc) {
       lastTerrUpdateLoc = -1;
@@ -1020,6 +1033,7 @@ public class TerrainGenerator : MonoBehaviour {
     // for matching edges. This does, however, still check every point and find
     // and fix any undefined points.
     float[, ] flippedPoints = points;
+    logCount = 10;
     if (GenMode.DisplaceDivide) {
       for (int r = 0; r < iWidth; r++) {
         for (int c = 0; c < iHeight; c++) {
@@ -1056,8 +1070,11 @@ public class TerrainGenerator : MonoBehaviour {
               // This is really bad. If a point is undefined and surrounded by
               // undefined points then the terrain may appear broken. This also
               // means that there is something very wrong with the generator.
-              Debug.LogWarning("Flipping points found undefined area! (" + c +
-                               ", " + r + ")");
+              if (logCount >= 0) {
+                Debug.LogWarning("Flipping points found undefined area! (" + c +
+                                 ", " + r + ")");
+              }
+              logCount--;
             } else {
               Displace(0);
             }
@@ -1067,7 +1084,7 @@ public class TerrainGenerator : MonoBehaviour {
           }
         }
         if (logCount < 0) {
-          Debug.LogWarning(logCount * -1 + " additional suppressed warnings.");
+          Debug.LogWarning(-logCount + " additional suppressed warnings.");
         }
       }
       // Smooth the edge of chunks where they meet in order to hide seams
@@ -1972,7 +1989,8 @@ public class TerrainGenerator : MonoBehaviour {
     times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
-  // Give array index from coordinates. Using StringBuilder because it is faster.
+  // Give array index from coordinates. Using StringBuilder because it is
+  // faster.
   System.Text.StringBuilder GetTerrainNameHolder =
       new System.Text.StringBuilder((int)("Terrain(0000,0000)".Length));
   int GetTerrainWithCoord(int x, int z) {
@@ -2137,8 +2155,11 @@ public class TerrainGenerator : MonoBehaviour {
   }
   // Returns the height of the terrain at the player's current location in
   // global units.
+  public float GetTerrainHeight() {
+    return GetTerrainHeight(player);
+  }
  public
-  float GetTerrainHeight() {
+  float GetTerrainHeight(GameObject player) {
     int xCenter = Mathf.RoundToInt(
         (player.transform.position.x - terrWidth / 2) / terrWidth);
     int yCenter = Mathf.RoundToInt(
@@ -2152,13 +2173,18 @@ public class TerrainGenerator : MonoBehaviour {
     }
     return 0;
   }
+  public void movePlayerToTop() {
+    movePlayerToTop(player.GetComponent<InitPlayer>());
+  }
+  public void movePlayerToTop(GameObject player) {
+    movePlayerToTop(player.GetComponent<InitPlayer>());
+  }
  public
-  void movePlayerToTop() {
+  void movePlayerToTop(InitPlayer player) {
     // Make sure the player stays above the terrain
     if (player != null) {
-      (player.GetComponent<InitPlayer>())
-          .updatePosition(player.transform.position.x, GetTerrainHeight(),
-                          player.transform.position.z);
+      player.updatePosition(player.transform.position.x, GetTerrainHeight(),
+                            player.transform.position.z);
     }
   }
 }
