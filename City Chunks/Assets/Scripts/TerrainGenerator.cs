@@ -15,6 +15,7 @@
 // #define DEBUG_POSITION
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
+// #define DEBUG_WATER
 // #define DEBUG_HUD_POS
 // #define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
@@ -80,6 +81,7 @@ public class MultiDimDictList<K, T> : Dictionary<K, List<T>> { }
   public float DeltaUpdate = 0;
   [Tooltip("Previous amount of time it took for all steps to occur during one frame if something significant happened, otherwise it does not change until a significant event occurs.")]
   public float DeltaTotal = 0;
+  public float DeltaTotalMax = 0;
   [Tooltip("Previous 1000 values of DeltaTotal for use in calculating the average total amount of time this script takes during a frame while doing everything.")]
   public float[] DeltaTotalAverageArray = new float[1000];
   [Tooltip("Average total amount of time this script takes in one frame while doing everything necessary.")]
@@ -108,6 +110,8 @@ public class Terrains {
   public bool terrReady = false;
   [Tooltip("True if the chunk can be unloaded.")]
   public bool terrToUnload = false;
+  [Tooltip("True if water has not been generated yet.")]
+  public bool waterQueue = true;
 }
 [Serializable] public class Textures {
   public int Length = 4;
@@ -128,6 +132,7 @@ public class TerrainGenerator : MonoBehaviour {
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
   [SerializeField] public GameObject waterTile;
+  [SerializeField] public float waterHeight = 300f;
   // Player for deciding when to load chunks based on position.
   GameObject player;
   InitPlayer[] players;
@@ -167,6 +172,7 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public Textures TerrainTextures;
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
+  int terrHeight; // Maximum height of the terrain chunk in normal units.
   int heightmapWidth;  // The size of an individual heightmap of each chunk.
   int heightmapHeight;
   // Used to identify the corners of the loaded terrain when not generating in a
@@ -203,6 +209,9 @@ public class TerrainGenerator : MonoBehaviour {
 
   void Start() {
     Debug.Log("Terrain Generator Start!");
+
+    if (waterTile != null) waterHeight = waterTile.transform.position.y;
+
     // Fill array with -1 so we know there is no data yet.
     for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
       times.DeltaTotalAverageArray[i] = -1;
@@ -225,6 +234,7 @@ public class TerrainGenerator : MonoBehaviour {
     // Initialize variables based off of values defining the terrain and add
     // the spawn chunk to arrays for later reference.
     GenerateTerrainChunk(0, 0);
+    GenerateWaterChunk(0, 0);
     Debug.Log("Creating spawn chunk fractal");
     // Generate height map. Disable slowing the generation because we want
     // everything do be done in this frame, but then return the feature to its
@@ -243,6 +253,7 @@ public class TerrainGenerator : MonoBehaviour {
         if (x == 0 && z == 0) continue;
         Debug.Log("Repeating for chunk (" + x + ", " + z + ")");
         GenerateTerrainChunk(x, z);
+        GenerateWaterChunk(x, z);
         FractalNewTerrains(x, z);
         int terrID = GetTerrainWithCoord(x, z);
         terrains[terrID].terrData.SetHeights(0, 0, MixHeights(terrID));
@@ -315,10 +326,6 @@ public class TerrainGenerator : MonoBehaviour {
 
     float iTime = -1;
     bool done = false;
-#if DEBUG_HUD_LOADED
-    LoadedChunkList =
-        "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
-#endif
 
     // Flag all chunks to be unloaded. If they should not be unloaded, they will
     // be unflagged and stay loaded before any chunks are actually unloaded.
@@ -368,13 +375,12 @@ public class TerrainGenerator : MonoBehaviour {
     for (int num = 0; num < players.Length; num++) {
       player = players[num].gameObject;
       // Make sure the player stays above the terrain
-      int xCenter = Mathf.RoundToInt(
-          (player.transform.position.x - terrWidth / 2) / terrWidth);
-      int yCenter = Mathf.RoundToInt(
-          (player.transform.position.z - terrLength / 2) / terrLength);
-      int radius =
-          Mathf.RoundToInt(loadDist / ((terrWidth + terrLength) / 2.0f));
-      int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
+      float xCenter = (player.transform.position.x - terrWidth / 2) / terrWidth;
+      float yCenter =
+          (player.transform.position.z - terrLength / 2) / terrLength;
+      float radius = loadDist / ((terrWidth + terrLength) / 2.0f);
+      int terrLoc = GetTerrainWithCoord(Mathf.RoundToInt(xCenter),
+                                        Mathf.RoundToInt(yCenter));
       if (terrLoc != -1) {
         float TerrainHeight =
             terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
@@ -389,8 +395,8 @@ public class TerrainGenerator : MonoBehaviour {
             "Joystick(" + Input.GetAxis("Mouse X") + ", " +
             Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") +
             ", " + Input.GetAxis("Vertical") + "\n" + "Player" +
-            player.transform.position + "\n" + "Coord(" + (int)(xCenter) +
-            ", " + (int)(yCenter) + ")(" + terrLoc + ")\n" + "TerrainHeight: " +
+            player.transform.position + "\n" + "Coord(" + xCenter + ", " +
+            yCenter + ")(" + terrLoc + ")\n" + "TerrainHeight: " +
             TerrainHeight + "\nHighest Point: " + highest + "\nLowest Point: " +
             lowest;
 #else
@@ -399,7 +405,7 @@ public class TerrainGenerator : MonoBehaviour {
         if (player.transform.position.y < TerrainHeight - 10.0f) {
 #if DEBUG_POSITION
           Debug.Log("Player at " + player.transform.position + "\nCoord: (" +
-                    (int)(xCenter) + ", " + (int)(yCenter) + ")" + "\nPlayer(" +
+                    xCenter + ", " + yCenter + ")" + "\nPlayer(" +
                     player.transform.position + ")" + "\nTerrain Height: " +
                     TerrainHeight + "\n\n");
 #endif
@@ -411,28 +417,22 @@ public class TerrainGenerator : MonoBehaviour {
 
       // Load chunks within radius, but only one per frame to help with
       // performance.
-      for (int x = xCenter; x > xCenter - radius; x--) {
-        for (int y = yCenter; y > yCenter - radius; y--) {
-          int xSym = xCenter - (x - xCenter);
-          int ySym = yCenter - (y - yCenter);
+      for (float X = xCenter + radius; X > xCenter - radius; X--) {
+        for (float Y = yCenter + radius; Y > yCenter - radius; Y--) {
+          int x = Mathf.RoundToInt(X);
+          int y = Mathf.RoundToInt(Y);
           // don't have to take the square root, it's slow
           if ((x - xCenter) * (x - xCenter) + (y - yCenter) * (y - yCenter) <=
               radius * radius) {
             // If the chunk has not been loaded yet, create it. Otherwise, make
             // sure the chunk doesn't get unloaded.
+            bool wasdone = done;
+            iTime = Time.realtimeSinceStartup;
             BeginChunkLoading(x, y, ref done);
-            if (y != ySym && x != xSym) {
-              BeginChunkLoading(xSym, ySym, ref done);
-            }
-            if (x != xSym) {
-              BeginChunkLoading(xSym, y, ref done);
-            }
-            if (y != ySym) {
-              BeginChunkLoading(x, ySym, ref done);
-            }
-            // (x, y), (x, ySym), (xSym , y), (xSym, ySym) are in the circle
+            if (!wasdone && !done) iTime = -1;
+            GenerateWaterChunk(x, y);
           } else {
-#if DEBUG_HUD_LOADED
+#if DEBUG_HUD_LOADED && false
             LoadedChunkList +=
                 "-(" + Mathf.RoundToInt(x) + ", " + Mathf.RoundToInt(y) + ")\n";
 #endif
@@ -453,6 +453,7 @@ public class TerrainGenerator : MonoBehaviour {
     if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].texQueue) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
           UpdateTexture(terrains[i].terrData);
           terrains[i].texQueue = false;
           textureUpdated = true;
@@ -480,6 +481,7 @@ public class TerrainGenerator : MonoBehaviour {
       }
       // Apply heightmap to chunk GenMode.HeightmapSpeed points at a time.
       if (tileCnt > 0 && terrains[tileCnt].terrQueue) {
+        if (iTime == -1) iTime = Time.realtimeSinceStartup;
         int lastTerrUpdateLoc_ = lastTerrUpdateLoc;
         for (int i = lastTerrUpdateLoc_;
              i < lastTerrUpdateLoc_ + GenMode.HeightmapSpeed; i++) {
@@ -595,6 +597,9 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
         if (times.DeltaTotalAverageArray[i] != -1) {
           times.DeltaTotalAverage += times.DeltaTotalAverageArray[i];
+          if (times.DeltaTotalMax < times.DeltaTotalAverageArray[i]) {
+            times.DeltaTotalMax = times.DeltaTotalAverageArray[i];
+          }
           DeltaNum++;
         }
       }
@@ -614,7 +619,8 @@ public class TerrainGenerator : MonoBehaviour {
           "Once(" + times.DeltaDivide / divideAmount + "ms)*" +
           "(" + divideAmount + " points),\n" +
         "Last Total(" + times.DeltaTotal + "ms) -- " +
-          "Avg: " + times.DeltaTotalAverage + ",\n" +
+          "Avg: " + times.DeltaTotalAverage + "ms -- " +
+          "Max: " + times.DeltaTotalMax + "ms,\n" +
         "Update Neighbors(" + times.DeltaUpdate + "ms)";
 #else
     if (times.deltaTimes != null) times.deltaTimes.text = "";
@@ -697,9 +703,15 @@ public class TerrainGenerator : MonoBehaviour {
     if (cntZ == 0 && cntX == 0) {
       terrWidth = (int)this.GetComponent<Terrain>().terrainData.size.x;
       terrLength = (int)this.GetComponent<Terrain>().terrainData.size.z;
+      terrHeight = (int)this.GetComponent<Terrain>().terrainData.size.y;
       heightmapWidth = this.GetComponent<Terrain>().terrainData.heightmapWidth;
       heightmapHeight =
           this.GetComponent<Terrain>().terrainData.heightmapHeight;
+
+      Debug.Log("terrWidth: " + terrWidth + ", terrLength: " + terrLength +
+                ", terrHeight: " + terrHeight + ", waterHeight: " +
+                waterHeight + "\nheightmapWidth: " + heightmapWidth +
+                ", heightmapHeight: " + heightmapHeight);
 
       // Adjust heightmap by it's resolution so it appears the same no matter
       // how high resolution it is.
@@ -735,24 +747,9 @@ public class TerrainGenerator : MonoBehaviour {
           "Terrain(" + cntX + "," + cntZ + ")";
       terrains[terrains.Count - 1].terrList.transform.Translate(
           cntX * terrWidth, 0f, cntZ * terrLength);
+      terrains[terrains.Count - 1].terrList.layer = terrains[0].terrList.layer;
 
       times.DeltaGenerateTerrain = (Time.realtimeSinceStartup - iTime2) * 1000;
-
-      // Add Water
-      iTime2 = Time.realtimeSinceStartup;
-      if (waterTile != null) {
-        Vector3 terrVector3 = terrains[terrains.Count - 1]
-                                  .terrList.GetComponent<Terrain>()
-                                  .transform.position;
-        Vector3 waterVector3 = terrVector3;
-        waterVector3.y += 300;
-        waterVector3.x += terrWidth / 2;
-        waterVector3.z += terrLength / 2;
-        terrains[terrains.Count - 1].waterTile =
-            Instantiate(waterTile, waterVector3, Quaternion.identity,
-                        terrains[terrains.Count - 1].terrList.transform);
-      }
-      times.DeltaGenerateWater = (Time.realtimeSinceStartup - iTime2) * 1000;
 
       terrains[terrains.Count - 1].terrPoints =
           new float[ terrWidth, terrLength ];
@@ -761,6 +758,62 @@ public class TerrainGenerator : MonoBehaviour {
 
     }
     times.DeltaGenerate = (Time.realtimeSinceStartup - iTime) * 1000;
+  }
+
+  void GenerateWaterChunk(int cntX, int cntZ, bool force = false) {
+    // Add Water
+    float iTime = Time.realtimeSinceStartup;
+    float waterHeightRectified = waterHeight / terrHeight;
+    if(cntX == 0 && cntZ == 0) return;
+    int terrID = GetTerrainWithCoord(cntX, cntZ);
+    if (terrID < 0) return;
+    Terrains terrain = terrains[terrID];
+    if (waterTile != null && terrain != null && terrain.terrReady &&
+        terrain.waterQueue) {
+      terrain.waterQueue = false;
+      bool generateWater = force;
+      float[, ] mixedHeights = MixHeights(terrID);
+      int i=0, j=0;
+      if (!force) {
+        for (i = 0; i < heightmapWidth; i += 1) {
+          for (j = 0; j < heightmapWidth; j += 1) {
+            if (mixedHeights[ i, j ] < waterHeightRectified) {
+              generateWater = true;
+              break;
+            }
+          }
+          if (generateWater) break;
+        }
+      }
+      if (!generateWater) {
+        if (terrain.waterTile != null) Destroy(terrain.waterTile);
+        return;
+      } else if (generateWater && terrain.waterTile != null) {
+        return;
+      }
+#if DEBUG_WATER
+      Debug.Log("Generating water tile at (" + cntX + ", " + cntZ +
+                ") (terrHeight: " + terrain.terrPoints[ i, j ] * terrHeight +
+                ", waterTile: " + waterTile.transform.position.y);
+#endif
+      if (!force) {
+        for (i = cntX - 1; i < cntX + 1; i++) {
+          for (j = cntZ - 1; j < cntZ + 1; j++) {
+            GenerateWaterChunk(i, j, true);
+          }
+        }
+      }
+      Vector3 terrVector3 =
+          terrain.terrList.GetComponent<Terrain>().transform.position;
+      Vector3 waterVector3 = terrVector3;
+      waterVector3.y += waterTile.transform.position.y;
+      waterVector3.x += terrWidth / 2;
+      waterVector3.z += terrLength / 2;
+      terrains[terrID].waterTile =
+          Instantiate(waterTile, waterVector3, Quaternion.identity,
+                      terrain.terrList.transform);
+      times.DeltaGenerateWater = (Time.realtimeSinceStartup - iTime) * 1000;
+    }
   }
 
   // Generate a heightmap for a chunk.
@@ -936,8 +989,10 @@ public class TerrainGenerator : MonoBehaviour {
             (int)(Seed + PerfectlyHashThem((short)(changeX * 3 - 3),
                                            (short)(changeZ * 3 - 3))));
       }
-      PeakModifier = UnityEngine.Random.value / 4 + 0.5f;
-      divideAmount = 0;
+      float[, ] modifier = new float[ 2, 2 ];
+      PerlinDivide(ref modifier, changeX, changeZ, 2, 2,
+                   PerlinSeedModifier * 2f, 0.1f);
+      PeakModifier = modifier[ 0, 0 ];
       if (terrIndex == -1) {
         Debug.LogError("Chunk was not generated before fractaling!\nIndex: " +
                        terrIndex + ", Coord(" + changeX + ", " + changeZ + ")");
@@ -959,6 +1014,7 @@ public class TerrainGenerator : MonoBehaviour {
         terrains[terrIndex].terrPoints = points;
         terrains[terrIndex].isDividing = true;
         terrains[terrIndex].terrToUnload = false;
+        divideAmount = 0;
         StartCoroutine(
             DivideNewGrid(changeX, changeZ, 0, 0, iWidth, iHeight,
                           points[ 0, 0 ], points[ 0, (int)iHeight - 1 ],
@@ -1900,16 +1956,20 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
   // Uses perlin noise to define a heightmap.
-  void PerlinDivide(ref float[, ] points, float x, float y, float w, float h) {
-    float xShifted = (x + (Seed * PerlinSeedModifier)) * (w - 1f);
-    float yShifted = (y + (Seed * PerlinSeedModifier)) * (h - 1f);
+  void PerlinDivide(ref float[, ] points, float x, float y, float w, float h,
+                    float PerlinSeedModifier_ = -1,
+                    float PerlinRoughness_ = -1) {
+    if (PerlinSeedModifier_ == -1) PerlinSeedModifier_ = PerlinSeedModifier;
+    if (PerlinRoughness_ == -1) PerlinRoughness_ = PerlinRoughness;
+    float xShifted = (x + (Seed * PerlinSeedModifier_)) * (w - 1f);
+    float yShifted = (y + (Seed * PerlinSeedModifier_)) * (h - 1f);
     for (int r = 0; r < h; r++) {
       for (int c = 0; c < w; c++) {
         if (GenMode.Distort) {
           float noise =
-              Mathf.PerlinNoise(PerlinRoughness * (xShifted + c) / (w - 1f),
-                                PerlinRoughness * (yShifted + r) / (h - 1f));
-          float f1 = Mathf.Log(1 - noise) * -PerlinRoughness * 0.3f;
+              Mathf.PerlinNoise(PerlinRoughness_ * (xShifted + c) / (w - 1f),
+                                PerlinRoughness_ * (yShifted + r) / (h - 1f));
+          float f1 = Mathf.Log(1 - noise) * -PerlinRoughness_ * 0.3f;
           float f2 = -1 / (1 + Mathf.Pow(2.718f, 10 * (noise - 0.90f))) + 1;
           // e approx 2.718
           float blendStart = 0.9f;
@@ -1926,9 +1986,9 @@ public class TerrainGenerator : MonoBehaviour {
           else
             points[ r, c ] = f2 + yShift;
         } else {
-          float noise = Mathf.PerlinNoise(Mathf.Pow(PerlinRoughness, 1.2f) *
+          float noise = Mathf.PerlinNoise(Mathf.Pow(PerlinRoughness_, 1.2f) *
                                               (xShifted + c) / (w - 1.0f),
-                                          Mathf.Pow(PerlinRoughness, 1.2f) *
+                                          Mathf.Pow(PerlinRoughness_, 1.2f) *
                                               (yShifted + r) / (h - 1.0f)) +
                         yShift;
 

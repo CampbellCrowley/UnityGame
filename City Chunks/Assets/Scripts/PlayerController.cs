@@ -145,6 +145,9 @@ class PlayerController : NetworkBehaviour {
     Camera.GetComponent<Camera>().enabled = true;
     Camera.GetComponent<AudioListener>().enabled = true;
     Camera.name = "CameraFor" + netId;
+    foreach (Camera cam in UnityEngine.Camera.allCameras) {
+      cam.layerCullSpherical = true;
+    }
 
     GetComponent<MeshRenderer>().material.color = Color.blue;
 
