@@ -17,7 +17,7 @@
 // #define DEBUG_UPDATES
 // #define DEBUG_WATER
 // #define DEBUG_HUD_POS
-// #define DEBUG_HUD_TIMES
+#define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
 #pragma warning disable 0168
 
@@ -161,6 +161,8 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public float PerlinRoughness = 0.2f;
   [Tooltip("Maximum height of Perlin Generator in percentage.")]
   [SerializeField] public float PerlinHeight = 0.8f;
+  [Tooltip("How quickly biomes/terrain roughness changes.")]
+  [SerializeField] public float BiomeRoughness = 0.1f;
   [Tooltip("Vertical shift of values pre-rectification.")]
   [SerializeField] public float yShift = 0.0f;
   // Number of terrain chunks to generate initially in each direction before the
@@ -195,6 +197,7 @@ public class TerrainGenerator : MonoBehaviour {
   float[, ] TerrUpdatePoints;
   // Array of points to be applied to the chunk.
   float[, ] TerrTemplatePoints;
+  SplatPrototype[] splatPrototypes;
   // Lowest and highest points of loaded terrain.
   float lowest = 1.0f;
   float highest = 0.0f;
@@ -991,7 +994,7 @@ public class TerrainGenerator : MonoBehaviour {
       }
       float[, ] modifier = new float[ 2, 2 ];
       PerlinDivide(ref modifier, changeX, changeZ, 2, 2,
-                   PerlinSeedModifier * 2f, 0.1f);
+                   PerlinSeedModifier * 2f, BiomeRoughness);
       PeakModifier = modifier[ 0, 0 ];
       if (terrIndex == -1) {
         Debug.LogError("Chunk was not generated before fractaling!\nIndex: " +
@@ -2023,29 +2026,54 @@ public class TerrainGenerator : MonoBehaviour {
   // Create and apply a texture to a chunk.
   void UpdateTexture(TerrainData terrainData) {
     float iTime = Time.realtimeSinceStartup;
-    SplatPrototype[] tex = new SplatPrototype[TerrainTextures.Length];
+    if(splatPrototypes == null) {
+      SplatPrototype[] tex = new SplatPrototype[TerrainTextures.Length];
 
-    for (int i = 0; i < TerrainTextures.Length; i++) {
-      tex[i] = new SplatPrototype();
+      for (int i = 0; i < TerrainTextures.Length; i++) {
+        tex[i] = new SplatPrototype();
+      }
+
+      if (TerrainTextures.Grass != null) tex[0].texture = TerrainTextures.Grass;
+      else {
+        Debug.LogError("Grass Texture must be defined within script!");
+        return;
+      }
+      if (TerrainTextures.Sand != null) tex[1].texture = TerrainTextures.Sand;
+      else tex[1].texture = tex[0].texture;
+      if (TerrainTextures.Rock != null) tex[2].texture = TerrainTextures.Rock;
+      else tex[2].texture = tex[0].texture;
+      if (TerrainTextures.Snow != null) tex[3].texture = TerrainTextures.Snow;
+      else tex[3].texture = tex[0].texture;
+
+      for (int i = 0; i < TerrainTextures.Length; i++) {
+        tex[i].tileSize = new Vector2(1, 1);  // Sets the size of the texture
+      }
+
+      splatPrototypes = tex;
+    }
+    terrainData.splatPrototypes = splatPrototypes;
+    float[,,] map  = new float[terrainData.alphamapWidth, terrainData.alphamapHeight, TerrainTextures.Length];
+
+    // For each point on the alphamap...
+    for (var y = 0; y < terrainData.alphamapHeight; y++) {
+      for (var x = 0; x < terrainData.alphamapWidth; x++) {
+        // Get the normalized terrain coordinate that
+        // corresponds to the the point.
+        float normX = x * 1.0f / (terrainData.alphamapWidth - 1);
+        float normY = y * 1.0f / (terrainData.alphamapHeight - 1);
+
+        // Get the steepness value at the normalized coordinate.
+        float angle = terrainData.GetSteepness(normX, normY);
+
+        // Steepness is given as an angle, 0..90 degrees. Divide
+        // by 90 to get an alpha blending value in the range 0..1.
+        float frac = angle / 45.0f;
+        map[x, y, 0] = 1 - frac;
+        map[x, y, 2] = frac;
+      }
     }
 
-    if (TerrainTextures.Grass != null) tex[0].texture = TerrainTextures.Grass;
-    else {
-      Debug.LogError("Grass Texture must be defined within script!");
-      return;
-    }
-    if (TerrainTextures.Sand != null) tex[1].texture = TerrainTextures.Sand;
-    else tex[1].texture = tex[0].texture;
-    if (TerrainTextures.Rock != null) tex[2].texture = TerrainTextures.Rock;
-    else tex[2].texture = tex[0].texture;
-    if (TerrainTextures.Snow != null) tex[3].texture = TerrainTextures.Snow;
-    else tex[3].texture = tex[0].texture;
-
-    for (int i = 0; i < TerrainTextures.Length; i++) {
-      tex[i].tileSize = new Vector2(1, 1);  // Sets the size of the texture
-    }
-
-    terrainData.splatPrototypes = tex;
+    terrainData.SetAlphamaps(0, 0, map);
     times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
