@@ -16,7 +16,7 @@
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
 // #define DEBUG_WATER
-// #define DEBUG_HUD_POS
+#define DEBUG_HUD_POS
 #define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
 #pragma warning disable 0168
@@ -253,7 +253,7 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("Applying spawn chunk height map");
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
     Debug.Log("Texturing spawn chunk");
-    UpdateTexture(terrains[0].terrData);
+    UpdateTexture(ref terrains[0].terrData);
     terrains[0].terrQueue = false;
     terrains[0].texQueue = false;
     terrains[0].terrReady = true;
@@ -268,7 +268,7 @@ public class TerrainGenerator : MonoBehaviour {
 
         int terrID = GetTerrainWithCoord(x, z);
         terrains[terrID].terrData.SetHeights(0, 0, MixHeights(terrID));
-        UpdateTexture(terrains[terrID].terrData);
+        UpdateTexture(ref terrains[terrID].terrData);
 
         terrains[terrID].terrQueue = false;
         terrains[terrID].texQueue = false;
@@ -563,14 +563,14 @@ public class TerrainGenerator : MonoBehaviour {
 
     // Delay applying textures until later if a chunk was loaded this frame to
     // help with performance.
-    bool textureUpdated = false;
+    //bool textureUpdated = false;
     if (!done && !heightmapApplied) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].texQueue) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
-          UpdateTexture(terrains[i].terrData);
+          UpdateTexture(ref terrains[i].terrData);
           terrains[i].texQueue = false;
-          textureUpdated = true;
+          //textureUpdated = true;
           break;
         }
       }
@@ -749,7 +749,7 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[0].terrList = this.gameObject;
       terrains[0].terrPoints = new float[ terrWidth, terrLength ];
       terrains[0].terrPerlinPoints = new float[ terrWidth, terrLength ];
-      UpdateTexture(terrains[0].terrData);
+      UpdateTexture(ref terrains[0].terrData);
       terrains[0].terrList.name = "Terrain(" + cntX + "," + cntZ + ")";
 #if DEBUG_MISC
       Debug.Log("Added Terrain (0,0){" + terrains.Count - 1 + "}");
@@ -900,25 +900,25 @@ public class TerrainGenerator : MonoBehaviour {
           "Terrain Steepness(0,0): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               0, 0) +
-          "\nTerrain Steepness(513,0): " +
+          "\nTerrain Steepness(1,0): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               1, 0) +
-          "\nTerrain Steepness(0,513): " +
+          "\nTerrain Steepness(0,1): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               0, 1) +
-          "\nTerrain Steepness(513,513): " +
+          "\nTerrain Steepness(1,1): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               1, 1) +
           "\nTerrain Height(0,0): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(0,
                                                                           0) +
-          "\nTerrain Height(513,0): " +
+          "\nTerrain Height(1,0): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
                                                                           0) +
-          "\nTerrain Height(0,513): " +
+          "\nTerrain Height(0,1): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(0,
                                                                           1) +
-          "\nTerrain Height(513,513): " +
+          "\nTerrain Height(1,1): " +
           terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
                                                                           1));
 #endif
@@ -2072,7 +2072,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   // Create and apply a texture to a chunk.
-  void UpdateTexture(TerrainData terrainData) {
+  void UpdateTexture(ref TerrainData terrainData) {
     float iTime = Time.realtimeSinceStartup;
     SplatPrototype[] tex = new SplatPrototype[TerrainTextures.Length];
 
@@ -2083,7 +2083,7 @@ public class TerrainGenerator : MonoBehaviour {
     if (TerrainTextures.Grass != null) {
       tex[0].texture = TerrainTextures.Grass;
     } else {
-      Debug.LogError("Grass Texture must be defined within script!");
+      Debug.LogError("Grass Texture must be defined!");
       return;
     }
     if (TerrainTextures.Sand != null) {
@@ -2113,9 +2113,10 @@ public class TerrainGenerator : MonoBehaviour {
     }
 
     for (int i = 0; i < TerrainTextures.Length; i++) {
-      tex[i].tileSize = new Vector2(3, 3);  // Sets the size of the texture
+      tex[i].tileSize = new Vector2(1, 1);  // Sets the size of the texture
     }
 
+    terrainData.splatPrototypes = new SplatPrototype[0];
     terrainData.splatPrototypes = tex;
     terrainData.RefreshPrototypes();
 
@@ -2131,17 +2132,23 @@ public class TerrainGenerator : MonoBehaviour {
         float normY = y * (1.0f / terrWidth);
 
         // Get the steepness value at the normalized coordinate.
-        float angle = terrainData.GetSteepness(normX, normY);
+        //float angle = terrainData.GetSteepness(normX, normY);
+        float angle =
+            terrainData.GetInterpolatedHeight(normX, normY) / terrHeight;
         // float angle = (normX + normY) / 2f;
 
         // Steepness is given as an angle, 0..90 degrees. Divide
         // by 90 to get an alpha blending value in the range 0..1.
-        float frac = angle / 45.0f;
-        // float frac = angle;
+        // float frac = angle / 45.0f;
+        float frac = angle;
         // map[ x, y, 0 ] = 1 - frac;
+        map[ x, y, 0 ] = frac > .5f ? 0f : 2f * (frac - .5f);
+        map[ x, y, 1 ] = 0f;
         // map[ x, y, 2 ] = frac;
-        map[ x, y, 4 ] = 1 - frac;
-        map[ x, y, 5 ] = frac;
+        map[ x, y, 2 ] = 0f;
+        map[ x, y, 3 ] = 0f;
+        map[ x, y, 4 ] = frac < .5f ? 0f : 1f - 2f * frac;
+        map[ x, y, 5 ] = Mathf.Abs(frac - .5f);
       }
     }
 
