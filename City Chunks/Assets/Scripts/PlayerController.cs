@@ -81,7 +81,8 @@ class PlayerController : NetworkBehaviour {
   GameObject Ragdoll;
  public
   bool isDead = false;
-
+ public
+  bool spawned = false;
 
  private
   Rigidbody rbody;
@@ -91,6 +92,12 @@ class PlayerController : NetworkBehaviour {
   TextMesh nameplate;
  private
   Color startColor;
+ private
+  Quaternion startCameraRotation, cameraSpawnRotation;
+ private
+  float spawnCameraDistance = 1500f;
+ private
+  float intendedCameraDistance;
  private
   float turn = 0f;
  private
@@ -106,19 +113,19 @@ class PlayerController : NetworkBehaviour {
  private
   bool isSprinting = false;
  private
-  bool godMode = false;
- private
   bool isUnderwater = false;
  private
+  bool godMode = false;
+ private
   float endTime = 0f;
+ private
+  float staminaRemaining = 1.0f;
  private
   float levelStartTime = 0f;
  private
   float lastGroundedTime = 0f;
  private
   float lastSprintTime = 0f;
- private
-  float staminaRemaining = 1.0f;
  private
   float lastJumpSoundTimejump = 0.0f;
  private
@@ -163,6 +170,8 @@ class PlayerController : NetworkBehaviour {
     foreach (Camera cam in UnityEngine.Camera.allCameras) {
       cam.layerCullSpherical = true;
     }
+    startCameraRotation = Camera.transform.rotation;
+    intendedCameraDistance = MaxCameraDistance;
 
     GetComponent<MeshRenderer>().material.color = Color.blue;
 
@@ -271,15 +280,30 @@ class PlayerController : NetworkBehaviour {
                    "\nMouseY: " + lookVertical + "\nTime: " + Time.time;
     }
 
+    if (!TerrainGenerator.doneLoadingSpawn) {
+      levelStartTime = Time.time;
+      Camera.transform.rotation = Quaternion.Euler(70f, 15f, 0f);
+      cameraSpawnRotation = Camera.transform.rotation;
+    } else {
+      spawned = true;
+    }
     // Prevent movement in first 1.5 seconds of the level or if dead, or if
     // paused.
-    if (Time.time - levelStartTime < 1.5 || isDead || GameData.isPaused) {
+    if (Time.time - levelStartTime < 6.0 || isDead || GameData.isPaused) {
+      Camera.transform.rotation =
+          Quaternion.Lerp(cameraSpawnRotation, startCameraRotation,
+                          (Time.time - levelStartTime) / 6.0f);
+      MaxCameraDistance =
+          Mathf.Lerp(spawnCameraDistance, intendedCameraDistance,
+                     (Time.time - levelStartTime) / 6.0f);
       moveHorizontal = 0;
       moveVertical = 0;
       lookHorizontal = 0;
       lookVertical = 0;
       rbody.velocity = Vector3.up * 0f;
       jump = false;
+    } else {
+      MaxCameraDistance = intendedCameraDistance;
     }
 
     // Stamina
@@ -412,7 +436,7 @@ class PlayerController : NetworkBehaviour {
     }
 
     // Camera
-    if (CameraObjectAvoidance) {
+    if (CameraObjectAvoidance && spawned) {
       RaycastHit hit;
       Physics.Linecast(transform.position + Vector3.up * 2f,
                        Camera.transform.position, out hit,
@@ -427,6 +451,7 @@ class PlayerController : NetworkBehaviour {
         }
       }
     }
+    if(!spawned) CurrentCameraDistance = MaxCameraDistance;
     Vector3 newCameraPos =
         Vector3.up * 2f +
         Vector3.ClampMagnitude(
@@ -452,7 +477,7 @@ class PlayerController : NetworkBehaviour {
     if (isDead) {
       newCameraPos =
           Vector3.Lerp(Camera.transform.position, newCameraPos, 0.05f);
-    } else if (GameData.cameraDamping) {
+    } else if (GameData.cameraDamping && spawned) {
       newCameraPos =
           Vector3.Lerp(Camera.transform.position, newCameraPos, 0.33f);
     }
