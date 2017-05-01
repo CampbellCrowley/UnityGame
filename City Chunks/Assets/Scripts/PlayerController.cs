@@ -200,8 +200,6 @@ class PlayerController : NetworkBehaviour {
     transformRotation = trotation;
   }
 
-  [Command] public void CmdChangeName(string name) { username = name; }
-
   void Update() {
     rbody = GetComponent<Rigidbody>();
     nameplate = GetComponentInChildren<TextMesh>();
