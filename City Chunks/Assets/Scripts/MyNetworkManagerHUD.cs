@@ -51,22 +51,28 @@ class MyNetworkManagerHUD : MonoBehaviour {
 
    if (!NetworkClient.active && !NetworkServer.active &&
        manager.matchMaker == null) {
+     GameData.username = GUI.TextField(
+         new Rect(xposCentered + 25, yposCentered, 200, 30), GameData.username);
+
+     yposCentered += spacing;
+
      if (GUI.Button(new Rect(xposCentered, yposCentered, 250, 30),
                     "Host Game / SinglePlayer(H)")) {
        manager.StartHost();
      }
-     yposCentered += spacing;
 
-     if (GUI.Button(new Rect(xposCentered, yposCentered, 200, 30),
+     yposCentered += spacing * 2;
+
+     manager.networkAddress =
+         GUI.TextField(new Rect(xposCentered + 25, yposCentered, 200, 30),
+                       manager.networkAddress);
+
+     yposCentered += spacing / 2 + 5;
+
+     if (GUI.Button(new Rect(xposCentered + 25, yposCentered, 200, 30),
                     "Connect to Game(C)")) {
        manager.StartClient();
      }
-     manager.networkAddress =
-         GUI.TextField(new Rect(xposCentered + 200, yposCentered, 95, 30),
-                       manager.networkAddress);
-     yposCentered += spacing / 2 + 5;
-     GameData.username = GUI.TextField(
-         new Rect(xposCentered, yposCentered, 95, 30), GameData.username);
 
      /*if (GUI.Button(new Rect(xpos, ypos, 200, 20), "Server Only(S)"))
      {

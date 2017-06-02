@@ -18,8 +18,9 @@
 // #define DEBUG_WATER
 #define DEBUG_HUD_POS
 #define DEBUG_HUD_TIMES
-// #define DEBUG_HUD_LOADED
+#define DEBUG_HUD_LOADED
 #pragma warning disable 0168
+#pragma warning disable 0219
 
 using UnityEngine;
 using System;
@@ -158,6 +159,8 @@ public class TerrainGenerator : MonoBehaviour {
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
   [SerializeField] public GameObject waterTile;
   [SerializeField] public static float waterHeight = 0f;
+  [Tooltip("Maximum number of trees per chunk to be generated.")]
+  [SerializeField] public int maxNumTrees = 500;
   // Player for deciding when to load chunks based on position.
   GameObject player;
   InitPlayer[] players;
@@ -213,6 +216,8 @@ public class TerrainGenerator : MonoBehaviour {
   // radius from the player
   int width;  // Total size of heightmaps combined
   int height;
+  int playerSpawnX = 0;
+  int playerSpawnZ = 0;
   // Remaining number of messages to send to the console. Setting a limit
   // greatly improves performance since sending large amounts to the console in
   // a short amount of time is slow, and this limits the amount sent to the
@@ -326,6 +331,23 @@ public class TerrainGenerator : MonoBehaviour {
     // float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
     float playerY = terrains[0].terrList.GetComponent<Terrain>().SampleHeight(
         new Vector3(playerX, 0, playerZ));
+    int tries =0;
+    while (tries < terrWidth * terrWidth &&
+           playerY < TerrainGenerator.waterHeight) {
+      playerX = tries % terrWidth;
+      playerZ = (int)(tries / terrWidth);
+      playerY = terrains[0].terrList.GetComponent<Terrain>().SampleHeight(
+          new Vector3(playerX, 0, playerZ));
+      tries++;
+    }
+    if (tries == terrWidth * terrWidth) {
+      playerX = terrWidth / 2f;
+      playerZ = terrWidth / 2f;
+    }
+    playerSpawnX = (int)playerX;
+    playerSpawnZ = (int)playerZ;
+    if (playerY < TerrainGenerator.waterHeight)
+      playerY = TerrainGenerator.waterHeight;
 
     players = GameObject.FindObjectsOfType<InitPlayer>();
     if (players.Length == 0) {
@@ -396,24 +418,30 @@ public class TerrainGenerator : MonoBehaviour {
     //////////////////////////
     // Multiplayer Handling //
     //////////////////////////
-    players = GameObject.FindObjectsOfType<InitPlayer>();
-    // Choose player spawn location based off of the center of all pre-loaded
-    // chunks.
-    // float playerX = maxX * terrains[0].terrData.size.x / 2f;
-    // float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
-    float playerX = terrWidth / 2f;
-    float playerZ = terrWidth / 2f;
+    float playerX = playerSpawnX;
+    float playerZ = playerSpawnZ;
     // Get the player spawn height from the heightmap height at the
     // coordinates where the player will spawn.
     // float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
     float playerY = terrains[0].terrList.GetComponent<Terrain>().SampleHeight(
         new Vector3(playerX, 0, playerZ));
+    if (playerY < TerrainGenerator.waterHeight) {
+      playerY = TerrainGenerator.waterHeight;
+    }
+    players = GameObject.FindObjectsOfType<InitPlayer>();
     if (player == null) {
       if (players.Length == 1) {
         player = players[0].gameObject;
         Debug.Log("Valid player found: " + player.transform.name);
         // Tell the player where to spawn.
         (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
+      } else if (players.Length == 0 && TerrainGenerator.doneLoadingSpawn) {
+        Debug.Log("Resetting TerrainGenerator");
+        TerrainGenerator.doneLoadingSpawn = false;
+        loadWaitCount = 50;
+        unloadWaitCount = 100;
+        Start();
+        return;
       } else {
         return;
       }
@@ -471,9 +499,7 @@ public class TerrainGenerator : MonoBehaviour {
                     player.transform.position + ")" + "\nTerrain Height: " +
                     TerrainHeight + "\n\n");
 #endif
-          (player.GetComponent<InitPlayer>())
-              .updatePosition(player.transform.position.x, TerrainHeight,
-                              player.transform.position.z);
+          movePlayerToTop(player.GetComponent<InitPlayer>());
         }
       }
 
@@ -498,6 +524,12 @@ public class TerrainGenerator : MonoBehaviour {
         LoadedChunkList += "\n";
 #endif
       }
+#if DEBUG_HUD_LOADED
+      if (TerrainGenerator.doneLoadingSpawn) {
+        LoadedChunkList += "Done\n";
+      }
+      if (done) LoadedChunkList += "Generating and Fractaling\n";
+#endif
 
       // Load chunks within radius, but only one per frame to help with
       // performance.
@@ -615,6 +647,9 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
     }
+#if DEBUG_HUD_LOADED
+    if (heightmapApplied) LoadedChunkList += "Applying Heightmap\n";
+#endif
 
     bool splatsUpdated = false;
     if (!done && !heightmapApplied) {
@@ -627,21 +662,27 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
     }
+#if DEBUG_HUD_LOADED
+    if (splatsUpdated) LoadedChunkList += "Updating Splats\n";
+#endif
 
     // Delay applying textures until later if a chunk was loaded this frame to
     // help with performance.
-    //bool textureUpdated = false;
+    bool textureUpdated = false;
     if (!done && !heightmapApplied && !splatsUpdated) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].texQueue) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
           UpdateTexture(terrains[i].terrData);
           terrains[i].texQueue = false;
-          //textureUpdated = true;
+          textureUpdated = true;
           break;
         }
       }
     }
+#if DEBUG_HUD_LOADED
+    if (textureUpdated) LoadedChunkList += "Texturing\n";
+#endif
 
     // Update terrain neighbors every times.UpdateSpeed seconds.
     // TODO: Is this even necessary? I don't really know what updating neighbors
@@ -664,7 +705,7 @@ public class TerrainGenerator : MonoBehaviour {
     checkDoneLoadingSpawn();
 
 #if DEBUG_HUD_LOADED
-    LoadedChunkList += "\nUnloading: ";
+    LoadedChunkList += "Unloading: ";
 #endif
     // Unload all chunks flagged for unloading.
     for (int i = 0; i < terrains.Count; i++) {
@@ -853,6 +894,7 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[terrains.Count - 1]
           .terrList.GetComponent<Terrain>()
           .terrainData = terrains[terrains.Count - 1].terrData;
+
       terrains[terrains.Count - 1]
           .terrList.GetComponent<TerrainCollider>()
           .terrainData = terrains[terrains.Count - 1].terrData;
@@ -2293,15 +2335,13 @@ public class TerrainGenerator : MonoBehaviour {
     terrainData.treePrototypes = list;
     terrainData.RefreshPrototypes();
 
-    if (useSeed) {
-      UnityEngine.Random.InitState(
-          (int)(Seed + PerfectlyHashThem((short)(GetXCoord(terrID) * 3 - 3),
-                                         (short)(GetZCoord(terrID) * 3 - 1))));
-    }
-    TreeInstance[] newTrees =
-        new TreeInstance[UnityEngine.Random.Range(0, 100)];
+    float[, ] numberModifier = new float[ 2, 2 ];
+    PerlinDivide(ref numberModifier, GetXCoord(terrID), GetZCoord(terrID), 2, 2,
+                 PerlinSeedModifier * 2f, 0.1f);
+    int numberOfTrees = (int)(numberModifier[ 0, 0 ] * 1000);
+    TreeInstance[] newTrees = new TreeInstance[numberOfTrees];
     int tries = 0;
-    for (int i = 0; i < newTrees.Length; i++) {
+    for (int i = 0; i < newTrees.Length && tries < 1000; i++) {
       newTrees[i] = new TreeInstance();
       newTrees[i].prototypeIndex = UnityEngine.Random.Range(0, list.Length - 1);
       newTrees[i].color = new Color(1, 1, 1);
@@ -2311,14 +2351,21 @@ public class TerrainGenerator : MonoBehaviour {
       float Y = 0;
       float X = 0;
       float Z = 0;
-      while (Y <= waterHeight) {
+      while (Y <= TerrainGenerator.waterHeight && tries < 1000) {
         X = UnityEngine.Random.value;
         Z = UnityEngine.Random.value;
         Y = terrainData.GetInterpolatedHeight(X, Z);
-        if (Y <= waterHeight) tries++;
-        if (tries >= 1000) return;
+        if (Y <= TerrainGenerator.waterHeight) tries++;
+        if (tries >= 1000) {
+          TreeInstance[] realTrees = new TreeInstance[i];
+          for (int j = 0; j < realTrees.Length; j++) {
+            realTrees[j] = newTrees[j];
+          }
+          newTrees = realTrees;
+        }
       }
-      newTrees[i].position = new Vector3(X, Y / terrHeight, Z);
+      if (tries < 1000)
+        newTrees[i].position = new Vector3(X, Y / terrHeight, Z);
     }
 
     terrainData.treeInstances = newTrees;
@@ -2326,6 +2373,10 @@ public class TerrainGenerator : MonoBehaviour {
       Terrain terrain = terrains[terrID].terrList.GetComponent<Terrain>();
       terrain.Flush();
       terrain.ApplyDelayedHeightmapModification();
+      // Refresh the collider since unity doesn't update this unless
+      // SetHeights() is called or toggling the collider off and on.
+      terrain.GetComponent<Collider>().enabled = false;
+      terrain.GetComponent<Collider>().enabled = true;
     }
 
     times.DeltaTreeUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
@@ -2536,13 +2587,16 @@ public class TerrainGenerator : MonoBehaviour {
 
  public
   void checkDoneLoadingSpawn() {
-    if (TerrainGenerator.doneLoadingSpawn || loadWaitCount > 0 ||
-        terrains.Count <= 1)
+    if (loadWaitCount > 0 || terrains.Count <= 1) {
+      TerrainGenerator.doneLoadingSpawn = false;
       return;
+    }
     for (int i = 1; i < terrains.Count; i++) {
       if (!terrains[i].terrReady || terrains[i].isDividing ||
-          terrains[i].terrQueue || terrains[i].texQueue)
+          terrains[i].terrQueue || terrains[i].texQueue) {
+        TerrainGenerator.doneLoadingSpawn = false;
         return;
+      }
     }
     TerrainGenerator.doneLoadingSpawn = true;
   }

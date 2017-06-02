@@ -30,6 +30,8 @@ class PlayerController : NetworkBehaviour {
  public
   float jumpMultiplier = 5f;
  public
+  float jumpFrequency = 0.25f;
+ public
   float staminaDepletionRate = 0.1f;  // Percent per second
  public
   float staminaRechargeDelay = 3.0f;  // Seconds
@@ -46,6 +48,8 @@ class PlayerController : NetworkBehaviour {
   bool rotateWithCamera = false;
  public
   float MaxCameraDistance = 3f;
+ public
+  float playerHeight = 1.5f;
   [Header("OSDs/HUD")]
  public
   GUIText collectedCounter;
@@ -83,6 +87,10 @@ class PlayerController : NetworkBehaviour {
   bool isDead = false;
  public
   bool spawned = false;
+ public
+  float flyDownTime = 6.0f;
+ public
+  float flyDownEndTime = 1.5f;
 
  private
   Rigidbody rbody;
@@ -129,6 +137,8 @@ class PlayerController : NetworkBehaviour {
  private
   float lastJumpSoundTimejump = 0.0f;
  private
+  float lastJumpTime = 0.0f;
+ private
   float lastFootstepTime = 0.0f;
  private
   float lastSendTime = 0.0f;
@@ -149,6 +159,7 @@ class PlayerController : NetworkBehaviour {
 
  public
   override void OnStartLocalPlayer() {
+    spawned = false;
     if (sounds.LandSound != null) sounds.LandSound.LoadAudioData();
     if (sounds.JumpSound != null) sounds.JumpSound.LoadAudioData();
     foreach (AudioClip step in sounds.FootSteps) {
@@ -176,6 +187,9 @@ class PlayerController : NetworkBehaviour {
     GetComponent<MeshRenderer>().material.color = Color.blue;
 
     Debug.Log("Send Freqency: " + sendFreqency);
+    if (GameData.username == "Username") {
+      GameData.username = NameList.GetName();
+    }
     CmdChangeName(GameData.username);
     CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
                            transform.position, transform.rotation);
@@ -184,6 +198,7 @@ class PlayerController : NetworkBehaviour {
     lastGroundedTime = Time.time;
     lastSprintTime = Time.time;
     lastJumpSoundTimejump = Time.time;
+    lastJumpTime = jumpFrequency;
     lastFootstepTime = Time.time;
     lastSendTime = Time.realtimeSinceStartup;
 
@@ -208,15 +223,27 @@ class PlayerController : NetworkBehaviour {
     if (username != "Username") {
       nameplate.text = username;
     } else {
-      nameplate.text = "Player " + netId;
+      nameplate.text = "Player " + (int.Parse(netId.ToString()) - 1);
     }
     if (!isLocalPlayer) {
+      if (rbodyRotation.x * rbodyRotation.x +
+              rbodyRotation.y * rbodyRotation.y +
+              rbodyRotation.z * rbodyRotation.z +
+              rbodyRotation.w * rbodyRotation.w !=
+          1) {
+        return;
+      }
+      nameplate.GetComponent<MeshRenderer>().enabled = true;
       rbody.position = rbodyPosition;
       rbody.velocity = rbodyVelocity;
       rbody.rotation = rbodyRotation;
       transform.position = transformPosition;
       transform.rotation = transformRotation;
+      forward = rbody.velocity.magnitude / moveSpeed;
       return;
+    } else if (intendedCameraDistance == 0 &&
+               Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
+      nameplate.GetComponent<MeshRenderer>().enabled = false;
     }
 
     if (isDead) {
@@ -244,7 +271,8 @@ class PlayerController : NetworkBehaviour {
         Physics.SphereCast(transform.position + Vector3.up * (-0.49f + 1.2f),
                            0.0f, Vector3.down, out hitinfo, 0.8f);
     isCrouched = Input.GetAxis("Crouch") > 0.5;
-    bool jump = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched;
+    bool jump = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched &&
+                lastJumpTime >= jumpFrequency;
     float sprintInput = Input.GetAxis("Sprint");
     isSprinting =
         (sprintInput > 0.5 && !isCrouched) || (isSprinting && !isGrounded);
@@ -253,6 +281,8 @@ class PlayerController : NetworkBehaviour {
 
     if (wasUnderwater && !isUnderwater) lastGroundedTime = Time.time;
     if (isUnderwater) isGrounded = false;
+    lastJumpTime += Time.deltaTime;
+    if (jump) lastJumpTime = 0.0f;
 
     // Standing on platform
     // This is necessary to ensure the player moves with the platform they are
@@ -280,29 +310,46 @@ class PlayerController : NetworkBehaviour {
                    "\nMouseY: " + lookVertical + "\nTime: " + Time.time;
     }
 
-    if (!TerrainGenerator.doneLoadingSpawn) {
+    if (!TerrainGenerator.doneLoadingSpawn && !spawned) {
       levelStartTime = Time.time;
       Camera.transform.rotation = Quaternion.Euler(70f, 15f, 0f);
       cameraSpawnRotation = Camera.transform.rotation;
     } else {
       spawned = true;
     }
-    // Prevent movement in first 1.5 seconds of the level or if dead, or if
+    // Prevent movement in first few seconds of the level or if dead, or if
     // paused.
-    if (Time.time - levelStartTime < 6.0 || isDead || GameData.isPaused) {
+    if (Time.time - levelStartTime < flyDownTime || isDead || GameData.isPaused) {
+      if (cameraSpawnRotation.w == 0) {
+        Camera.transform.rotation = Quaternion.Euler(70f, 15f, 0f);
+        cameraSpawnRotation = Camera.transform.rotation;
+      }
       Camera.transform.rotation =
           Quaternion.Lerp(cameraSpawnRotation, startCameraRotation,
-                          (Time.time - levelStartTime) / 6.0f);
+                          (Time.time - levelStartTime) / flyDownTime);
       MaxCameraDistance =
           Mathf.Lerp(spawnCameraDistance, intendedCameraDistance,
-                     (Time.time - levelStartTime) / 6.0f);
+                     (Time.time - levelStartTime) / flyDownTime);
       moveHorizontal = 0;
       moveVertical = 0;
       lookHorizontal = 0;
       lookVertical = 0;
-      rbody.velocity = Vector3.up * 0f;
+      rbody.velocity = Vector3.zero;
       jump = false;
     } else {
+      if (Time.time - levelStartTime <
+              flyDownTime + flyDownEndTime + Time.deltaTime &&
+          Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
+        moveVertical = 1.0f;
+        if (intendedCameraDistance == 0) {
+          SkinnedMeshRenderer[] renderers =
+              GetComponentsInChildren<SkinnedMeshRenderer>();
+          foreach (SkinnedMeshRenderer r in renderers) {
+            r.shadowCastingMode =
+                UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+          }
+        }
+      }
       MaxCameraDistance = intendedCameraDistance;
     }
 
@@ -374,8 +421,8 @@ class PlayerController : NetworkBehaviour {
     }
 
     // Movement
-    transform.position = rbody.transform.position;
-    transform.rotation = rbody.transform.rotation;
+    //transform.position = rbody.transform.position;
+    //transform.rotation = rbody.transform.rotation;
     Vector3 movement =
         moveHorizontal * Vector3.right + moveVertical * Vector3.forward;
     movement = Vector3.ClampMagnitude(movement, 1.0f);
@@ -387,29 +434,40 @@ class PlayerController : NetworkBehaviour {
       movement *= moveSpeed * Mathf.Lerp(1.0f, 2.5f, sprintInput);
     }
     if (godMode) {
-      movement += (Input.GetAxis("Jump") * 100f * Time.deltaTime) * Vector3.up;
-      movement -= (Input.GetAxis("Crouch") * 100f * Time.deltaTime) * Vector3.up;
+      movement += Input.GetAxis("Jump") * Vector3.up;
+      movement -= Input.GetAxis("Crouch") * Vector3.up;
       movement *= 30f;
     } else {
       if (isUnderwater) {
         if (transform.position.y < TerrainGenerator.waterHeight - 1f) {
-          movement += Mathf.Clamp(rbody.velocity.y + 5.0f * 2f * Time.deltaTime,
-                                  -moveSpeed, moveSpeed) *
-                      Vector3.up;
+          movement +=
+              Mathf.Clamp(
+                  rbody.velocity.y +
+                      2.0f * Time.deltaTime *
+                          (TerrainGenerator.waterHeight - transform.position.y),
+                  -moveSpeed *
+                      ((TerrainGenerator.waterHeight - transform.position.y) /
+                       2.5f),
+                  moveSpeed *
+                      ((TerrainGenerator.waterHeight - transform.position.y) /
+                       2.5f)) *
+              Vector3.up;
         } else {
           movement +=
               (rbody.velocity.y - 9.81f * 3f * Time.deltaTime) * Vector3.up;
         }
       } else {
         movement += ((jump ? (moveSpeed * jumpMultiplier) : 0.0f) +
-                     (rbody.velocity.y - 9.81f * 2f * Time.deltaTime)) *
+                     (rbody.velocity.y - 9.81f * 4f * Time.deltaTime)) *
                     Vector3.up;
       }
     }
 
     movement =
         Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0) * movement;
-    rbody.velocity = Vector3.Lerp(movement, rbody.velocity, 0.5f);
+    Vector3 acceleration = Vector3.zero;
+    rbody.velocity =
+        Vector3.SmoothDamp(rbody.velocity, movement, ref acceleration, 0.01f);
 
     // Rotation
     if (rotateWithCamera) {
@@ -438,7 +496,7 @@ class PlayerController : NetworkBehaviour {
     // Camera
     if (CameraObjectAvoidance && spawned) {
       RaycastHit hit;
-      Physics.Linecast(transform.position + Vector3.up * 2f,
+      Physics.Linecast(transform.position + Vector3.up * playerHeight,
                        Camera.transform.position, out hit,
                        LayerMask.GetMask("Terrain"));
       if (hit.transform != Camera.transform && hit.transform != transform &&
@@ -453,7 +511,7 @@ class PlayerController : NetworkBehaviour {
     }
     if(!spawned) CurrentCameraDistance = MaxCameraDistance;
     Vector3 newCameraPos =
-        Vector3.up * 2f +
+        Vector3.up * playerHeight +
         Vector3.ClampMagnitude(
             (Vector3.left *
                  (Mathf.Sin(Camera.transform.eulerAngles.y / 180f * Mathf.PI) -
@@ -475,11 +533,15 @@ class PlayerController : NetworkBehaviour {
       newCameraPos += Ragdoll.transform.position;
     }
     if (isDead) {
-      newCameraPos =
-          Vector3.Lerp(Camera.transform.position, newCameraPos, 0.05f);
-    } else if (GameData.cameraDamping && spawned) {
-      newCameraPos =
-          Vector3.Lerp(Camera.transform.position, newCameraPos, 0.33f);
+      Vector3 velocity = Vector3.zero;
+      newCameraPos = Vector3.SmoothDamp(Camera.transform.position, newCameraPos,
+                                        ref velocity, 2.0f);
+    } else if (GameData.cameraDamping && spawned &&
+               (MaxCameraDistance != 0 ||
+                Time.time - levelStartTime < flyDownTime + flyDownEndTime)) {
+      Vector3 velocity = Vector3.zero;
+      newCameraPos = Vector3.SmoothDamp(Camera.transform.position, newCameraPos,
+                                        ref velocity, 0.05f);
     }
     Camera.transform.position = newCameraPos;
     Camera.transform.rotation =
@@ -543,7 +605,7 @@ class PlayerController : NetworkBehaviour {
     }
 
     // Sound
-    if (isGrounded && Time.time - lastGroundedTime >= 0.05f &&
+    if (isGrounded && Time.time - lastGroundedTime >= 0.1f &&
         sounds.Player != null) {
       PlaySound(sounds.LandSound);
     }
@@ -617,6 +679,7 @@ class PlayerController : NetworkBehaviour {
   }
 
   void OnAnimatorIK() {
+    if (!isLocalPlayer) return;
     if (Mathf.Abs(rbody.velocity.x) > 0.02f ||
         Mathf.Abs(rbody.velocity.z) > 0.02f) {
       turn = (moveAngle - anim.bodyRotation.eulerAngles.y) / 180f;
@@ -635,7 +698,7 @@ class PlayerController : NetworkBehaviour {
       anim.SetFloat("JumpLeg",
                     Mathf.Abs((Time.time * 200f % 400f - 200) / 400f));
     }
-    anim.SetBool("OnGround", godMode || (Time.time - lastGroundedTime <= 0.05f));
+    anim.SetBool("OnGround", godMode || (Time.time - lastGroundedTime <= 0.1f));
     anim.SetBool("Crouch", isCrouched);
   }
 
