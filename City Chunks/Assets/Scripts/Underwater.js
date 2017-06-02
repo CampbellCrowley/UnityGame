@@ -31,7 +31,7 @@ function SetUnderwater () {
   // RenderSettings.fogEndDistance = 10.0f;
 } */
 
-var underwaterLevel = 150;
+var underwaterLevel = 500;
 
 private
 var defaultFog;

@@ -4,7 +4,8 @@ public
 class NameList : MonoBehaviour {
  public
   static String GetName() {
-    UnityEngine.Random.InitState((int)(Time.realtimeSinceStartup * 100000));
+    UnityEngine.Random.InitState(
+        (int)(Time.realtimeSinceStartup * 100000 * UnityEngine.Random.value));
     return GetName(UnityEngine.Random.Range(0, names.Length));
   }
  public

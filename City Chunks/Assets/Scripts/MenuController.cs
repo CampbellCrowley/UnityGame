@@ -42,17 +42,11 @@ class MenuController : MonoBehaviour {
     overrideToggle = false;
 
     GameData.showCursor = true;
-    // Camera1.SetActive(false);
-    // Camera2.SetActive(false);
-    // SettingsCamera.SetActive(true);
   }
  public
   void CloseSettings() {
     GameData.showCursor = true;
     GameData.SaveSettings();
-    // Camera1.SetActive(true);
-    // Camera2.SetActive(false);
-    // SettingsCamera.SetActive(false);
   }
  public
   void quitGame() { GameData.quit(); }

@@ -8,47 +8,98 @@ class GameData : MonoBehaviour {
  public
   static GameData Instance;
  public
-  static AudioSource MusicPlayer;
+  AudioSource MusicPlayer;
+ public
+  AudioClip QueuedMusic;
+ public
+  GameObject PauseMenu;
+ private
+  GameObject PauseMenu_;
  public
   void Awake() {
     if (Instance == null) {
+      MusicPlayer = GetComponent<AudioSource>();
       DontDestroyOnLoad(gameObject);
       Instance = this;
     } else if (Instance != this) {
+      if (GetComponent<AudioSource>().clip != null) {
+        Instance.QueuedMusic = GetComponent<AudioSource>().clip;
+      } else if (QueuedMusic != null) {
+        Instance.QueuedMusic = QueuedMusic;
+      }
       Destroy(gameObject);
     }
-    MusicPlayer = GetComponent<AudioSource>();
+  }
+ public
+  void Start() {
+    LoadSettings();
+    if (MusicPlayer != null && !music) {
+      MusicPlayer.volume = 0.0f;
+    }
   }
  public
   static int health = 5;
  public
-  static int collectedCollectibles = 0;
+  static int tries = 3;
+ public
+  static int collectedCollectibles = 10000;
  public
   static bool showCursor = true;
  public
   static bool isPaused = false;
-
+ public
+  static VehicleController Vehicle;
  public
   static string username = "Username";
-
  public
-  static bool levelComplete() { return false; }
+  static int numEnemies = 0;
  public
-  static int getLevel() { return SceneManager.GetActiveScene().buildIndex; }
+  static int numVehicles = 0;
+ public
+  static bool levelComplete() {
+    return true;
+  }
+ public
+  static int getLevel() {
+    return SceneManager.GetActiveScene().buildIndex;
+  }
+ public
+  static void gotoLevel(int level) {
+    int nextIndex = level;
+    Debug.Log("Goto Level! (" + nextIndex + ")");
+    GameData.Vehicle = null;
+    GameData.isPaused = false;
+    SceneManager.LoadScene(nextIndex);
+    FindObjectOfType<UnityEngine.Networking.NetworkManager>()
+        .ServerChangeScene(SceneManager.GetSceneByBuildIndex(nextIndex).name);
+  }
  public
   static void nextLevel() {
-    Debug.Log("Next Level!");
-    SceneManager.LoadScene(getLevel() + 1);
+    int nextIndex = getLevel() + 1;
+    Debug.Log("Next Level! (" + nextIndex + ")");
+    GameData.Vehicle = null;
+    GameData.isPaused = false;
+    SceneManager.LoadScene(nextIndex);
+    FindObjectOfType<UnityEngine.Networking.NetworkManager>()
+        .ServerChangeScene(SceneManager.GetSceneByBuildIndex(nextIndex).name);
   }
  public
   static void restartLevel() {
     Debug.Log("Restarting Level!");
-    SceneManager.LoadScene(getLevel());
+    GameData.Vehicle = null;
+    GameData.isPaused = false;
+    GameData.health = 5;
+    FindObjectOfType<UnityEngine.Networking.NetworkManager>()
+        .ServerChangeScene(SceneManager.GetSceneByBuildIndex(getLevel()).name);
   }
  public
   static void MainMenu() {
     Debug.Log("Menu!");
-    SceneManager.LoadScene(0);
+    GameData.Vehicle = null;
+    GameData.isPaused = false;
+    FindObjectOfType<UnityEngine.Networking.NetworkManager>().StopHost();
+    GameData.health = 5;
+    GameData.tries = 3;
   }
  public
   static void quit() {
@@ -58,12 +109,35 @@ class GameData : MonoBehaviour {
 
  public
   void Update() {
+    if(Input.GetButtonDown("Pause") && getLevel() != 0) {
+      GameData.isPaused = !GameData.isPaused;
+      GameData.showCursor = isPaused;
+      if(GameData.isPaused) {
+        PauseMenu_ = Instantiate(PauseMenu);
+        PauseMenu_.GetComponent<Canvas>().worldCamera = Camera.main;
+      } else {
+        Destroy(PauseMenu_);
+      }
+    } else if (Input.GetButtonDown("Menu") && getLevel() != 0) {
+      MainMenu();
+    }
     Cursor.visible = showCursor;
     Cursor.lockState = showCursor ? CursorLockMode.None : CursorLockMode.Locked;
     /*if (Input.GetAxis("Skip") > 0.5f) {
       nextLevel();
     }*/
-    if (MusicPlayer != null) MusicPlayer.volume = music ? 0.5f : 0.0f;
+    if (MusicPlayer != null) {
+      float goalVol = music ? 0.5f : 0.0f;
+      if(QueuedMusic != null && QueuedMusic != MusicPlayer.clip) {
+        goalVol = 0.0f;
+        if(MusicPlayer.volume <= 0.001f) {
+          Debug.Log("Playing Music: " + QueuedMusic.name);
+          MusicPlayer.clip = QueuedMusic;
+          MusicPlayer.Play();
+        }
+      }
+      MusicPlayer.volume = Mathf.Lerp(MusicPlayer.volume, goalVol, 0.1f);
+    }
   }
 
  public
