@@ -1,3 +1,4 @@
+// v0.0.4b
 ////////////////////////////////////////////////////////////////////
 // WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
 //                      USE WITH CAUTION!                         //
@@ -205,10 +206,6 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public float BiomeRoughness = 0.1f;
   [Tooltip("Vertical shift of values pre-rectification.")]
   [SerializeField] public float yShift = 0.0f;
-  // Number of terrain chunks to generate initially in each direction before the
-  // player spawns.
-  private int maxX = 1;
-  private int maxZ = 1;
   [Header("Visuals")]
   [Tooltip("Array of textures to apply to the terrain.")]
   [SerializeField] public Textures TerrainTextures;
@@ -317,27 +314,6 @@ public class TerrainGenerator : MonoBehaviour {
     terrains[0].texQueue = false;
     terrains[0].terrReady = true;
     radius = loadDist / ((terrWidth + terrLength) / 2.0f);
-    // Load chunks before player spawns to hide chunk loading.
-    // for (int x = -maxX/2; x < maxX/2; x++) {
-    //   for (int z = -maxX/2; z < maxZ/2; z++) {
-    //     if (x == 0 && z == 0) continue;
-    //     Debug.Log("Repeating for chunk (" + x + ", " + z + ")");
-    //     GenerateTerrainChunk(x, z);
-    //     FractalNewTerrains(x, z);
-
-    //     int terrID = GetTerrainWithCoord(x, z);
-    //     terrains[terrID].terrData.SetHeights(0, 0, MixHeights(terrID));
-    //     UpdateTrees(terrains[terrID].terrData);
-    //     UpdateSplat(terrains[terrID].terrData);
-    //     UpdateTexture(terrains[terrID].terrData);
-
-    //     terrains[terrID].terrQueue = false;
-    //     terrains[terrID].splatQueue = false;
-    //     terrains[terrID].texQueue = false;
-    //     terrains[terrID].terrToUnload = false;
-    //     terrains[terrID].terrReady = true;
-    //   }
-    // }
 
     if(GenMode.PreLoadChunks) {
       Debug.Log("Repeating for all chunks within radius");
@@ -376,13 +352,10 @@ public class TerrainGenerator : MonoBehaviour {
 
     // Choose player spawn location based off of the center of all pre-loaded
     // chunks.
-    // float playerX = maxX * terrains[0].terrData.size.x / 2f;
-    // float playerZ = maxZ * terrains[0].terrData.size.z / 2f;
     float playerX = terrWidth / 2f;
     float playerZ = terrWidth / 2f;
     // Get the player spawn height from the heightmap height at the coordinates
     // where the player will spawn.
-    // float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
     float playerY = GetTerrainHeight(playerX, playerZ);
     // Starts off of edges  because there is a precision issue with generating
     // chunks that will cause chunks not to load if the player's position is
@@ -482,9 +455,7 @@ public class TerrainGenerator : MonoBehaviour {
     float playerZ = playerSpawnZ;
     // Get the player spawn height from the heightmap height at the
     // coordinates where the player will spawn.
-    // float playerY = terrains[GetTerrainWithCoord(maxX / 2, maxZ / 2)]
-    float playerY = terrains[0].terrList.GetComponent<Terrain>().SampleHeight(
-        new Vector3(playerX, 0, playerZ));
+    float playerY = GetTerrainHeight(playerX, playerZ);
     if (playerY < TerrainGenerator.waterHeight) {
       playerY = TerrainGenerator.waterHeight;
     }
