@@ -1,4 +1,4 @@
-// v0.0.4b
+// v0.0.5
 ////////////////////////////////////////////////////////////////////
 // WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
 //                      USE WITH CAUTION!                         //
@@ -129,6 +129,8 @@ public static class Pauser {
   public bool terrReady = false;
   [Tooltip("True if the chunk can be unloaded.")]
   public bool terrToUnload = false;
+  [Tooltip("Has been saved to disk.")]
+  public bool chunksSaved = false;
   [Tooltip("Number of frames the chunk should live after it has been flagged to be unloaded.")]
   public int startTTL = 1500;
   public int currentTTL = 1500;

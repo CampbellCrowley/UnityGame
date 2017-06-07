@@ -1,23 +1,24 @@
-﻿using System.Collections;
+﻿#define SAVE_LOAD
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public
 class SaveLoad : MonoBehaviour {
-  float[, ] testA = {{4f, 5f, 6f}, {6f, 5f, 4f}, {7f, 8f, 9f}};
-  float[, ] testB = {{4f, 5f, 6f}, {6f, 5f, 4f}, {7f, 8f, 9f}};
+  // float[, ] testA = {{4f, 5f, 6f}, {6f, 5f, 4f}, {7f, 8f, 9f}};
+  // float[, ] testB = {{4f, 5f, 6f}, {6f, 5f, 4f}, {7f, 8f, 9f}};
   void Start() {
-    testA = BytesToFloat(FloatToBytes(testA));
-    Debug.Log(testA[ 0, 0 ] + ", " + testA[ 0, 1 ] + ", " + testA[ 0, 2 ] +
-              "\n" + testA[ 1, 0 ] + ", " + testA[ 1, 1 ] + ", " +
-              testA[ 1, 2 ] + "\n" + testA[ 2, 0 ] + ", " + testA[ 2, 1 ] +
-              ", " + testA[ 2, 2 ]);
-    WriteTerrain(0, 0, ref testA, ref testB);
-    ReadTerrain(0, 0, ref testA, ref testB);
-    Debug.Log(testA[ 0, 0 ] + ", " + testA[ 0, 1 ] + ", " + testA[ 0, 2 ] +
-              "\n" + testA[ 1, 0 ] + ", " + testA[ 1, 1 ] + ", " +
-              testA[ 1, 2 ] + "\n" + testA[ 2, 0 ] + ", " + testA[ 2, 1 ] +
-              ", " + testA[ 2, 2 ]);
+    // testA = BytesToFloat(FloatToBytes(testA));
+    // Debug.Log(testA[ 0, 0 ] + ", " + testA[ 0, 1 ] + ", " + testA[ 0, 2 ] +
+    //           "\n" + testA[ 1, 0 ] + ", " + testA[ 1, 1 ] + ", " +
+    //           testA[ 1, 2 ] + "\n" + testA[ 2, 0 ] + ", " + testA[ 2, 1 ] +
+    //           ", " + testA[ 2, 2 ]);
+    // WriteTerrain(0, 0, ref testA, ref testB);
+    // ReadTerrain(0, 0, ref testA, ref testB);
+    // Debug.Log(testA[ 0, 0 ] + ", " + testA[ 0, 1 ] + ", " + testA[ 0, 2 ] +
+    //           "\n" + testA[ 1, 0 ] + ", " + testA[ 1, 1 ] + ", " +
+    //           testA[ 1, 2 ] + "\n" + testA[ 2, 0 ] + ", " + testA[ 2, 1 ] +
+    //           ", " + testA[ 2, 2 ]);
   }
   static void WriteTerrain(int X, int Z, ref float[, ] DividePoints,
                            ref float[, ] PerlinPoints) {
