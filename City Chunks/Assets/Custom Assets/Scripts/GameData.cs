@@ -97,6 +97,7 @@ class GameData : MonoBehaviour {
     Debug.Log("Menu!");
     GameData.Vehicle = null;
     GameData.isPaused = false;
+    FindObjectOfType<TerrainGenerator>().SaveAllChunks();
     FindObjectOfType<UnityEngine.Networking.NetworkManager>().StopHost();
     GameData.health = 5;
     GameData.tries = 3;
@@ -109,7 +110,8 @@ class GameData : MonoBehaviour {
 
  public
   void Update() {
-    if(Input.GetButtonDown("Pause") && getLevel() != 0) {
+    if (Input.GetButtonDown("Pause") && getLevel() != 0 &&
+        TerrainGenerator.doneLoadingSpawn) {
       GameData.isPaused = !GameData.isPaused;
       GameData.showCursor = isPaused;
       if(GameData.isPaused) {

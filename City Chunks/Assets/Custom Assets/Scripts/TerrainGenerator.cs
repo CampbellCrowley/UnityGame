@@ -1,4 +1,3 @@
-// v0.0.5
 ////////////////////////////////////////////////////////////////////
 // WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
 //                      USE WITH CAUTION!                         //
@@ -107,10 +106,10 @@ public static class Pauser {
   public int avgEnd = -1;
 }
 [Serializable] public class Terrains {
-  [Tooltip("List of terrain data for setting heights. Equivalent to terrList[].GetComponent<Terrain>().terrainData.")]
+  [Tooltip("List of terrain data for setting heights. Equivalent to gameObject.GetComponent<Terrain>().terrainData.")]
   public TerrainData terrData;
   [Tooltip("List of terrains for instantiating.")]
-  public GameObject terrList;
+  public GameObject gameObject;
   [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the DeltaDivide Generator.")]
   public float[, ] terrPoints;
   [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the Perlin generator.")]
@@ -129,8 +128,8 @@ public static class Pauser {
   public bool terrReady = false;
   [Tooltip("True if the chunk can be unloaded.")]
   public bool terrToUnload = false;
-  [Tooltip("Has been saved to disk.")]
-  public bool chunksSaved = false;
+  [Tooltip("True if the chunk was loaded from the disk and not generated.")]
+  public bool loadedFromDisk = false;
   [Tooltip("Number of frames the chunk should live after it has been flagged to be unloaded.")]
   public int startTTL = 1500;
   public int currentTTL = 1500;
@@ -167,6 +166,8 @@ public static class Pauser {
 }
 public class TerrainGenerator : MonoBehaviour {
   public static float EmptyPoint = -100f;
+  public static string Version = "v0.0.5";
+  public static string worldID = "";
 
   [Header("Terrains (Auto-populated)")]
   [Tooltip("The list of all currently loaded chunks.")]
@@ -287,6 +288,8 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
     if (Seed == 0) Seed = 1;
+    worldID =
+        (Seed * PerlinSeedModifier).ToString() + TerrainGenerator.Version + "-";
     if (GenMode.Perlin) {
       Debug.Log("Seed(" + Seed + ")*PerlinSeedModifier(" + PerlinSeedModifier +
                 ")=" + Seed * PerlinSeedModifier);
@@ -312,8 +315,10 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("Applying spawn chunk height map");
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
     Debug.Log("Adding Trees to spawn chunk");
+    UpdateTreePrototypes(terrains[0].terrData);
     UpdateTrees(terrains[0].terrData);
     Debug.Log("Adding Grass to spawn chunk");
+    UpdateDetailPrototypes(terrains[0].terrData);
     UpdateGrass(terrains[0].terrData);
     Debug.Log("Texturing spawn chunk");
     UpdateTexture(terrains[0].terrData);
@@ -321,6 +326,8 @@ public class TerrainGenerator : MonoBehaviour {
     terrains[0].splatQueue = false;
     terrains[0].texQueue = false;
     terrains[0].terrReady = true;
+    Debug.Log("Saving spawn chunk to disk");
+    SaveChunk(0, 0);
     radius = loadDist / ((terrWidth + terrLength) / 2.0f);
 
     if(GenMode.PreLoadChunks) {
@@ -437,7 +444,7 @@ public class TerrainGenerator : MonoBehaviour {
     // Remove all undefined chunks from the array because they have been
     // unloaded.
     for (int i = 0; i < terrains.Count; i++) {
-      if (!terrains[i].terrList) {
+      if (!terrains[i].gameObject) {
         terrains.RemoveAt(i);
         i--;
       }
@@ -511,7 +518,7 @@ public class TerrainGenerator : MonoBehaviour {
                                         Mathf.RoundToInt(yCenter));
       if (terrLoc != -1) {
         float TerrainHeight =
-            terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
+            terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
                 player.transform.position);
 #if DEBUG_HUD_LOADED
         LoadedChunkList =
@@ -613,6 +620,8 @@ public class TerrainGenerator : MonoBehaviour {
             terrains[tileCnt].terrQueue = false;
             terrains[tileCnt].splatQueue = true;
             terrains[tileCnt].texQueue = true;
+            if (!terrains[tileCnt].loadedFromDisk) {
+            }
             break;
           }
 
@@ -649,9 +658,9 @@ public class TerrainGenerator : MonoBehaviour {
         }
 
         // Push all changes to the terrain.
-        terrains[tileCnt].terrList.GetComponent<Terrain>().Flush();
+        terrains[tileCnt].gameObject.GetComponent<Terrain>().Flush();
         // Make sure this chunk will continue being updated next frame.
-        lastTerrUpdated = terrains[tileCnt].terrList.GetComponent<Terrain>();
+        lastTerrUpdated = terrains[tileCnt].gameObject.GetComponent<Terrain>();
         // The terrain has been removed from the queue so we should allow for
         // the another chunk to be loaded.
         if (!terrains[tileCnt].terrQueue) {
@@ -670,7 +679,9 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].splatQueue) {
           UpdateSplat(terrains[i].terrData);
+          UpdateTreePrototypes(terrains[i].terrData);
           UpdateTrees(terrains[i].terrData);
+          UpdateDetailPrototypes(terrains[i].terrData);
           UpdateGrass(terrains[i].terrData);
           terrains[i].splatQueue = false;
           break;
@@ -730,7 +741,9 @@ public class TerrainGenerator : MonoBehaviour {
                            Mathf.RoundToInt(terrains[i].currentTTL) + "), ";
 #endif
         if (terrains[i].currentTTL <= 0) {
-          UnloadTerrainChunk(i);
+          SaveChunk(GetXCoord(i), GetZCoord(i));
+          if (i != 0) UnloadTerrainChunk(i);
+          else terrains[i].currentTTL = 60000;
         } else {
           terrains[i].currentTTL--;
         }
@@ -800,31 +813,31 @@ public class TerrainGenerator : MonoBehaviour {
               BottomTerr = null;
       try {
         LeftTerr = terrains[GetTerrainWithCoord(X - 1, Z)]
-                       .terrList.GetComponent<Terrain>();
+                       .gameObject.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X - 1, Z, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
         TopTerr = terrains[GetTerrainWithCoord(X, Z + 1)]
-                      .terrList.GetComponent<Terrain>();
+                      .gameObject.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X, Z + 1, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
         RightTerr = terrains[GetTerrainWithCoord(X + 1, Z)]
-                        .terrList.GetComponent<Terrain>();
+                        .gameObject.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X + 1, Z, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
         BottomTerr = terrains[GetTerrainWithCoord(X, Z - 1)]
-                         .terrList.GetComponent<Terrain>();
+                         .gameObject.GetComponent<Terrain>();
         UpdateTerrainNeighbors(X, Z - 1, count - 1);
       } catch (ArgumentOutOfRangeException e) {
       }
       try {
         Terrain MidTerr = terrains[GetTerrainWithCoord(X, Z)]
-                              .terrList.GetComponent<Terrain>();
+                              .gameObject.GetComponent<Terrain>();
         MidTerr.SetNeighbors(LeftTerr, TopTerr, RightTerr, BottomTerr);
       } catch (ArgumentOutOfRangeException e) {
       }
@@ -883,10 +896,10 @@ public class TerrainGenerator : MonoBehaviour {
 
       terrains.Add(new Terrains());
       terrains[0].terrData = GetComponent<Terrain>().terrainData;
-      terrains[0].terrList = this.gameObject;
+      terrains[0].gameObject = this.gameObject;
       terrains[0].terrPoints = new float[ terrWidth, terrLength ];
       terrains[0].terrPerlinPoints = new float[ terrWidth, terrLength ];
-      terrains[0].terrList.name = "Terrain(" + cntX + "," + cntZ + ")";
+      terrains[0].gameObject.name = "Terrain(" + cntX + "," + cntZ + ")";
 #if DEBUG_MISC
       Debug.Log("Added Terrain (0,0){" + terrains.Count - 1 + "}");
 #endif
@@ -921,22 +934,23 @@ public class TerrainGenerator : MonoBehaviour {
           terrains[0].terrData.baseMapResolution;
 
       // Terrain
-      terrains[terrains.Count - 1].terrList = Instantiate(terrains[0].terrList);
+      terrains[terrains.Count - 1].gameObject =
+          Instantiate(terrains[0].gameObject);
       terrains[terrains.Count - 1]
-          .terrList.GetComponent<Terrain>()
+          .gameObject.GetComponent<Terrain>()
           .terrainData = terrains[terrains.Count - 1].terrData;
 
       terrains[terrains.Count - 1]
-          .terrList.GetComponent<TerrainCollider>()
+          .gameObject.GetComponent<TerrainCollider>()
           .terrainData = terrains[terrains.Count - 1].terrData;
 
       // Game Object and Components
       foreach (
-          Transform child in terrains[terrains.Count - 1].terrList.transform) {
+          Transform child in terrains[terrains.Count - 1].gameObject.transform) {
         Destroy(child.gameObject);
       }
       foreach (Component comp in terrains[terrains.Count - 1]
-                   .terrList.GetComponents<Component>()) {
+                   .gameObject.GetComponents<Component>()) {
         if (!(comp is Transform) && !(comp is Terrain) &&
             !(comp is TerrainCollider) &&
             !(comp is UnityEngine.Networking.NetworkIdentity)) {
@@ -944,18 +958,19 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
       foreach (Component comp in terrains[terrains.Count - 1]
-                   .terrList.GetComponents<Component>()) {
+                   .gameObject.GetComponents<Component>()) {
         if (!(comp is Transform) && !(comp is Terrain) &&
             !(comp is TerrainCollider)) {
           Destroy(comp);
         }
       }
 
-      terrains[terrains.Count - 1].terrList.name =
+      terrains[terrains.Count - 1].gameObject.name =
           "Terrain(" + cntX + "," + cntZ + ")";
-      terrains[terrains.Count - 1].terrList.transform.Translate(
+      terrains[terrains.Count - 1].gameObject.transform.Translate(
           cntX * terrWidth, 0f, cntZ * terrLength);
-      terrains[terrains.Count - 1].terrList.layer = terrains[0].terrList.layer;
+      terrains[terrains.Count - 1].gameObject.layer =
+          terrains[0].gameObject.layer;
 
       times.DeltaGenerateTerrain = (Time.realtimeSinceStartup - iTime2) * 1000;
 
@@ -964,6 +979,7 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[terrains.Count - 1].terrPerlinPoints =
           new float[ terrWidth, terrLength ];
     }
+    LoadChunk(cntX, cntZ);
     times.DeltaGenerate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
@@ -1001,14 +1017,14 @@ public class TerrainGenerator : MonoBehaviour {
                 waterTile.transform.position.y + ")");
 #endif
       Vector3 terrVector3 =
-          terrain.terrList.GetComponent<Terrain>().transform.position;
+          terrain.gameObject.GetComponent<Terrain>().transform.position;
       Vector3 waterVector3 = terrVector3;
       waterVector3.y += waterTile.transform.position.y;
       waterVector3.x += terrWidth / 2;
       waterVector3.z += terrLength / 2;
       terrains[terrID].waterTile =
           Instantiate(waterTile, waterVector3, Quaternion.identity,
-                      terrain.terrList.transform);
+                      terrain.gameObject.transform);
       times.DeltaGenerateWater = (Time.realtimeSinceStartup - iTime) * 1000;
     }
   }
@@ -1027,7 +1043,7 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("TileCount: " + tileCnt + ", X: " + changeX + " Z: " + changeZ +
               "\nterrains.Count: " + terrains.Count + ", terrains[tileCnt]: " +
               terrains[tileCnt].terrData + "\nTerrain Name: " +
-              terrains[tileCnt].terrList.name);
+              terrains[tileCnt].gameObject.name);
 #endif
     if (tileCnt >= 0 && tileCnt < terrains.Count) {
       GenerateNew(changeX, changeZ, roughness);
@@ -1044,28 +1060,28 @@ public class TerrainGenerator : MonoBehaviour {
 #if DEBUG_STEEPNESS
       Debug.Log(
           "Terrain Steepness(0,0): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               0, 0) +
           "\nTerrain Steepness(1,0): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               1, 0) +
           "\nTerrain Steepness(0,1): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               0, 1) +
           "\nTerrain Steepness(1,1): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetSteepness(
               1, 1) +
           "\nTerrain Height(0,0): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(0,
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(0,
                                                                           0) +
           "\nTerrain Height(1,0): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
                                                                           0) +
           "\nTerrain Height(0,1): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(0,
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(0,
                                                                           1) +
           "\nTerrain Height(1,1): " +
-          terrList[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
+          gameObject[tileCnt].GetComponent<Terrain>().terrainData.GetHeight(1,
                                                                           1));
 #endif
     } else {
@@ -1085,7 +1101,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
   void UnloadTerrainChunk(int loc) {
     if (loc == 0) return; // Spawn chunk may not be unloaded.
-    Destroy(terrains[loc].terrList);
+    Destroy(terrains[loc].gameObject);
     Destroy(terrains[loc].waterTile);
     terrains.RemoveAt(loc);
     if (GetTerrainWithData(lastTerrUpdated) == loc) {
@@ -1123,9 +1139,9 @@ public class TerrainGenerator : MonoBehaviour {
       // Give each chunk its own unique number which is offset by the seed so
       // that it will always generate the same way.
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
-      Debug.Log(terrains[terrIndex].terrList.GetComponent<Terrain>().name +
+      Debug.Log(terrains[terrIndex].gameObject.GetComponent<Terrain>().name +
                 ",(0,0): " + points[ 0, 0 ]);
-      Debug.Log(terrains[terrIndex].terrList.GetComponent<Terrain>().name +
+      Debug.Log(terrains[terrIndex].gameObject.GetComponent<Terrain>().name +
                 ",(" + iWidth + "," + iHeight + "): " +
                 points[ (int)iWidth - 1, (int)iHeight - 1 ]);
 #endif
@@ -1371,9 +1387,9 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("MATCHING EDGES OF CHUNK (" + changeX + ", " + changeZ + ")");
 // Debug.Log(
 //     "(0,0) InterpolatedHeight = " +
-//     (terrains[0].terrList.GetComponent<Terrain>().terrainData.GetInterpolatedHeight(
+//     (terrains[0].gameObject.GetComponent<Terrain>().terrainData.GetInterpolatedHeight(
 //          0, 0) /
-//      terrains[0].terrList.GetComponent<Terrain>().terrainData.size.y));
+//      terrains[0].gameObject.GetComponent<Terrain>().terrainData.size.y));
 #endif
     int b1 = GetTerrainWithCoord(changeX - 1, changeZ);  // Left
     int b2 = GetTerrainWithCoord(changeX, changeZ + 1);  // Top
@@ -2356,8 +2372,7 @@ public class TerrainGenerator : MonoBehaviour {
     times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
-  void UpdateTrees(TerrainData terrainData) {
-    float iTime = Time.realtimeSinceStartup;
+  void UpdateTreePrototypes(TerrainData terrainData) {
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
 
@@ -2369,6 +2384,11 @@ public class TerrainGenerator : MonoBehaviour {
 
     terrainData.treePrototypes = list;
     terrainData.RefreshPrototypes();
+  }
+  void UpdateTrees(TerrainData terrainData) {
+    float iTime = Time.realtimeSinceStartup;
+    int terrID = GetTerrainWithData(terrainData);
+    if (terrID < 0) return;
 
     float[, ] numberModifier = new float[ 2, 2 ];
     PerlinDivide(ref numberModifier, GetXCoord(terrID), GetZCoord(terrID), 2, 2,
@@ -2382,7 +2402,8 @@ public class TerrainGenerator : MonoBehaviour {
       if (Y <= TerrainGenerator.waterHeight) continue;
       if (terrainData.GetSteepness(X, Z) > 30f) continue;
       newTrees[i] = new TreeInstance();
-      newTrees[i].prototypeIndex = UnityEngine.Random.Range(0, list.Length - 1);
+      newTrees[i].prototypeIndex =
+          UnityEngine.Random.Range(0, terrainData.treePrototypes.Length - 1);
       newTrees[i].color = new Color(1, 1, 1);
       newTrees[i].lightmapColor = new Color(1, 1, 1);
       newTrees[i].heightScale = 1.0f;
@@ -2392,7 +2413,7 @@ public class TerrainGenerator : MonoBehaviour {
 
     terrainData.treeInstances = newTrees;
     if (terrID >= 0) {
-      Terrain terrain = terrains[terrID].terrList.GetComponent<Terrain>();
+      Terrain terrain = terrains[terrID].gameObject.GetComponent<Terrain>();
       terrain.Flush();
       terrain.ApplyDelayedHeightmapModification();
       // Refresh the collider since unity doesn't update this unless
@@ -2404,8 +2425,7 @@ public class TerrainGenerator : MonoBehaviour {
     times.DeltaTreeUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
-  void UpdateGrass(TerrainData terrainData) {
-    float iTime = Time.realtimeSinceStartup;
+  void UpdateDetailPrototypes(TerrainData terrainData) {
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
 
@@ -2415,7 +2435,9 @@ public class TerrainGenerator : MonoBehaviour {
     } else {
       TerrainGrasses = terrainData.detailPrototypes;
     }
-
+  }
+  void UpdateGrass(TerrainData terrainData) {
+    float iTime = Time.realtimeSinceStartup;
     int[,] map = new int[terrainData.detailWidth, terrainData.detailHeight];
     float max = 16;
 
@@ -2438,7 +2460,8 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
 
-    Terrain t = terrains[terrID].terrList.GetComponent<Terrain>();
+    Terrain t = terrains[GetTerrainWithData(terrainData)]
+                    .gameObject.GetComponent<Terrain>();
 
     for (int i = 0; i < terrainData.detailPrototypes.Length; i++) {
       terrainData.SetDetailLayer(0, 0, i, map);
@@ -2446,6 +2469,35 @@ public class TerrainGenerator : MonoBehaviour {
     t.Flush();
 
     times.DeltaGrassUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
+  }
+
+ public
+  void SaveAllChunks() {
+    for (int i = 0; i < terrains.Count; i++) {
+      SaveChunk(GetXCoord(i), GetZCoord(i));
+    }
+  }
+  void SaveChunk(int X, int Z) {
+    int terrID = GetTerrainWithCoord(X, Z);
+    SaveLoad.WriteTerrain(X, Z, terrains[terrID].terrPoints,
+                          terrains[terrID].terrPerlinPoints,
+                          terrains[terrID].terrData, worldID);
+  }
+  void LoadChunk(int X, int Z) {
+    if (!SaveLoad.TerrainExists(X, Z, worldID)) return;
+    int terrID = GetTerrainWithCoord(X, Z);
+    UpdateSplat(terrains[terrID].terrData);
+    UpdateDetailPrototypes(terrains[terrID].terrData);
+    UpdateTreePrototypes(terrains[terrID].terrData);
+    SaveLoad.ReadTerrain(X, Z, ref terrains[terrID].terrPoints,
+                         ref terrains[terrID].terrPerlinPoints,
+                         ref terrains[terrID].terrData, worldID);
+    terrains[terrID].splatQueue = false;
+    terrains[terrID].texQueue = false;
+    terrains[terrID].terrQueue = true;
+    terrains[terrID].isDividing = false;
+    terrains[terrID].terrReady = false;
+    terrains[terrID].loadedFromDisk = true;
   }
 
   // Give array index from coordinates. Using StringBuilder because it is
@@ -2460,12 +2512,12 @@ public class TerrainGenerator : MonoBehaviour {
       GetTerrainNameHolder.Append(",");
       GetTerrainNameHolder.Append(z);
       GetTerrainNameHolder.Append(")");
-      if (terrains[i].terrList != null &&
-          terrains[i].terrList.name.Equals(GetTerrainNameHolder.ToString())) {
+      if (terrains[i].gameObject != null &&
+          terrains[i].gameObject.name.Equals(GetTerrainNameHolder.ToString())) {
 #if DEBUG_ARRAY
         Debug.Log(
-            terrains[i].terrList.name + "==" + GetTerrainNameHolder + " [" +
-            terrains[i].terrList.name.Equals(GetTerrainNameHolder.ToString()) +
+            terrains[i].gameObject.name + "==" + GetTerrainNameHolder + " [" +
+            terrains[i].gameObject.name.Equals(GetTerrainNameHolder.ToString()) +
             "]{" + i + "}");
 #endif
         return i;
@@ -2481,7 +2533,7 @@ public class TerrainGenerator : MonoBehaviour {
       Debug.Log(terrains[i].terrData + "==" + terr + " [" +
                 (terrains[i].terrData == terr) + " (" + i + ")]");
 #endif
-      if (terrains[i].terrList && terrains[i].terrData == terr) {
+      if (terrains[i].gameObject && terrains[i].terrData == terr) {
         return i;
       }
     }
@@ -2494,10 +2546,10 @@ public class TerrainGenerator : MonoBehaviour {
       // TODO: Remove try-catch.
       try {
 #if DEBUG_ARRAY
-        Debug.Log(terrains[i].terrList.name + "==" + terr.name + " [" +
-                  (terrains[i].terrList.name == terr.name) + " (" + i + ")]");
+        Debug.Log(terrains[i].gameObject.name + "==" + terr.name + " [" +
+                  (terrains[i].gameObject.name == terr.name) + " (" + i + ")]");
 #endif
-        if (terrains[i].terrList && terrains[i].terrList.name == terr.name) {
+        if (terrains[i].gameObject && terrains[i].gameObject.name == terr.name) {
           return i;
         }
       } catch (MissingReferenceException e) {
@@ -2509,7 +2561,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   // Get the X coordinate from the array index.
   int GetXCoord(int index) {
-    string name = terrains[index].terrList.name;
+    string name = terrains[index].gameObject.name;
     int start = -1, end = -1;
     for (int i = 0; i < name.Length; i++) {
       if (name[i].Equals('(')) {
@@ -2526,7 +2578,7 @@ public class TerrainGenerator : MonoBehaviour {
     int output;
     if (!Int32.TryParse(coord, out output)) {
       Debug.LogError("Failed to parse X Coordinate(" + index + "): " + coord +
-                     "\n" + name + "," + terrains[index].terrList.name);
+                     "\n" + name + "," + terrains[index].gameObject.name);
       return -1;
     } else {
       return output;
@@ -2535,7 +2587,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   // Get the Z coordinate from the array index.
   int GetZCoord(int index) {
-    string name = terrains[index].terrList.name;
+    string name = terrains[index].gameObject.name;
     int start = -1, end = -1;
     for (int i = 0; i < name.Length; i++) {
       if (name[i].Equals(',')) {
@@ -2552,7 +2604,7 @@ public class TerrainGenerator : MonoBehaviour {
     int output;
     if (!Int32.TryParse(coord, out output)) {
       Debug.LogError("Failed to parse Z Coordinate(" + index + "): " + coord +
-                     "\n" + name + "," + terrains[index].terrList.name);
+                     "\n" + name + "," + terrains[index].gameObject.name);
       return -1;
     } else {
       return output;
@@ -2631,7 +2683,7 @@ public class TerrainGenerator : MonoBehaviour {
     int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
     if (terrLoc != -1) {
       float TerrainHeight =
-          terrains[terrLoc].terrList.GetComponent<Terrain>().SampleHeight(
+          terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
               position);
       return TerrainHeight;
     }

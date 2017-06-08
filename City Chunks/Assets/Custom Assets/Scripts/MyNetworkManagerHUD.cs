@@ -39,6 +39,7 @@ void Update() {
   if (NetworkServer.active && NetworkClient.active) {
     if (GameData.isPaused && Input.GetKeyDown(KeyCode.X)) {
       GameData.isPaused = false;
+      FindObjectOfType<TerrainGenerator>().SaveAllChunks();
       manager.StopHost();
     }
   }
@@ -151,6 +152,7 @@ void OnGUI() {
     if ((GameData.isPaused || GameData.getLevel() == 5) &&
         GUI.Button(new Rect(xpos, ypos, 200, 20), "Return to Main Menu (X)")) {
       GameData.isPaused = false;
+      FindObjectOfType<TerrainGenerator>().SaveAllChunks();
       manager.StopHost();
     }
     ypos += spacing;
