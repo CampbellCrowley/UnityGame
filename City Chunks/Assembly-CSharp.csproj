@@ -48,9 +48,15 @@
   <ItemGroup>
      <Compile Include="Assets\Custom Assets\Scripts\AudioPlayer.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Cinematic.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\CustomDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\InitPlayer.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\LoadingBarController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\LoadingCameraController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\LoadingLightController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\LoadingTextController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\MenuObjectController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MyNetworkManagerHUD.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\NameList.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\PlayerController.cs" />
@@ -156,11 +162,9 @@
      <None Include="Assets\PostProcessing\Resources\Shaders\ColorGrading.cginc" />
      <None Include="Assets\Standard Assets\Environment\Water\Water4\Shaders\FXWater4Advanced.shader" />
      <None Include="Assets\Custom Assets\Scripts\NamesFormatted.txt" />
+     <None Include="Assets\Standard Assets\Effects\ImageEffects\Shaders\SimpleClear.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\AmbientOcclusion.cginc" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
- <Reference Include="UnityEngine.Advertisements">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
- </Reference>
  <Reference Include="UnityEngine.UI">
  <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>

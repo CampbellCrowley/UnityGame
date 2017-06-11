@@ -39,7 +39,13 @@ public class DayNightController : MonoBehaviour {
 	// Update is called once per frame
 	void LateUpdate () {
 		//increment time
-		currentTime += Time.deltaTime*daySpeedMultiplier;
+    if (!GameData.loading) {
+		currentTime += Time.deltaTime*daySpeedMultiplier
+#if true
+      + Input.GetAxis("Mouse ScrollWheel") / 10f
+#endif
+     ;
+    }
 		//reset time
 		if (currentTime >= 24.0f) {
 			currentTime %= 24.0f;

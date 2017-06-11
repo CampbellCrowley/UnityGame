@@ -241,17 +241,22 @@ class PlayerController : NetworkBehaviour {
   }
 
   void Update() {
+    if (!GameData.loading && !Camera.activeSelf) Camera.SetActive(true);
+    else if (GameData.loading && Camera.activeSelf) Camera.SetActive(false);
     rbody = GetComponent<Rigidbody>();
-    nameplate = GetComponentInChildren<TextMesh>();
-    nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
-    nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
-    if (username != "Username") {
-      nameplate.text = username;
-    } else {
-      nameplate.text = "Player " + (int.Parse(netId.ToString()) - 1);
+    if (!GameData.loading) {
+      nameplate = GetComponentInChildren<TextMesh>();
+      nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
+      nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
+      if (username != "Username") {
+        nameplate.text = username;
+      } else {
+        nameplate.text = "Player " + (int.Parse(netId.ToString()) - 1);
+      }
     }
     if (!isLocalPlayer) {
-      nameplate.GetComponent<MeshRenderer>().enabled = true;
+      if (!GameData.loading)
+        nameplate.GetComponent<MeshRenderer>().enabled = true;
       if (rbodyRotation.x * rbodyRotation.x +
               rbodyRotation.y * rbodyRotation.y +
               rbodyRotation.z * rbodyRotation.z +
@@ -267,10 +272,12 @@ class PlayerController : NetworkBehaviour {
       return;
     } else if (intendedCameraDistance == 0 &&
                Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
-      nameplate.GetComponent<MeshRenderer>().enabled = false;
+      if (!GameData.loading)
+        nameplate.GetComponent<MeshRenderer>().enabled = false;
     }
 
-    if (usernameOSD != null) usernameOSD.text = nameplate.text;
+    if (usernameOSD != null && !GameData.loading)
+      usernameOSD.text = nameplate.text;
 
     // Cinematics
     if (cinematic != null && !cinematic.isDone) {
@@ -361,6 +368,7 @@ class PlayerController : NetworkBehaviour {
       Camera.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
       cameraSpawnRotation = Camera.transform.rotation;
       spawnLocation = transform.position;
+      Camera.GetComponent<Camera>().useOcclusionCulling = false;
     } else if (cinematicsFinished && !spawned) {
       levelStartTime = Time.time;
       cameraSpawnRotation = Camera.transform.rotation;
@@ -368,6 +376,7 @@ class PlayerController : NetworkBehaviour {
       spawned = true;
     } else {
       spawned = true;
+      Camera.GetComponent<Camera>().useOcclusionCulling = true;
     }
 
     // Vehicles
@@ -737,6 +746,10 @@ class PlayerController : NetworkBehaviour {
         newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
                                           newCameraPos, ref velocity, 0.05f);
       }
+      if (newCameraPos.y <= TerrainGenerator.waterHeight + 0.4f) {
+        newCameraPos += Vector3.down * 0.8f;
+      }
+
       Camera.transform.position = newCameraPos;
 
       if (Camera.transform.eulerAngles.x > 75.0f &&

@@ -1,3 +1,4 @@
+// v0.0.5
 ////////////////////////////////////////////////////////////////////
 // WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
 //                      USE WITH CAUTION!                         //
@@ -16,9 +17,9 @@
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
 // #define DEBUG_WATER
-#define DEBUG_HUD_POS
-#define DEBUG_HUD_TIMES
-#define DEBUG_HUD_LOADED
+// #define DEBUG_HUD_POS
+// #define DEBUG_HUD_TIMES
+// #define DEBUG_HUD_LOADED
 #pragma warning disable 0168
 #pragma warning disable 0219
 
@@ -26,14 +27,6 @@ using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-
-public static class Pauser {
-  public static void pause() {
-#if UNITY_EDITOR
-    UnityEditor.EditorApplication.isPaused = true;
-#endif
-  }
-}
 
 [Serializable] public class GeneratorModes {
   [Header("Displace Divide")]
@@ -54,9 +47,13 @@ public static class Pauser {
   [Tooltip("Used in a Lerp function between DisplaceDivide and Perlin.")]
   [Range(0.0f, 1.0f)]public float mixtureAmount = 0.5f;
   [Tooltip("Number of pixels to update per chunk per frame.")]
-  [Range(0, 257*257)] public int HeightmapSpeed = 1000;
-  [Tooltip("Splits calculating the heightmap among 4 frames instead of doing it all in 1.")]
+  [Range(0, 513*513)] public int HeightmapSpeed = 1000;
+  [Tooltip("Splits calculating the heightmap among 4^slowAmount frames instead of doing it all in 1.")]
   public bool slowHeightmap = true;
+  [Tooltip("Maximum depth the recursion should delay continuing.")]
+  public int slowAmount = 1;
+  [Tooltip("Number of seconds to wait between each delay.")]
+  public float slowDelay = 0.1f;
   [Tooltip("Allows most of the hard work of generating chunks to happen in Start() rather than multiple frames. Only applies for spawn chunks.")]
   public bool PreLoadChunks = false;
 }
@@ -83,20 +80,32 @@ public static class Pauser {
   public float DeltaGenerateTerrain = 0;
   [Tooltip("Previous amount of time instantiating a new water component of a chunk took in milliseconds.")]
   public float DeltaGenerateWater = 0;
+  [Tooltip("Previous amount of time updating the water of a chunk took in milliseconds.")]
+  public float DeltaWaterUpdate = 0;
+  [Tooltip("Previous amount of time applying the heightmap to a chunk took in milliseconds.")]
+  public float DeltaHeightmapApplied = 0;
   [Tooltip("Same as DeltaDivide but includes time it took to flip points and possible additional logging.")]
   public float DeltaGenerateHeightmap = 0;
-  [Tooltip("Previous amount of time updating chunk spalts took in milliseconds.")]
+  [Tooltip("Previous amount of time updating detail meshes took in milliseconds.")]
+  public float DeltaGrassUpdate = 0;
+  [Tooltip("Previous amount of time updating chunk splats took in milliseconds.")]
   public float DeltaSplatUpdate = 0;
+  [Tooltip("Previous amount of time updating chunk splats, trees, and details took in milliseconds.")]
+  public float DeltaDetailUpdate = 0;
   [Tooltip("Previous amount of time updating chunk textures took in milliseconds.")]
   public float DeltaTextureUpdate = 0;
   [Tooltip("Previous amount of time updating tree prototypes and instances took in milliseconds.")]
   public float DeltaTreeUpdate = 0;
-  [Tooltip("Previous amount of time updating detail meshes took in milliseconds.")]
-  public float DeltaGrassUpdate = 0;
+  [Tooltip("Previous amount of time updating the delayed heightmap modifications took in milliseconds.")]
+  public float DeltaLODUpdate = 0;
   [Tooltip("Previous amount of time updating neighbors took in milliseconds.")]
   public float DeltaUpdate = 0;
+  [Tooltip("Previous amount of time unloading chunks took in milliseconds.")]
+  public float DeltaUnload = 0;
   [Tooltip("Previous amount of time it took for all steps to occur during one frame if something significant happened, otherwise it does not change until a significant event occurs.")]
   public float DeltaTotal = 0;
+  [Tooltip("Previous amount of time it took for all steps to occur during one frame.")]
+  public float DeltaTotalReal = 0;
   public float DeltaTotalMax = 0;
   [Tooltip("Previous 1000 values of DeltaTotal for use in calculating the average total amount of time this script takes during a frame while doing everything.")]
   public float[] DeltaTotalAverageArray = new float[1000];
@@ -106,6 +115,8 @@ public static class Pauser {
   public int avgEnd = -1;
 }
 [Serializable] public class Terrains {
+  public int x = 0;
+  public int z = 0;
   [Tooltip("List of terrain data for setting heights. Equivalent to gameObject.GetComponent<Terrain>().terrainData.")]
   public TerrainData terrData;
   [Tooltip("List of terrains for instantiating.")]
@@ -120,10 +131,20 @@ public static class Pauser {
   public bool splatQueue = false;
   [Tooltip("Whether this terrain chunk is ready for its textures to be updated.")]
   public bool texQueue = false;
+  [Tooltip("Whether this terrain chunk is ready for its trees to be updated.")]
+  public bool treeQueue = false;
+  [Tooltip("Whether this terrain chunk is ready for its water tile to be updated.")]
+  public bool waterQueue = false;
+  [Tooltip("Whether this terrain chunk is ready for its grass and other details to be updated.")]
+  public bool detailQueue = false;
   [Tooltip("Whether this terrain chunk is ready to be updated with points in terrPoints. True if points need to be flushed to terrainData.")]
   public bool terrQueue = false;
+  [Tooltip("Whether this terrain chunk is ready for its delayed hightmap modifications to be updated.")]
+  public bool LODQueue = false;
   [Tooltip("True if the heightmap is still being generated.")]
   public bool isDividing = false;
+  [Tooltip("True if the heightmap has been generated.")]
+  public bool hasDivided = false;
   [Tooltip("True if all points have been defined in terrPoints. Used for determining adjacent chunk heightmaps.")]
   public bool terrReady = false;
   [Tooltip("True if the chunk can be unloaded.")]
@@ -167,7 +188,7 @@ public static class Pauser {
 public class TerrainGenerator : MonoBehaviour {
   public static float EmptyPoint = -100f;
   public static string Version = "v0.0.5";
-  public static string worldID = "";
+  public static string worldID = "ERROR";
 
   [Header("Terrains (Auto-populated)")]
   [Tooltip("The list of all currently loaded chunks.")]
@@ -176,7 +197,6 @@ public class TerrainGenerator : MonoBehaviour {
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
   [SerializeField] public GameObject waterTile;
-  [SerializeField] public static float waterHeight = 0f;
   [Tooltip("Maximum number of trees per chunk to be generated.")]
   [SerializeField] public int maxNumTrees = 500;
   // Player for deciding when to load chunks based on position.
@@ -196,6 +216,8 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public GUIText chunkListInfo;
   [Tooltip("Tracking of how long certain events take.")]
   [SerializeField] public Times times;
+  [Tooltip("The previous values of times.")]
+  [SerializeField] public Times previousTimes;
   [Header("Generator Settings")]
   [Tooltip("List of available terrain generators.")]
   [SerializeField] public GeneratorModes GenMode;
@@ -222,12 +244,17 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public DetailPrototype[] TerrainGrasses;
 
   public static bool doneLoadingSpawn = false;
+  public static bool wasDoneLoadingSpawn = false;
+  public static float waterHeight = 0f;
+  public static float snowHeight = 960f;
 
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
   int terrHeight; // Maximum height of the terrain chunk in normal units.
   int heightmapWidth;  // The size of an individual heightmap of each chunk.
   int heightmapHeight;
+  int alphamapHeight;
+  int alphamapWidth;
   // Used to identify the corners of the loaded terrain when not generating in a
   // radius from the player
   int width;  // Total size of heightmaps combined
@@ -246,7 +273,7 @@ public class TerrainGenerator : MonoBehaviour {
   // Previous terrain index whose heightmap was being applied.
   int lastTerrUpdateLoc = 0;
   // Chunk whose heightmap is being applied.
-  Terrain lastTerrUpdated = new Terrain();
+  Terrains lastTerrUpdated = new Terrains();
   // Array of points currently applied to the chunk.
   float[, ] TerrUpdatePoints;
   // Array of points to be applied to the chunk.
@@ -262,6 +289,8 @@ public class TerrainGenerator : MonoBehaviour {
   int unloadWaitCount = 100;
   // Used for pausing the editor if a new maximum is set so the user can view what the culprut was.
   float lastMaxUpdateTime = 0;
+  bool preLoadingDone = false;
+  bool preLoadingChunks = false;
 #if DEBUG_HUD_LOADED
   // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
@@ -271,6 +300,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   void Start() {
     Debug.Log("Terrain Generator Start!");
+    GameData.AddLoadingScreen();
 
     terrains.Clear();
     if (waterTile != null)
@@ -321,43 +351,21 @@ public class TerrainGenerator : MonoBehaviour {
     UpdateDetailPrototypes(terrains[0].terrData);
     UpdateGrass(terrains[0].terrData);
     Debug.Log("Texturing spawn chunk");
-    UpdateTexture(terrains[0].terrData);
+    UpdateTexture(terrains[0]);
     terrains[0].terrQueue = false;
     terrains[0].splatQueue = false;
     terrains[0].texQueue = false;
+    terrains[0].treeQueue = false;
+    terrains[0].detailQueue = false;
     terrains[0].terrReady = true;
     Debug.Log("Saving spawn chunk to disk");
     SaveChunk(0, 0);
     radius = loadDist / ((terrWidth + terrLength) / 2.0f);
+    GenMode.slowHeightmap = slowHeightmap;
 
-    if(GenMode.PreLoadChunks) {
-      Debug.Log("Repeating for all chunks within radius");
-      float X_, Y_;
-      int x, y;
-      bool done = false;
-      bool keepGoing;
-      do {
-        keepGoing = false;
-        for (float X = 0; X < 2 * radius; X++) {
-          for (float Y = 0; Y < 2 * radius; Y++) {
-            X_ = X % 2 == 0 ? (X / -2) : ((X - 1) / 2);
-            Y_ = Y % 2 == 0 ? (Y / -2) : ((Y - 1) / 2);
-            x = Mathf.RoundToInt(X_);
-            y = Mathf.RoundToInt(Y_);
-            if (x * x + y * y <= radius * radius) {
-              done = false;
-              loadWaitCount = 0;
-              BeginChunkLoading(x, y, ref done);
-              if (done) keepGoing = done;
-            }
-          }
-        }
-      } while (keepGoing);
-    }
 #if DEBUG_HUD_LOADED
     LoadedChunkList = "";
 #endif
-    GenMode.slowHeightmap = slowHeightmap;
     loadWaitCount = loadWaitCountTemp;
 #if NAVIGATION_MESH_BUILDER
     Debug.Log("Building Navigation Mesh Surface");
@@ -428,11 +436,117 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   void Update() {
-// Generates terrain based on player transform and generated terrain.
-// Loads chunks in a circle centered on the player and unloads all other chunks
-// that are not within this circle. The spawn chunk is exempt because it may not
-// be unloaded.
+    if(GenMode.PreLoadChunks && !preLoadingDone && !preLoadingChunks) {
+      preLoadingChunks = true;
+      StartCoroutine(PreLoadChunks());
+    }
+    if (GameData.loading) CalculateLoadPercent();
+    if (!preLoadingDone) return;
+    if (GameData.loading && doneLoadingSpawn && !wasDoneLoadingSpawn)
+      GameData.RemoveLoadingScreen();
+    // Generates terrain based on player transform and generated terrain. Loads
+    // chunks in a circle centered on the player and unloads all other chunks
+    // that are not within this circle. The spawn chunk is exempt because it may
+    // not be unloaded.
+    float iRealTime = Time.realtimeSinceStartup;
+    float iTime = -1;
+    bool done = loadWaitCount > 0;
 
+    if (Input.GetKeyDown("r")) {
+      for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
+        times.DeltaTotalAverageArray[i] = -1;
+      }
+      times.DeltaTotalAverage = 0f;
+      times.DeltaTotalMax = 0f;
+      times.avgEnd = -1;
+      lastMaxUpdateTime = 0f;
+    }
+
+    Preparations();
+
+    HandleMultiplayer();
+
+    UpdateAllWater(ref done, ref iTime);
+
+    ApplyHeightmap(ref done, ref iTime);
+
+    UpdateAllLOD(ref done, ref iTime);
+
+    UpdateAllTrees(ref done, ref iTime);
+
+    UpdateAllSplats(ref done, ref iTime);
+
+    UpdateAllTextures(ref done, ref iTime);
+
+    UpdateAllDetails(ref done, ref iTime);
+
+    UpdateAllLoadedChunks(ref done, ref iTime);
+
+    UpdateAllNeighbors();
+
+    checkDoneLoadingSpawn();
+
+    UnloadAllChunks(ref done, ref iTime);
+
+    UpdateTimesAndHUD(iTime, iRealTime);
+  }
+
+  IEnumerator PreLoadChunks() {
+    Debug.Log("Pre-Loading Chunks");
+    GameData.loadingMessage = "Slicing and dicing...";
+    float X_, Y_;
+    int x, y;
+    bool done = false;
+    bool keepGoing;
+    float slowDelay = GenMode.slowDelay;
+    GenMode.slowDelay = 0f;
+    GenMode.slowAmount--;
+    do {
+      CustomDebug.Assert(false, "Start Frame");
+      keepGoing = false;
+      done = false;
+      loadWaitCount = 0;
+      for (float X = 0; X < 2 * radius; X++) {
+        for (float Y = 0; Y < 2 * radius; Y++) {
+          X_ = X % 2 == 0 ? (X / -2) : ((X - 1) / 2);
+          Y_ = Y % 2 == 0 ? (Y / -2) : ((Y - 1) / 2);
+          x = Mathf.RoundToInt(X_);
+          y = Mathf.RoundToInt(Y_);
+          if (x * x + y * y <= radius * radius) {
+            BeginChunkLoading(x, y, ref done);
+            if (done) keepGoing = done;
+          }
+        }
+      }
+      CustomDebug.Assert(false, "End of frame");
+      yield return null;
+    } while (keepGoing);
+    Debug.Log("Done Pre-Loading Chunks");
+    GenMode.slowDelay = slowDelay;
+    GenMode.slowAmount++;
+    preLoadingDone = true;
+    preLoadingChunks = false;
+  }
+
+  void CalculateLoadPercent() {
+      float total = 0f;
+      int num = 137;
+      int count = 7;
+      for(int i=0; i<terrains.Count; i++) {
+        if (terrains[i].isDividing) total += 0.5f / count;
+        else if (terrains[i].waterQueue) total += 1.5f / count;
+        else if (terrains[i].terrQueue) total += 2.5f / count;
+        else if (terrains[i].treeQueue) total += 3.5f / count;
+        else if (terrains[i].splatQueue) total += 4.5f / count;
+        else if (terrains[i].texQueue) total += 5.5f / count;
+        else if (terrains[i].detailQueue) total += 6.5f / count;
+        // else if (terrains[i].LODQueue) total += 7.5f / count;
+        else if (terrains[i].terrReady) total += 1.0f;
+      }
+      GameData.loadingPercent = total / num;
+  }
+
+  void Preparations() {
 #if DEBUG_POSITION
     Debug.Log ("P: ("
             + player.transform.position.x
@@ -440,6 +554,17 @@ public class TerrainGenerator : MonoBehaviour {
             + ", " + player.transform.position.z
             + ")");
 #endif
+#if DEBUG_HUD_LOADED
+    LoadedChunkList = "";
+    if (TerrainGenerator.doneLoadingSpawn) {
+      LoadedChunkList += "Spawn is done\n";
+    } else {
+      LoadedChunkList += "\n";
+    }
+#endif
+    GameData.previousLoadingMessage = GameData.loadingMessage;
+    GameData.loadingMessage =
+        "Waiting for someone special to see what I've made for them.";
 
     // Remove all undefined chunks from the array because they have been
     // unloaded.
@@ -450,8 +575,12 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
 
-    float iTime = -1;
-    bool done = false;
+    if (loadWaitCount > 0) loadWaitCount--;
+
+    // If any chunks are dividing, don't do anything that would take time.
+    if (anyChunksDividing()) {
+      if (loadWaitCount <= 0) loadWaitCount = 5;
+    }
 
     // Flag all chunks to be unloaded. If they should not be unloaded, they will
     // be unflagged and stay loaded before any chunks are actually unloaded.
@@ -460,26 +589,25 @@ public class TerrainGenerator : MonoBehaviour {
         terrains[i].terrToUnload = true;
       }
     } else {
-      unloadWaitCount--;
+      if (!anyChunksDividing()) unloadWaitCount--;
     }
+  }
 
-    //////////////////////////
-    // Multiplayer Handling //
-    //////////////////////////
+  void HandleMultiplayer() {
     float playerX = playerSpawnX;
     float playerZ = playerSpawnZ;
     // Get the player spawn height from the heightmap height at the
     // coordinates where the player will spawn.
-    float playerY = GetTerrainHeight(playerX, playerZ);
-    if (playerY < TerrainGenerator.waterHeight) {
-      playerY = TerrainGenerator.waterHeight;
-    }
     players = GameObject.FindObjectsOfType<InitPlayer>();
     if (player == null) {
       if (players.Length == 1) {
         player = players[0].gameObject;
         Debug.Log("Valid player found: " + player.transform.name);
         // Tell the player where to spawn.
+        float playerY = GetTerrainHeight(playerX, playerZ);
+        if (playerY < TerrainGenerator.waterHeight) {
+          playerY = TerrainGenerator.waterHeight;
+        }
         (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
       } else if (players.Length == 0 && TerrainGenerator.doneLoadingSpawn) {
         Debug.Log("Resetting TerrainGenerator");
@@ -498,16 +626,19 @@ public class TerrainGenerator : MonoBehaviour {
       for (int i = 0; i < players.Length; i++) {
         player = players[i].gameObject;
         // Tell the player where to spawn.
+        float playerY = GetTerrainHeight(playerX, playerZ);
+        if (playerY < TerrainGenerator.waterHeight) {
+          playerY = TerrainGenerator.waterHeight;
+        }
         (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
       }
     } else if (numIdentifiedPlayers > players.Length) {
       Debug.Log("Player disconnected.");
       numIdentifiedPlayers = players.Length;
     }
-    /////////////////////
-    // End Multiplayer //
-    /////////////////////
+  }
 
+  void UpdateAllLoadedChunks(ref bool done, ref float iTime) {
     for (int num = 0; num < players.Length; num++) {
       player = players[num].gameObject;
       // Make sure the player stays above the terrain
@@ -521,7 +652,7 @@ public class TerrainGenerator : MonoBehaviour {
             terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
                 player.transform.position);
 #if DEBUG_HUD_LOADED
-        LoadedChunkList =
+        LoadedChunkList +=
             "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
 #endif
 
@@ -548,45 +679,53 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
 
-      if (!TerrainGenerator.doneLoadingSpawn) loadWaitCount = 0;
-      for (float X = 0; X < 2 * radius; X++) {
-        for (float Y = 0; Y < 2 * radius; Y++) {
-          float X_ = xCenter + (X % 2 == 0 ? (X / -2) : ((X - 1) / 2));
-          float Y_ = yCenter + (Y % 2 == 0 ? (Y / -2) : ((Y - 1) / 2));
-          int x = Mathf.RoundToInt(X_);
-          int y = Mathf.RoundToInt(Y_);
-          // don't have to take the square root, it's slow
-          if ((x - xCenter) * (x - xCenter) + (y - yCenter) * (y - yCenter) <=
-              radius * radius) {
-            // If the chunk has not been loaded yet, create it. Otherwise, make
-            // sure the chunk doesn't get unloaded.
-            bool wasdone = done;
-            iTime = Time.realtimeSinceStartup;
-            BeginChunkLoading(x, y, ref done);
-            if (!wasdone && !done) iTime = -1;
-          }
+      UpdateLoadedChunks(xCenter, yCenter, ref done, ref iTime);
+
+    }
+  }
+
+  void UpdateLoadedChunks(float xCenter, float yCenter, ref bool done,
+                          ref float iTime) {
+    bool chunkUpdated = false;
+    if (!TerrainGenerator.doneLoadingSpawn) loadWaitCount = 0;
+    for (float X = 0; X < 2 * radius; X++) {
+      for (float Y = 0; Y < 2 * radius; Y++) {
+        float X_ = xCenter + (X % 2 == 0 ? (X / -2) : ((X - 1) / 2));
+        float Y_ = yCenter + (Y % 2 == 0 ? (Y / -2) : ((Y - 1) / 2));
+        int x = Mathf.RoundToInt(X_);
+        int y = Mathf.RoundToInt(Y_);
+        // don't have to take the square root, it's slow
+        if ((x - xCenter) * (x - xCenter) + (y - yCenter) * (y - yCenter) <=
+            radius * radius) {
+          // If the chunk has not been loaded yet, create it. Otherwise, make
+          // sure the chunk doesn't get unloaded.
+          bool wasdone = done;
+          if (iTime == -1 && !done) iTime = Time.realtimeSinceStartup;
+          BeginChunkLoading(x, y, ref done);
+          if (!wasdone && !done) iTime = -1;
+          else if(!wasdone && done) chunkUpdated = true;
         }
-#if DEBUG_HUD_LOADED
-        LoadedChunkList += "\n";
-#endif
       }
 #if DEBUG_HUD_LOADED
-      if (TerrainGenerator.doneLoadingSpawn) {
-        LoadedChunkList += "Done\n";
-      }
-      if (done) LoadedChunkList += "Generating and Fractaling\n";
+      LoadedChunkList += "\n";
 #endif
     }
-    if (loadWaitCount > 0) loadWaitCount--;
+    if (chunkUpdated) GameData.loadingMessage = "Slicing and dicing...";
+#if DEBUG_HUD_LOADED
+    if (chunkUpdated) LoadedChunkList += "Generating and Fractaling\n";
+    else LoadedChunkList += "\n";
+#endif
+  }
 
+  void ApplyHeightmap(ref bool done, ref float iTime) {
     // Delay applying a heightmap if a chunk was loaded or textures were updated
     // on a chunk to help with performance.
-    bool skipHeightmapApplication = done /*|| textureUpdated*/;
     bool heightmapApplied = false;
-    if (!skipHeightmapApplication) {
+    float iTime2 = -1;
+    if (!done) {
       // Find next chunk that needs heightmap to be applied or continue the last
       // chunk if it was not finished.
-      int tileCnt = GetTerrainWithData(lastTerrUpdated);
+      int tileCnt = GetTerrainWithCoord(lastTerrUpdated.x, lastTerrUpdated.z);
       if (tileCnt <= 0 || !terrains[tileCnt].terrQueue) {
         for (int i = 0; i < terrains.Count; i++) {
           if (terrains[i].terrQueue) {
@@ -601,9 +740,14 @@ public class TerrainGenerator : MonoBehaviour {
       if (tileCnt > 0 && terrains[tileCnt].terrQueue) {
         heightmapApplied = true;
         if (iTime == -1) iTime = Time.realtimeSinceStartup;
+        if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
         int lastTerrUpdateLoc_ = lastTerrUpdateLoc;
+        int heightmapSpeed = GenMode.HeightmapSpeed == 0
+                                 ? heightmapWidth * heightmapWidth
+                                 : GenMode.HeightmapSpeed;
+
         for (int i = lastTerrUpdateLoc_;
-             i < lastTerrUpdateLoc_ + GenMode.HeightmapSpeed; i++) {
+             i < lastTerrUpdateLoc_ + heightmapSpeed; i++) {
           int z = i % heightmapHeight;
           int x = (int)Math.Floor((float)i / heightmapWidth);
 #if DEBUG_CHUNK_LOADING
@@ -620,8 +764,8 @@ public class TerrainGenerator : MonoBehaviour {
             terrains[tileCnt].terrQueue = false;
             terrains[tileCnt].splatQueue = true;
             terrains[tileCnt].texQueue = true;
-            if (!terrains[tileCnt].loadedFromDisk) {
-            }
+            terrains[tileCnt].treeQueue = true;
+            terrains[tileCnt].detailQueue = true;
             break;
           }
 
@@ -649,6 +793,7 @@ public class TerrainGenerator : MonoBehaviour {
         try {
           // Set the terrain heightmap to the defined points.
           terrains[tileCnt].terrData.SetHeightsDelayLOD(0, 0, TerrUpdatePoints);
+          terrains[tileCnt].LODQueue = true;
         } catch (ArgumentException e) {
           Debug.LogWarning(
               "TerrUpdatePoints is incorrect size " + heightmapHeight + "x" +
@@ -660,47 +805,173 @@ public class TerrainGenerator : MonoBehaviour {
         // Push all changes to the terrain.
         terrains[tileCnt].gameObject.GetComponent<Terrain>().Flush();
         // Make sure this chunk will continue being updated next frame.
-        lastTerrUpdated = terrains[tileCnt].gameObject.GetComponent<Terrain>();
+        lastTerrUpdated = terrains[tileCnt];
         // The terrain has been removed from the queue so we should allow for
         // the another chunk to be loaded.
         if (!terrains[tileCnt].terrQueue) {
           TerrUpdatePoints = new float[ heightmapHeight, heightmapWidth ];
           lastTerrUpdateLoc = 0;
-          lastTerrUpdated = new Terrain();
+          lastTerrUpdated = new Terrains();
         }
       }
     }
 #if DEBUG_HUD_LOADED
     if (heightmapApplied) LoadedChunkList += "Applying Heightmap\n";
+    else LoadedChunkList += "\n";
 #endif
+    if (heightmapApplied) {
+      GameData.loadingMessage = "Creating something from nothing...";
+      done = heightmapApplied;
+      times.DeltaHeightmapApplied = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
 
+  void UpdateAllLOD(ref bool done, ref float iTime) {
+    bool LODUpdated = false;
+    float iTime2 = -1;
+    if (!done) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].LODQueue) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+          terrains[i]
+              .gameObject.GetComponent<Terrain>()
+              .ApplyDelayedHeightmapModification();
+          terrains[i].LODQueue = false;
+          LODUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADED
+    if (LODUpdated) LoadedChunkList += "Updating LOD\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (LODUpdated) {
+      // GameData.loadingMessage = "Final touch-ups... (Don't screw up now!)";
+      GameData.loadingMessage = GameData.previousLoadingMessage;
+      done = LODUpdated;
+      times.DeltaLODUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
+
+  void UpdateAllWater(ref bool done, ref float iTime) {
+    bool waterUpdated = false;
+    float iTime2 = -1;
+    if (!done) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].waterQueue) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+          GenerateWaterChunk(GetXCoord(i), GetZCoord(i));
+          terrains[i].waterQueue = false;
+          waterUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADED
+    if (waterUpdated) LoadedChunkList += "Updating Water\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (waterUpdated) {
+      GameData.loadingMessage = "Slowly drowning...";
+      done = waterUpdated;
+      times.DeltaWaterUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
+
+  void UpdateAllSplats(ref bool done, ref float iTime) {
     bool splatsUpdated = false;
-    if (!done && !heightmapApplied) {
+    float iTime2 = -1;
+    if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].splatQueue) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           UpdateSplat(terrains[i].terrData);
-          UpdateTreePrototypes(terrains[i].terrData);
-          UpdateTrees(terrains[i].terrData);
-          UpdateDetailPrototypes(terrains[i].terrData);
-          UpdateGrass(terrains[i].terrData);
           terrains[i].splatQueue = false;
+          splatsUpdated = true;
           break;
         }
       }
     }
 #if DEBUG_HUD_LOADED
     if (splatsUpdated) LoadedChunkList += "Updating Splats\n";
+    else LoadedChunkList += "\n";
 #endif
+    if (splatsUpdated) {
+      GameData.loadingMessage = "Discovering color...";
+      done = splatsUpdated;
+      times.DeltaSplatUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
 
+  void UpdateAllTrees(ref bool done, ref float iTime) {
+    bool treesUpdated = false;
+    float iTime2 = -1;
+    if(!done) {
+      for(int i=0; i< terrains.Count; i++) {
+        if(terrains[i].treeQueue) {
+          if(iTime==-1) iTime = Time.realtimeSinceStartup;
+          if(iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+          UpdateTreePrototypes(terrains[i].terrData);
+          UpdateTrees(terrains[i].terrData);
+          terrains[i].treeQueue = false;
+          terrains[i].LODQueue = true;
+          treesUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADED
+    if (treesUpdated) LoadedChunkList += "Updating Trees\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (treesUpdated) {
+      done = treesUpdated;
+      GameData.loadingMessage = "Let there be life!";
+      times.DeltaTreeUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
+
+  void UpdateAllDetails(ref bool done, ref float iTime) {
+    bool detailsUpdated = false;
+    float iTime2 = -1;
+    if(!done) {
+      for(int i=0; i< terrains.Count; i++) {
+        if(terrains[i].detailQueue) {
+          UpdateDetailPrototypes(terrains[i].terrData);
+          UpdateGrass(terrains[i].terrData);
+          terrains[i].detailQueue = false;
+          terrains[i].LODQueue = true;
+          detailsUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADED
+    if (detailsUpdated) LoadedChunkList += "Updating Details\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (detailsUpdated) {
+      done = detailsUpdated;
+      times.DeltaDetailUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+      GameData.loadingMessage = "Watching grass grow...";
+    }
+  }
+
+  void UpdateAllTextures(ref bool done, ref float iTime) {
     // Delay applying textures until later if a chunk was loaded this frame to
     // help with performance.
     bool textureUpdated = false;
-    if (!done && !heightmapApplied && !splatsUpdated) {
+    float iTime2 = -1;
+    if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].texQueue) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
-          UpdateTexture(terrains[i].terrData);
-          terrains[i].texQueue = false;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+          UpdateTexture(terrains[i]);
           textureUpdated = true;
           break;
         }
@@ -708,8 +979,16 @@ public class TerrainGenerator : MonoBehaviour {
     }
 #if DEBUG_HUD_LOADED
     if (textureUpdated) LoadedChunkList += "Texturing\n";
+    else LoadedChunkList += "\n";
 #endif
+    if (textureUpdated) {
+      done = textureUpdated;
+      times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+      GameData.loadingMessage = "Painting a masterpiece...";
+    }
+  }
 
+  void UpdateAllNeighbors() {
     // Update terrain neighbors every times.UpdateSpeed seconds.
     // TODO: Is this even necessary? I don't really know what updating neighbors
     // does.
@@ -727,84 +1006,6 @@ public class TerrainGenerator : MonoBehaviour {
       times.lastUpdate = Time.time;
       times.DeltaUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
-
-    checkDoneLoadingSpawn();
-
-#if DEBUG_HUD_LOADED
-    LoadedChunkList += "Unloading: ";
-#endif
-    // Unload all chunks flagged for unloading.
-    for (int i = 0; i < terrains.Count; i++) {
-      if (terrains[i].terrToUnload) {
-#if DEBUG_HUD_LOADED
-        LoadedChunkList += "(" + GetXCoord(i) + ", " + GetZCoord(i) + ", " +
-                           Mathf.RoundToInt(terrains[i].currentTTL) + "), ";
-#endif
-        if (terrains[i].currentTTL <= 0) {
-          SaveChunk(GetXCoord(i), GetZCoord(i));
-          if (i != 0) UnloadTerrainChunk(i);
-          else terrains[i].currentTTL = 60000;
-        } else {
-          terrains[i].currentTTL--;
-        }
-      }
-    }
-
-#if DEBUG_HUD_LOADED
-    chunkListInfo.text = LoadedChunkList;
-#else
-    if (chunkListInfo != null) chunkListInfo.text = "";
-#endif
-
-    // Figure out timings and averages.
-    if (iTime > -1) {
-      times.DeltaTotal = (Time.realtimeSinceStartup - iTime) * 1000;
-      times.avgEnd++;
-      if (times.avgEnd >= times.DeltaTotalAverageArray.Length) times.avgEnd = 0;
-      times.DeltaTotalAverageArray[times.avgEnd] = times.DeltaTotal;
-      times.DeltaTotalAverage = 0;
-      int DeltaNum = 0;
-      for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
-        if (times.DeltaTotalAverageArray[i] != -1) {
-          times.DeltaTotalAverage += times.DeltaTotalAverageArray[i];
-          if (times.DeltaTotalMax < times.DeltaTotalAverageArray[i]) {
-            times.DeltaTotalMax = times.DeltaTotalAverageArray[i];
-          }
-          DeltaNum++;
-        }
-      }
-      if (times.DeltaTotalMax > lastMaxUpdateTime && times.pauseIfNewMax) {
-        lastMaxUpdateTime = times.DeltaTotalMax;
-        Pauser.pause();
-      }
-      times.DeltaTotalAverage /= (float)DeltaNum;
-    }
-#if DEBUG_HUD_TIMES
-    times.deltaNextUpdate.text =
-        (Time.time - times.lastUpdate - times.UpdateSpeed).ToString() + "s";
-    times.deltaTimes.text =
-        "Generate(" + times.DeltaGenerate + "ms)<--" +
-          "T(" + times.DeltaGenerateTerrain + "ms)<--" +
-          "W(" + times.DeltaGenerateWater + "ms),\n" +
-        "Tex("+ times.DeltaTextureUpdate + "ms) -- " +
-          "Splat(" + times.DeltaSplatUpdate + "ms) -- " +
-          "Trees(" + times.DeltaTreeUpdate + "ms) -- " +
-          "Grass(" + times.DeltaGrassUpdate + "ms),\n" +
-        "Heightmap(" + times.DeltaGenerateHeightmap + "ms),\n" +
-        "Fractal(" + times.DeltaFractal + "ms)<--" +
-          "Divide(" + times.DeltaDivide + "ms)<--" +
-          "Once(" + times.DeltaDivide / divideAmount + "ms)*" +
-          "(" + divideAmount + " points),\n" +
-        "Last Total(" + times.DeltaTotal + "ms) -- " +
-          "Avg: " + times.DeltaTotalAverage + "ms -- " +
-          "Max: " + times.DeltaTotalMax + "ms,\n" +
-        "Update Neighbors(" + times.DeltaUpdate + "ms)\n" +
-        "Frame Count(" + Time.frameCount + ") -- " +
-          "Time Slot(" + times.avgEnd + ")";
-#else
-    if (times.deltaTimes != null) times.deltaTimes.text = "";
-    if (times.deltaNextUpdate != null) times.deltaNextUpdate.text = "";
-#endif
   }
 
   void UpdateTerrainNeighbors(int X, int Z, int count = 2) {
@@ -844,31 +1045,189 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
-  void BeginChunkLoading(int x, int z, ref bool done) {
-    int pointIndex = GetTerrainWithCoord(x, z);
-    if (pointIndex == -1 && loadWaitCount <= 0) {
-      if (!done) {
-        GenerateTerrainChunk(x, z);
-        FractalNewTerrains(x, z);
-        done = true;
-        loadWaitCount = 10;
-      }
-    } else if (pointIndex > 0 && pointIndex < terrains.Count &&
-               terrains[pointIndex].isDividing && loadWaitCount <= 0) {
-      if (!done) {
-        FractalNewTerrains(x, z);
-        loadWaitCount = 10;
-        done = true;
+  void UnloadAllChunks(ref bool done, ref float iTime) {
+#if DEBUG_HUD_LOADED
+    LoadedChunkList += "Unloading: \n";
+#endif
+    bool chunksUnloaded = false;
+    float iTime2 = -1;
+    // Unload all chunks flagged for unloading.
+    if (!anyChunksDividing() && !done) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].terrToUnload) {
+#if DEBUG_HUD_LOADED
+          LoadedChunkList += "(" + GetXCoord(i) + ", " + GetZCoord(i) + ", " +
+                             Mathf.RoundToInt(terrains[i].currentTTL) + "), ";
+          if (i % 7 == 0) LoadedChunkList += "\n";
+#endif
+          if (terrains[i].currentTTL <= 0) {
+            SaveChunk(GetXCoord(i), GetZCoord(i));
+            if (i != 0) {
+              if (iTime == -1) iTime = Time.realtimeSinceStartup;
+              if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+              UnloadTerrainChunk(i);
+              chunksUnloaded = true;
+            } else {
+              terrains[i].currentTTL = 60000;
+            }
+          } else {
+            terrains[i].currentTTL--;
+          }
+        }
       }
     } else {
-      if (pointIndex >= 0) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].terrToUnload) {
 #if DEBUG_HUD_LOADED
-        LoadedChunkList += "+(" + x + ", " + z + ") ";
+          LoadedChunkList += "(" + GetXCoord(i) + ", " + GetZCoord(i) + ", " +
+                             Mathf.RoundToInt(terrains[i].currentTTL) + "), ";
+          if (i % 7 == 0) LoadedChunkList += "\n";
 #endif
+          terrains[i].currentTTL--;
+        }
+      }
+    }
+
+#if DEBUG_HUD_LOADED
+    chunkListInfo.text = LoadedChunkList;
+#else
+    if (chunkListInfo != null) chunkListInfo.text = "";
+#endif
+    if(chunksUnloaded) {
+      done = chunksUnloaded;
+      times.DeltaUnload = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
+
+  void UpdateTimesAndHUD(float iTime, float iRealTime = -1) {
+    // Figure out timings and averages.
+    if (iTime > -1) {
+      times.DeltaTotal = (Time.realtimeSinceStartup - iTime) * 1000;
+      times.DeltaTotalReal = (Time.realtimeSinceStartup - iRealTime) * 1000;
+      times.avgEnd++;
+      if (times.avgEnd >= times.DeltaTotalAverageArray.Length) times.avgEnd = 0;
+      times.DeltaTotalAverageArray[times.avgEnd] = times.DeltaTotal;
+      times.DeltaTotalAverage = 0;
+      int DeltaNum = 0;
+      for (int i = 0; i < times.DeltaTotalAverageArray.Length; i++) {
+        if (times.DeltaTotalAverageArray[i] != -1) {
+          times.DeltaTotalAverage += times.DeltaTotalAverageArray[i];
+          if (times.DeltaTotalMax < times.DeltaTotalAverageArray[i]) {
+            times.DeltaTotalMax = times.DeltaTotalAverageArray[i];
+          }
+          DeltaNum++;
+        }
+      }
+      if (times.DeltaTotalMax > lastMaxUpdateTime && times.pauseIfNewMax) {
+        lastMaxUpdateTime = times.DeltaTotalMax;
+        Debug.Break();
+      }
+      times.DeltaTotalAverage /= (float)DeltaNum;
+    }
+#if DEBUG_HUD_TIMES
+    times.deltaNextUpdate.text =
+        (Time.time - times.lastUpdate - times.UpdateSpeed).ToString() + "s";
+    times.deltaTimes.text = "Current Frame:\n" +
+        "Generate(" + times.DeltaGenerate + "ms)<--" +
+          "T(" + times.DeltaGenerateTerrain + "ms)<--" +
+          "W(" + times.DeltaGenerateWater + "ms) -- " +
+          "WU(" + times.DeltaWaterUpdate + "ms),\n" +
+        "Splats(" + times.DeltaSplatUpdate + "ms) -- " +
+          "Trees(" + times.DeltaTreeUpdate + "ms) -- " +
+          "Tex("+ times.DeltaTextureUpdate + "ms) -- " +
+          "Grass(" + times.DeltaGrassUpdate + "ms),\n" +
+        "Heightmap Application(" + times.DeltaHeightmapApplied + "ms)<--" +
+          "Generation(" + times.DeltaGenerateHeightmap + "ms),\n" +
+        "Fractal(" + times.DeltaFractal + "ms)<--" +
+          "Divide(" + times.DeltaDivide + "ms)<--" +
+          "Once(" + times.DeltaDivide / divideAmount + "ms)*" +
+          "(" + divideAmount + " points),\n" +
+        "Last Total(" + times.DeltaTotal + "ms) -- " +
+          "Real: " + times.DeltaTotalReal + "ms) -- " +
+          "Avg: " + times.DeltaTotalAverage + "ms -- " +
+          "Max: " + times.DeltaTotalMax + "ms,\n" +
+        "Update Neighbors(" + times.DeltaUpdate + "ms)\n" +
+        "Unload(" + times.DeltaUnload + "ms),\n" +
+        "Frame Count(" + Time.frameCount + ") -- " +
+          "Time Slot(" + times.avgEnd + ")";
+
+    times.deltaTimes.text += "\n\nPrevious Frame:\n" +
+        "Generate(" + previousTimes.DeltaGenerate + "ms)<--" +
+          "T(" + previousTimes.DeltaGenerateTerrain + "ms)<--" +
+          "W(" + previousTimes.DeltaGenerateWater + "ms) -- " +
+          "WU(" + previousTimes.DeltaWaterUpdate + "ms),\n" +
+        "Tex("+ previousTimes.DeltaTextureUpdate + "ms),\n" +
+        "Stuff(" + previousTimes.DeltaSplatUpdate + "ms)<--" +
+          "Splat(" + previousTimes.DeltaSplatUpdate + "ms) -- " +
+          "Trees(" + previousTimes.DeltaTreeUpdate + "ms) -- " +
+          "Grass(" + previousTimes.DeltaGrassUpdate + "ms),\n" +
+        "Heightmap Application(" + previousTimes.DeltaHeightmapApplied + "ms)<--" +
+          "Generation(" + previousTimes.DeltaGenerateHeightmap + "ms),\n" +
+        "Fractal(" + previousTimes.DeltaFractal + "ms)<--" +
+          "Divide(" + previousTimes.DeltaDivide + "ms)<--" +
+          "Once(" + previousTimes.DeltaDivide / divideAmount + "ms)*" +
+          "(" + divideAmount + " points),\n" +
+        "Last Total(" + previousTimes.DeltaTotal + "ms) -- " +
+          "Real: " + previousTimes.DeltaTotalReal + "ms) -- " +
+          "Avg: " + previousTimes.DeltaTotalAverage + "ms -- " +
+          "Max: " + previousTimes.DeltaTotalMax + "ms -- " +
+          "Delta: " + (Time.deltaTime*1000f) + "ms,\n" +
+        "Update Neighbors(" + previousTimes.DeltaUpdate + "ms),\n" +
+        "Unload(" + previousTimes.DeltaUnload + "ms),\n" +
+        "Frame Count(" + (Time.frameCount-1) + ") -- " +
+          "Time Slot(" + previousTimes.avgEnd + ")";
+
+    previousTimes.DeltaGenerate          = times.DeltaGenerate;
+    previousTimes.DeltaGenerateTerrain   = times.DeltaGenerateTerrain;
+    previousTimes.DeltaGenerateWater     = times.DeltaGenerateWater;
+    previousTimes.DeltaWaterUpdate       = times.DeltaWaterUpdate;
+    previousTimes.DeltaTextureUpdate     = times.DeltaTextureUpdate;
+    previousTimes.DeltaSplatUpdate       = times.DeltaSplatUpdate;
+    previousTimes.DeltaSplatUpdate       = times.DeltaSplatUpdate;
+    previousTimes.DeltaTreeUpdate        = times.DeltaTreeUpdate;
+    previousTimes.DeltaGrassUpdate       = times.DeltaGrassUpdate;
+    previousTimes.DeltaHeightmapApplied  = times.DeltaHeightmapApplied;
+    previousTimes.DeltaGenerateHeightmap = times.DeltaGenerateHeightmap;
+    previousTimes.DeltaFractal           = times.DeltaFractal;
+    previousTimes.DeltaDivide            = times.DeltaDivide;
+    previousTimes.DeltaTotal             = times.DeltaTotal;
+    previousTimes.DeltaTotalReal         = times.DeltaTotalReal;
+    previousTimes.DeltaTotalAverage      = times.DeltaTotalAverage;
+    previousTimes.DeltaTotalMax          = times.DeltaTotalMax;
+    previousTimes.DeltaUpdate            = times.DeltaUpdate;
+    previousTimes.DeltaUnload            = times.DeltaUnload;
+    previousTimes.avgEnd                 = times.avgEnd;
+
+#else
+    if (times.deltaTimes != null) times.deltaTimes.text = "";
+    if (times.deltaNextUpdate != null) times.deltaNextUpdate.text = "";
+#endif
+  }
+
+  void BeginChunkLoading(int x, int z, ref bool done) {
+#if DEBUG_HUD_LOADED
+    LoadedChunkList += "+(" + x + ", " + z + ") ";
+#endif
+    int pointIndex = -1;
+    if (!done) pointIndex = GetTerrainWithCoord(x, z);
+    if (pointIndex == -1 && !done) {
+      GenerateTerrainChunk(x, z);
+      FractalNewTerrains(x, z);
+      done = true;
+      loadWaitCount = 10;
+    } else if (pointIndex > 0 && pointIndex < terrains.Count &&
+               (terrains[pointIndex].isDividing ||
+                (terrains[pointIndex].hasDivided &&
+                 !terrains[pointIndex].terrReady)) &&
+               !done) {
+      FractalNewTerrains(x, z);
+      loadWaitCount = 10;
+      done = true;
+    } else {
+      if (pointIndex >= 0) {
         terrains[pointIndex].terrToUnload = false;
         terrains[pointIndex].currentTTL = terrains[pointIndex].startTTL;
       }
-      if (loadWaitCount > 0) done = true;
     }
   }
 
@@ -884,6 +1243,8 @@ public class TerrainGenerator : MonoBehaviour {
       heightmapWidth = this.GetComponent<Terrain>().terrainData.heightmapWidth;
       heightmapHeight =
           this.GetComponent<Terrain>().terrainData.heightmapHeight;
+      alphamapHeight = this.GetComponent<Terrain>().terrainData.alphamapHeight;
+      alphamapWidth = this.GetComponent<Terrain>().terrainData.alphamapWidth;
 
       Debug.Log("terrWidth: " + terrWidth + ", terrLength: " + terrLength +
                 ", terrHeight: " + terrHeight + ", waterHeight: " +
@@ -895,6 +1256,8 @@ public class TerrainGenerator : MonoBehaviour {
       roughness *= 65f / heightmapWidth;
 
       terrains.Add(new Terrains());
+      terrains[0].x = 0;
+      terrains[0].z = 0;
       terrains[0].terrData = GetComponent<Terrain>().terrainData;
       terrains[0].gameObject = this.gameObject;
       terrains[0].terrPoints = new float[ terrWidth, terrLength ];
@@ -909,6 +1272,8 @@ public class TerrainGenerator : MonoBehaviour {
 
       // Add Terrain
       terrains.Add(new Terrains());
+      terrains[terrains.Count - 1].x = cntX;
+      terrains[terrains.Count - 1].z = cntZ;
       // Terrain Data
       terrains[terrains.Count - 1].terrData = new TerrainData();
       terrains[terrains.Count - 1].terrData.name =
@@ -1020,8 +1385,8 @@ public class TerrainGenerator : MonoBehaviour {
           terrain.gameObject.GetComponent<Terrain>().transform.position;
       Vector3 waterVector3 = terrVector3;
       waterVector3.y += waterTile.transform.position.y;
-      waterVector3.x += terrWidth / 2;
-      waterVector3.z += terrLength / 2;
+      //waterVector3.x += terrWidth / 2;
+      //waterVector3.z += terrLength / 2;
       terrains[terrID].waterTile =
           Instantiate(waterTile, waterVector3, Quaternion.identity,
                       terrain.gameObject.transform);
@@ -1104,9 +1469,9 @@ public class TerrainGenerator : MonoBehaviour {
     Destroy(terrains[loc].gameObject);
     Destroy(terrains[loc].waterTile);
     terrains.RemoveAt(loc);
-    if (GetTerrainWithData(lastTerrUpdated) == loc) {
+    if (GetTerrainWithCoord(lastTerrUpdated.x, lastTerrUpdated.z) == loc) {
       lastTerrUpdateLoc = -1;
-      lastTerrUpdated = new Terrain();
+      lastTerrUpdated = new Terrains();
     }
   }
 
@@ -1136,8 +1501,6 @@ public class TerrainGenerator : MonoBehaviour {
     // displacing.
     if (GenMode.DisplaceDivide || GenMode.Reach || GenMode.Cube ||
         GenMode.Distort) {
-      // Give each chunk its own unique number which is offset by the seed so
-      // that it will always generate the same way.
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
       Debug.Log(terrains[terrIndex].gameObject.GetComponent<Terrain>().name +
                 ",(0,0): " + points[ 0, 0 ]);
@@ -1211,41 +1574,45 @@ public class TerrainGenerator : MonoBehaviour {
                        terrIndex + ", Coord(" + changeX + ", " + changeZ + ")");
         return;
       } else if (terrains[terrIndex].isDividing) {
-        if (terrains[terrIndex].terrReady) {
-          points = terrains[terrIndex].terrPoints;
-          terrains[terrIndex].isDividing = false;
-          terrains[terrIndex].terrToUnload = false;
-          terrains[terrIndex].currentTTL = terrains[terrIndex].startTTL;
-        } else {
-          terrains[terrIndex].terrToUnload = false;
-          terrains[terrIndex].currentTTL = terrains[terrIndex].startTTL;
-          return;
-        }
+        terrains[terrIndex].terrToUnload = false;
+        terrains[terrIndex].currentTTL = terrains[terrIndex].startTTL;
+        return;
+      } else if (terrains[terrIndex].hasDivided) {
+        terrains[terrIndex].terrToUnload = false;
+        terrains[terrIndex].currentTTL = terrains[terrIndex].startTTL;
+        points = terrains[terrIndex].terrPoints;
+        terrains[terrIndex].terrReady = true;
       } else {
 #if DEBUG_DIVIDE
         Debug.Log("Dividing new grid.\nIndex: " + terrIndex + ", Coord(" +
                   changeX + ", " + changeZ + ")");
 #endif
         terrains[terrIndex].terrPoints = points;
-        terrains[terrIndex].isDividing = true;
         terrains[terrIndex].terrToUnload = false;
+        terrains[terrIndex].isDividing = true;
         terrains[terrIndex].currentTTL = terrains[terrIndex].startTTL;
         divideAmount = 0;
+        // If we are using GenMode.slowHeightmap, then the terrain has not
+        // been finished being divided. Otherwise, the whole process could
+        // happen before the function returns.
+        CustomDebug.Assert(false, "Pre-Divide");
         StartCoroutine(
             DivideNewGrid(changeX, changeZ, 0, 0, iWidth, iHeight,
                           points[ 0, 0 ], points[ 0, (int)iHeight - 1 ],
                           points[ (int)iWidth - 1, (int)iHeight - 1 ],
                           points[ (int)iWidth - 1, 0 ]));
-        // If we are using GenMode.slowHeightmap, then the terrain has not
-        // been finished being divided. Otherwise, the whole process should
-        // happen before the function returns.
-        if (!terrains[terrIndex].terrReady) return;
+        if (terrains[terrIndex].isDividing || !terrains[terrIndex].hasDivided) {
+          return;
+        }
+        CustomDebug.Assert(false, "Post-Divide");
       }
     }
+
     // If the Perlin Noise generator is being used, create a heightmap with it.
     if (GenMode.Perlin) {
       PerlinDivide(ref perlinPoints, changeX, changeZ, iWidth, iHeight);
     }
+
     // If neither generator is used, then use some debugging pattern.
     if (!GenMode.DisplaceDivide && !GenMode.Perlin) {
       for (float r = 0; r < heightmapHeight; r++) {
@@ -1343,8 +1710,8 @@ public class TerrainGenerator : MonoBehaviour {
               // undefined points then the terrain may appear broken. This also
               // means that there is something very wrong with the generator.
               if (logCount >= 0) {
-                Debug.LogWarning("Flipping points found undefined area! (" + c +
-                                 ", " + r + ")");
+                Debug.LogError("Flipping points found undefined area! (" + c +
+                               ", " + r + ")");
               }
               logCount--;
             } else {
@@ -1375,8 +1742,7 @@ public class TerrainGenerator : MonoBehaviour {
     terrains[terrIndex].terrPoints = flippedPoints;
     terrains[terrIndex].terrPerlinPoints = perlinPoints;
     terrains[terrIndex].terrQueue = true;
-
-    GenerateWaterChunk(changeX, changeZ);
+    terrains[terrIndex].waterQueue = true;
   }
 
   // Set the edge of the new chunk to the same values as the bordering chunks.
@@ -1396,7 +1762,7 @@ public class TerrainGenerator : MonoBehaviour {
     int b3 = GetTerrainWithCoord(changeX + 1, changeZ);  // Right
     int b4 = GetTerrainWithCoord(changeX, changeZ - 1);  // Bottom
     float[, ] newpoints = points;
-    if (b1 >= 0 && terrains[b1].terrReady) {  // left
+    if (b1 >= 0 && terrains[b1].hasDivided) {  // left
 #if DEBUG_BORDERS_1
       Debug.Log("Border1(" + (changeX - 1) + "," + changeZ + "),(0,0): " +
                 terrains[b1].terrPoints[ 0, 0 ]);
@@ -1405,7 +1771,7 @@ public class TerrainGenerator : MonoBehaviour {
         newpoints[ i, 0 ] = terrains[b1].terrPoints[ i, (int)iWidth - 1 ];
       }
     } else if(b1 >= 0) return false;
-    if (b2 >= 0 && terrains[b2].terrReady) {  // top
+    if (b2 >= 0 && terrains[b2].hasDivided) {  // top
 #if DEBUG_BORDERS_2
       Debug.Log("Border2(" + changeX + "," + (changeZ + 1) + "),(0,0): " +
                 terrains[b2].terrPoints[ 0, 0 ]);
@@ -1414,7 +1780,7 @@ public class TerrainGenerator : MonoBehaviour {
         newpoints[ (int)iHeight - 1, i ] = terrains[b2].terrPoints[ 0, i ];
       }
     } else if(b2 >= 0) return false;
-    if (b3 >= 0 && terrains[b3].terrReady) {  // right
+    if (b3 >= 0 && terrains[b3].hasDivided) {  // right
 #if DEBUG_BORDERS_3
       Debug.Log("Border3(" + (changeX + 1) + "," + changeZ + "),(0,0): " +
                 terrains[b3].terrPoints[ 0, 0 ]);
@@ -1423,7 +1789,7 @@ public class TerrainGenerator : MonoBehaviour {
         newpoints[ i, (int)iWidth - 1 ] = terrains[b3].terrPoints[ i, 0 ];
       }
     } else if(b3 >= 0) return false;
-    if (b4 >= 0 && terrains[b4].terrReady) {  // bottom
+    if (b4 >= 0 && terrains[b4].hasDivided) {  // bottom
 #if DEBUG_BORDERS_4
       Debug.Log("Border4(" + changeX + "," + (changeZ - 1) + "),(0,0): " +
                 terrains[b4].terrPoints[ 0, 0 ]);
@@ -1480,7 +1846,7 @@ public class TerrainGenerator : MonoBehaviour {
   // its center displaced from the average of the section's for corners. This
   // then splits each section into four more sections, and repeats until every
   // point of the heightmap is defined.
-  void DivideNewGrid(ref float[, ] points, float dX, float dY, float dwidth,
+  /*void DivideNewGrid(ref float[, ] points, float dX, float dY, float dwidth,
                      float dheight, float c1, float c2, float c3, float c4) {
     divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
@@ -1525,7 +1891,9 @@ public class TerrainGenerator : MonoBehaviour {
           c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
         }
       } else if (GenMode.Cube) {
-        c1 = points[ (int)dX, (int)dY ];
+                 if (GenMode.slowHeightmap && recursiveDepth <= 1)
+                               yield return new WaitForSeconds(0.25f);
+                 c1 = points[ (int)dX, (int)dY ];
         c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
         c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
         c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
@@ -1775,17 +2143,19 @@ public class TerrainGenerator : MonoBehaviour {
       // Does not repeat since the size of this section is 1x1. This means
       // it cannot be divided further and we are done.
     }
-  }
+  }*/
   // Same as above, but splits up work between frames.
   IEnumerator DivideNewGrid(int chunkX, int chunkY, float dX, float dY,
                             float dwidth, float dheight, float c1, float c2,
-                            float c3, float c4) {
-    if (useSeed) {
+                            float c3, float c4, int index = -1,
+                            int recursiveDepth = 0) {
+    if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin Divide");
+    if (useSeed && recursiveDepth == 0) {
       UnityEngine.Random.InitState(
           (int)(Seed +
                 PerfectlyHashThem((short)(chunkX * 3), (short)(chunkY * 3))));
     }
-    int index = GetTerrainWithCoord(chunkX, chunkY);
+    if (index == -1) index = GetTerrainWithCoord(chunkX, chunkY);
     divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
       Debug.LogWarning("Width-Height Mismatch: Expected square grid.\nDX: " +
@@ -2034,124 +2404,153 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ] = c4;
 
       if (ShowWarning) {
-        Debug.LogWarning ("Divide(Post-Rectify):\n"
-					+ "C1: (0, 0):      " + terrains[index].terrPoints [0, 0] + "/" + c1 + "\n"
-					+ "C2: (0, " + (int)(dheight - 1) + "):      " +
-			  		terrains[index].terrPoints [0, (int)dheight - 1] + "/" + c2 + "\n"
-					+ "C3: (" + (int)(dwidth - 1) + ", " + (int)(dheight - 1) + "):      " +
-			  		terrains[index].terrPoints [(int)dwidth - 1, (int)dheight - 1] + "/" + c3 + "\n"
-					+ "C4: (" + (int)(dwidth - 1) + ", 0):      " +
-			  		terrains[index].terrPoints [(int)dwidth - 1, 0] + "/" + c4 + "\n"
+        Debug.LogWarning(
+            "Divide(Post-Rectify):\n" + "C1: (0, 0):      " +
+            terrains[index].terrPoints[ 0, 0 ] + "/" + c1 + "\n" + "C2: (0, " +
+            (int)(dheight - 1) + "):      " +
+            terrains[index].terrPoints[ 0, (int)dheight - 1 ] + "/" + c2 +
+            "\n" + "C3: (" + (int)(dwidth - 1) + ", " + (int)(dheight - 1) +
+            "):      " +
+            terrains[index].terrPoints[ (int)dwidth - 1, (int)dheight - 1 ] +
+            "/" + c3 + "\n" + "C4: (" + (int)(dwidth - 1) + ", 0):      " +
+            terrains[index].terrPoints[ (int)dwidth - 1, 0 ] + "/" + c4 + "\n"
 
-					+ "Edge1: (0, " + (int)Math.Floor ((dheight) / 2) + "):      " +
-			  		terrains[index].terrPoints [0, (int)Math.Floor ((dheight) / 2)] + "/" + Edge1 + "\n"
-					+ "Edge2: (" + (int)Math.Floor ((dwidth) / 2) + ", " +
-					(int)(dheight - 1) + "):      " +
-			  		terrains[index].terrPoints [(int)Math.Floor ((dwidth) / 2), (int)dheight - 1] + "/" +
-                                                                    Edge2 + "\n"
-					+ "Edge3: (" + (int)(dwidth - 1) + ", " +
-			  		(int)Math.Floor ((dheight - 1) / 2) + "):      " +
-			  		terrains[index].terrPoints [(int)dwidth - 1, (int)Math.Floor ((dheight) / 2)] + "/" +
-                                                                    Edge3 + "\n"
-					+ "Edge4: (" + (int)Math.Floor ((dwidth) / 2) + ", 0):      " +
-					  terrains[index].terrPoints [(int)Math.Floor ((dwidth) / 2), 0] + "/" + Edge4 + "\n"
+            + "Edge1: (0, " + (int)Math.Floor((dheight) / 2) + "):      " +
+            terrains[index].terrPoints[ 0, (int)Math.Floor((dheight) / 2) ] +
+            "/" + Edge1 + "\n" + "Edge2: (" + (int)Math.Floor((dwidth) / 2) +
+            ", " + (int)(dheight - 1) + "):      " +
+            terrains[index].terrPoints
+            [ (int)Math.Floor((dwidth) / 2), (int)dheight - 1 ] +
+            "/" + Edge2 + "\n" + "Edge3: (" + (int)(dwidth - 1) + ", " +
+            (int)Math.Floor((dheight - 1) / 2) + "):      " +
+            terrains[index].terrPoints
+            [ (int)dwidth - 1, (int)Math.Floor((dheight) / 2) ] +
+            "/" + Edge3 + "\n" + "Edge4: (" + (int)Math.Floor((dwidth) / 2) +
+            ", 0):      " +
+            terrains[index].terrPoints[ (int)Math.Floor((dwidth) / 2), 0 ] +
+            "/" + Edge4 + "\n"
 
-					+ "Middle: (" + (int)Math.Floor ((dwidth - 1) / 2) + ", " +
-				  	(int)Math.Floor ((dheight - 1) / 2) + "):      " +
-				  	terrains[index].terrPoints [
-                (int)Math.Floor ((dwidth - 1) / 2),
-                (int)Math.Floor ((dheight - 1) / 2)
-				    ]
-					+ "/" + Middle + "\n"
-					+ "\n"
-					+ "dX: " + dX + ", dY: " + dY + ", dwidth: " +
-					  dwidth + ", dheight: " + dheight);
+            + "Middle: (" + (int)Math.Floor((dwidth - 1) / 2) + ", " +
+            (int)Math.Floor((dheight - 1) / 2) + "):      " +
+            terrains[index].terrPoints[
+              (int)Math.Floor((dwidth - 1) / 2),
+              (int)Math.Floor((dheight - 1) / 2)
+            ] +
+            "/" + Middle + "\n" + "\n" + "dX: " + dX + ", dY: " + dY +
+            ", dwidth: " + dwidth + ", dheight: " + dheight);
       }
 
       // Do the operation over again for each of the four new
       // grids.
-      for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
-        if (GenMode.slowHeightmap) yield return null;
+
+      // 1/4
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 1/4");
+      if (useSeed && recursiveDepth == 0) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
+                                           (short)(chunkY * 3 - 2))));
+      }
+      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
+        yield return StartCoroutine(
+            DivideNewGrid(chunkX, chunkY, dX, dY, newWidth, newHeight, c1,
+                          Edge1, Middle, Edge4, index, recursiveDepth + 1));
+      } else {
+        StartCoroutine(DivideNewGrid(chunkX, chunkY, dX, dY, newWidth,
+                                     newHeight, c1, Edge1, Middle, Edge4, index,
+                                     recursiveDepth + 1));
+      }
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 1/4");
+      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+        UnityEngine.Random.State seedState = UnityEngine.Random.state;
+        yield return new WaitForSeconds(GenMode.slowDelay);
+        // yield return null;
+        UnityEngine.Random.state = seedState;
         index = GetTerrainWithCoord(chunkX, chunkY);
       }
-      // 1/4
-      if (index < 0 || index >= terrains.Count) {
-        Debug.LogError(
-            "Divide failed to find terrain index! The terrain may have been " +
-            "unloaded during divide!");
-      } else {
-        if (useSeed) {
-          UnityEngine.Random.InitState(
-              (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
-                                             (short)(chunkY * 3 - 2))));
-        }
-        DivideNewGrid(ref terrains[index].terrPoints, dX, dY, newWidth,
-                      newHeight, c1, Edge1, Middle, Edge4);
-        for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
-          if (GenMode.slowHeightmap) yield return null;
-          index = GetTerrainWithCoord(chunkX, chunkY);
-        }
-        // 2/4
-        if (index < 0 || index >= terrains.Count) {
-          Debug.LogError(
-              "Divide failed to find terrain index! The terrain may have " +
-              "been unloaded during divide!");
-        } else {
-          if (useSeed) {
-            UnityEngine.Random.InitState(
-                (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
-                                               (short)(chunkY * 3 - 2))));
-          }
-          DivideNewGrid(ref terrains[index].terrPoints, dX + newWidth, dY,
-                        newWidth, newHeight, Edge4, Middle, Edge3, c4);
-          for (int i = 0; i < 5 && index < 0 || index >= terrains.Count; i++) {
-            if (GenMode.slowHeightmap) yield return null;
-            index = GetTerrainWithCoord(chunkX, chunkY);
-          }
-          // 3/4
-          if (index < 0 || index >= terrains.Count) {
-            Debug.LogError(
-                "Divide failed to find terrain index! The terrain may have " +
-                "been unloaded during divide!");
-          } else {
-            if (useSeed) {
-              UnityEngine.Random.InitState(
-                  (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
-                                                 (short)(chunkY * 3 - 1))));
-            }
-            DivideNewGrid(ref terrains[index].terrPoints, dX + newWidth,
-                          dY + newHeight, newWidth, newHeight, Middle, Edge2,
-                          c3, Edge3);
-            for (int i = 0; i < 5 && index < 0 || index >= terrains.Count;
-                 i++) {
-              if (GenMode.slowHeightmap) yield return null;
-              index = GetTerrainWithCoord(chunkX, chunkY);
-            }
-            // 4/4
-            if (index < 0 || index >= terrains.Count) {
-              Debug.LogError("Divide failed to find terrain index!");
-            } else {
-              if (useSeed) {
-                UnityEngine.Random.InitState(
-                    (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
-                                                   (short)(chunkY * 3 - 1))));
-              }
-              DivideNewGrid(ref terrains[index].terrPoints, dX, dY + newHeight,
-                            newWidth, newHeight, Edge1, c2, Edge2, Middle);
-            }
-          }
-        }
+
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 2/4");
+      // 2/4
+      if (useSeed && recursiveDepth == 0) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
+                                           (short)(chunkY * 3 - 2))));
       }
-      if (index >= terrains.Count || index < 0) {
-        Debug.LogError(
-            "Terrain divide has finished but has invalid index!\nIndex: " +
-            index + ", Terrains: " + terrains.Count);
+      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
+        yield return StartCoroutine(DivideNewGrid(
+            chunkX, chunkY, dX + newWidth, dY, newWidth, newHeight, Edge4,
+            Middle, Edge3, c4, index, recursiveDepth + 1));
       } else {
+        StartCoroutine(DivideNewGrid(chunkX, chunkY, dX + newWidth, dY,
+                                     newWidth, newHeight, Edge4, Middle, Edge3,
+                                     c4, index, recursiveDepth + 1));
+      }
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 2/4");
+      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+        UnityEngine.Random.State seedState = UnityEngine.Random.state;
+        yield return new WaitForSeconds(GenMode.slowDelay);
+        // yield return null;
+        UnityEngine.Random.state = seedState;
+        index = GetTerrainWithCoord(chunkX, chunkY);
+      }
+
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 3/4");
+      // 3/4
+      if (useSeed && recursiveDepth == 0) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
+                                           (short)(chunkY * 3 - 1))));
+      }
+      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
+        yield return StartCoroutine(DivideNewGrid(
+            chunkX, chunkY, dX + newWidth, dY + newHeight, newWidth, newHeight,
+            Middle, Edge2, c3, Edge3, index, recursiveDepth + 1));
+      } else {
+        StartCoroutine(DivideNewGrid(
+            chunkX, chunkY, dX + newWidth, dY + newHeight, newWidth, newHeight,
+            Middle, Edge2, c3, Edge3, index, recursiveDepth + 1));
+      }
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 3/4");
+      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+        UnityEngine.Random.State seedState = UnityEngine.Random.state;
+        yield return new WaitForSeconds(GenMode.slowDelay);
+        // yield return null;
+        UnityEngine.Random.state = seedState;
+        index = GetTerrainWithCoord(chunkX, chunkY);
+      }
+
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 4/4");
+      // 4/4
+      if (useSeed && recursiveDepth == 0) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
+                                           (short)(chunkY * 3 - 1))));
+      }
+      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
+        yield return StartCoroutine(DivideNewGrid(
+            chunkX, chunkY, dX, dY + newHeight, newWidth, newHeight, Edge1, c2,
+            Edge2, Middle, index, recursiveDepth + 1));
+      } else {
+        StartCoroutine(DivideNewGrid(chunkX, chunkY, dX, dY + newHeight,
+                                     newWidth, newHeight, Edge1, c2, Edge2,
+                                     Middle, index, recursiveDepth + 1));
+      }
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 4/4");
+      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+        UnityEngine.Random.State seedState = UnityEngine.Random.state;
+        yield return new WaitForSeconds(GenMode.slowDelay);
+        // yield return null;
+        UnityEngine.Random.state = seedState;
+        index = GetTerrainWithCoord(chunkX, chunkY);
+      }
+
+      if (recursiveDepth == 0) CustomDebug.Assert(false, "Done");
+      if (recursiveDepth == 0) {
 #if DEBUG_DIVIDE
         Debug.Log("Terrain divide has finished chunk " + index + " (" + chunkX +
                   ", " + chunkY + ")");
 #endif
-        terrains[index].terrReady = true;
+        terrains[index].isDividing = false;
+        terrains[index].hasDivided = true;
       }
 
     } else {
@@ -2160,7 +2559,8 @@ public class TerrainGenerator : MonoBehaviour {
       if (GenMode.Cube || GenMode.Reach) {
         c1 = terrains[index].terrPoints[ (int)dX, (int)dY ];
         c2 = terrains[index].terrPoints[ (int)dX, (int)dY + (int)dheight - 1 ];
-        c3 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
+        c3 = terrains[index].terrPoints
+             [ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
         c4 = terrains[index].terrPoints[ (int)dX + (int)dwidth - 1, (int)dY ];
       }
       // The four corners of the grid piece will be averaged and drawn as a
@@ -2245,7 +2645,6 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   void UpdateSplat(TerrainData terrainData) {
-    float iTime = Time.realtimeSinceStartup;
     SplatPrototype[] tex = new SplatPrototype[TerrainTextures.Length];
 
     terrainData.RefreshPrototypes();
@@ -2291,58 +2690,88 @@ public class TerrainGenerator : MonoBehaviour {
     }
 
     for (int i = 0; i < tex.Length; i++) {
-      tex[i].tileSize = new Vector2(10, 10);  // Sets the size of the texture
+      tex[i].tileSize = new Vector2(16, 16);  // Sets the size of the texture
       tex[i].tileOffset = new Vector2(0, 0);  // Sets the offset of the texture
       //tex[i].texture.Apply(true);
     }
 
     terrainData.splatPrototypes = tex;
-    times.DeltaSplatUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
+  }
+
+  float GetSteepness(float[, ] Heightmap, int x, int y) {
+    float slopeX1 = Heightmap[ x, y ] -
+                    Heightmap[ x < Heightmap.GetLength(0) - 1 ? x + 1 : x, y ];
+    float slopeZ1 = Heightmap[ x, y ] -
+                    Heightmap[ x, y < Heightmap.GetLength(1) - 1 ? y + 1 : y ];
+    float slopeX2 = Heightmap[ x > 0 ? x - 1 : x, y ] - Heightmap[ x, y ];
+    float slopeZ2 = Heightmap[ x, y > 0 ? y - 1 : y ] - Heightmap[ x, y ];
+
+    float slopeX = (slopeX1 + slopeX2) / 2f;
+    float slopeZ = (slopeZ1 + slopeZ2) / 2f;
+
+    if (x == 0 || x == Heightmap.GetLength(0) - 1) slopeX *= 2;
+    if (y == 0 || y == Heightmap.GetLength(1) - 1) slopeZ *= 2;
+
+    slopeX *= terrHeight;
+    slopeZ *= terrHeight;
+
+    Vector3 normal = new Vector3(-slopeX, 2, slopeZ);
+    normal.Normalize();
+    return Mathf.Acos(Vector3.Dot(normal, Vector3.up)) * 180f / Mathf.PI;
   }
 
   // Create and apply a texture to a chunk.
-  void UpdateTexture(TerrainData terrainData) {
+  void UpdateTexture(Terrains terrain) {
     float iTime = Time.realtimeSinceStartup;
 
-    if (terrainData.splatPrototypes.Length != TerrainTextures.Length) return;
+    if (terrain.terrData.splatPrototypes.Length != TerrainTextures.Length) return;
 
-    float[, , ] map = new float[
-      terrainData.alphamapWidth,
-      terrainData.alphamapHeight,
-      TerrainTextures.Length
-    ];
+    int index = GetTerrainWithData(terrain.terrData);
 
-    for (var y = 0; y < terrainData.alphamapHeight; y++) {
-      for (var x = 0; x < terrainData.alphamapWidth; x++) {
-        // float normX = x * (1.0f / terrWidth);
-        // float normY = y * (1.0f / terrWidth);
-        float normX = y * 1.0f / (terrainData.alphamapWidth - 1);
-        float normY = x * 1.0f / (terrainData.alphamapHeight - 1);
+    float[,] heightmap = MixHeights(index);
 
-        // Get the steepness value at the normalized coordinate.
-        float angle = terrainData.GetSteepness(normX, normY);
-        float height =
-            terrainData.GetHeight(Mathf.RoundToInt(normX * heightmapWidth),
-                                  Mathf.RoundToInt(normY * heightmapHeight));
-        // float angle = (normX + normY) / 2f;
-        // float angle = (normX + normY) / 2f;
+    float[, , ] map =
+        new float[ alphamapWidth, alphamapHeight, TerrainTextures.Length ];
+
+    for (int y = 0; y < alphamapWidth; y++) {
+      for (int x = 0; x < alphamapHeight; x++) {
+        int X = x * (heightmapWidth / alphamapWidth);
+        int Y = y * (heightmapHeight / alphamapHeight);
+        // Get terrain information at each point.
+        // float angle = terrainData.GetSteepness(normX, normY);
+        float angle = GetSteepness(heightmap, X, Y);
+        //float height =
+        //    terrainData.GetHeight(Mathf.RoundToInt(normX * heightmapWidth),
+        //                          Mathf.RoundToInt(normY * heightmapHeight));
+        float height = heightmap[ X, Y ] * terrHeight;
+
+        // if (x == alphamapHeight / 2 && x == y) Debug.Log(height + "@" + angle);
 
         // Steepness is given as an angle, 0..90 degrees. Divide
         // by 90 to get an alpha blending value in the range 0..1.
-        float frac = angle / 60.0f;
-        // float frac = angle;
-
+        float maxAngle = 75f;
+        float unmodifiedFrac = angle / maxAngle;
+        float frac = 1f;
+        if (angle < maxAngle) {
+          // Curve values to blend nicer.
+          float A = 12f;
+          frac = -(A / 6) * Mathf.Pow(unmodifiedFrac, 3) +
+                 (A / 4) * Mathf.Pow(unmodifiedFrac, 2);
+        }
+        // Calculate relative amounts of each texture based off the terrain
+        // height and slope.
         float[] values = new float[TerrainTextures.Length];
-        values[0] = ((height / terrHeight < 0.8f) ? 1f - frac : 0f);
+        values[0] = ((height <= TerrainGenerator.snowHeight) ? 1.0f - frac : 0f);
         values[1] =
             ((height <= TerrainGenerator.waterHeight + 2f)
                  ? ((height <= TerrainGenerator.waterHeight + 1f) ? 100f : 2f)
                  : 0f);
         values[2] = frac;
-        values[3] = ((height / terrHeight >= 0.8f) ? 1f - frac : 0f);
+        values[3] = ((height >= TerrainGenerator.snowHeight) ? 1f - frac : 0f);
         values[4] = 0f;
         values[5] = 0f;
 
+        // Normalize values
         float total = 0f;
         for (int i = 0; i < values.Length; i++) {
           total += values[i];
@@ -2354,22 +2783,16 @@ public class TerrainGenerator : MonoBehaviour {
         }
 
         map[ x, y, 0 ] = values[0];
-        // map[ x, y, 0 ] = frac > .5f ? 0f : 2f * (frac - .5f);
-        // map[ x, y, 0 ] = 0f;
         map[ x, y, 1 ] = values[1];
         map[ x, y, 2 ] = values[2];
         map[ x, y, 3 ] = values[3];
         map[ x, y, 4 ] = values[4];
         map[ x, y, 5 ] = values[5];
-        // map[ x, y, 4 ] = frac;
-        // map[ x, y, 5 ] = 1f - frac;
-        // map[ x, y, 4 ] = frac < .5f ? 0f : 1f - 2f * frac;
-        // map[ x, y, 5 ] = Mathf.Abs(frac - .5f);
       }
     }
 
-    terrainData.SetAlphamaps(0, 0, map);
-    times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
+    terrain.terrData.SetAlphamaps(0, 0, map);
+    terrain.texQueue = false;
   }
 
   void UpdateTreePrototypes(TerrainData terrainData) {
@@ -2386,14 +2809,13 @@ public class TerrainGenerator : MonoBehaviour {
     terrainData.RefreshPrototypes();
   }
   void UpdateTrees(TerrainData terrainData) {
-    float iTime = Time.realtimeSinceStartup;
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
 
     float[, ] numberModifier = new float[ 2, 2 ];
     PerlinDivide(ref numberModifier, GetXCoord(terrID), GetZCoord(terrID), 2, 2,
                  PerlinSeedModifier * 2f, 0.1f);
-    int numberOfTrees = (int)(numberModifier[ 0, 0 ] * 1000);
+    int numberOfTrees = (int)(numberModifier[ 0, 0 ] * maxNumTrees);
     TreeInstance[] newTrees = new TreeInstance[numberOfTrees];
     for (int i = 0; i < newTrees.Length; i++) {
       float X = UnityEngine.Random.value;
@@ -2415,14 +2837,11 @@ public class TerrainGenerator : MonoBehaviour {
     if (terrID >= 0) {
       Terrain terrain = terrains[terrID].gameObject.GetComponent<Terrain>();
       terrain.Flush();
-      terrain.ApplyDelayedHeightmapModification();
       // Refresh the collider since unity doesn't update this unless
       // SetHeights() is called or toggling the collider off and on.
       terrain.GetComponent<Collider>().enabled = false;
       terrain.GetComponent<Collider>().enabled = true;
     }
-
-    times.DeltaTreeUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
   void UpdateDetailPrototypes(TerrainData terrainData) {
@@ -2439,15 +2858,18 @@ public class TerrainGenerator : MonoBehaviour {
   void UpdateGrass(TerrainData terrainData) {
     float iTime = Time.realtimeSinceStartup;
     int[,] map = new int[terrainData.detailWidth, terrainData.detailHeight];
-    float max = 16;
+    // Grass is horribly un-optimized in unity so...
+    // TODO: Find a better solution to grass.
+    float max = 16f;
 
     for (int x = 0; x < terrainData.detailWidth; x++) {
       for (int z = 0; z < terrainData.detailHeight; z++) {
         // map[ x, z ] = (int)((float)x / (float)terrainData.detailWidth * max);
-        if (terrainData.GetInterpolatedHeight(
-                (float)x / (float)(terrainData.detailWidth - 1),
-                (float)z / (float)(terrainData.detailHeight - 1)) <=
-            TerrainGenerator.waterHeight) {
+        float height = terrainData.GetInterpolatedHeight(
+            (float)x / (float)(terrainData.detailWidth - 1),
+            (float)z / (float)(terrainData.detailHeight - 1));
+        if (height <= TerrainGenerator.waterHeight ||
+            height >= TerrainGenerator.snowHeight) {
           map[ z, x ] = 0;
         } else {
           map[ z, x ] =
@@ -2478,12 +2900,17 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
   void SaveChunk(int X, int Z) {
+    if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
+      return;
+
     int terrID = GetTerrainWithCoord(X, Z);
     SaveLoad.WriteTerrain(X, Z, terrains[terrID].terrPoints,
                           terrains[terrID].terrPerlinPoints,
                           terrains[terrID].terrData, worldID);
   }
   void LoadChunk(int X, int Z) {
+    if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
+      return;
     if (!SaveLoad.TerrainExists(X, Z, worldID)) return;
     int terrID = GetTerrainWithCoord(X, Z);
     UpdateSplat(terrains[terrID].terrData);
@@ -2494,32 +2921,19 @@ public class TerrainGenerator : MonoBehaviour {
                          ref terrains[terrID].terrData, worldID);
     terrains[terrID].splatQueue = false;
     terrains[terrID].texQueue = false;
+    terrains[terrID].treeQueue = false;
+    terrains[terrID].detailQueue = false;
     terrains[terrID].terrQueue = true;
     terrains[terrID].isDividing = false;
+    terrains[terrID].hasDivided = true;
     terrains[terrID].terrReady = false;
     terrains[terrID].loadedFromDisk = true;
   }
 
-  // Give array index from coordinates. Using StringBuilder because it is
-  // faster.
-  System.Text.StringBuilder GetTerrainNameHolder =
-      new System.Text.StringBuilder((int)("Terrain(0000,0000)".Length));
+  // Give array index from coordinates.
   int GetTerrainWithCoord(int x, int z) {
     for (int i = 0; i < terrains.Count; i++) {
-      GetTerrainNameHolder.Length = 0;
-      GetTerrainNameHolder.Append("Terrain(");
-      GetTerrainNameHolder.Append(x);
-      GetTerrainNameHolder.Append(",");
-      GetTerrainNameHolder.Append(z);
-      GetTerrainNameHolder.Append(")");
-      if (terrains[i].gameObject != null &&
-          terrains[i].gameObject.name.Equals(GetTerrainNameHolder.ToString())) {
-#if DEBUG_ARRAY
-        Debug.Log(
-            terrains[i].gameObject.name + "==" + GetTerrainNameHolder + " [" +
-            terrains[i].gameObject.name.Equals(GetTerrainNameHolder.ToString()) +
-            "]{" + i + "}");
-#endif
+      if (terrains[i].x == x && terrains[i].z == z) {
         return i;
       }
     }
@@ -2542,21 +2956,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   // Give array index by comparing Terrain GameObjects.
   int GetTerrainWithData(Terrain terr) {
-    for (int i = 0; i < terrains.Count; i++) {
-      // TODO: Remove try-catch.
-      try {
-#if DEBUG_ARRAY
-        Debug.Log(terrains[i].gameObject.name + "==" + terr.name + " [" +
-                  (terrains[i].gameObject.name == terr.name) + " (" + i + ")]");
-#endif
-        if (terrains[i].gameObject && terrains[i].gameObject.name == terr.name) {
-          return i;
-        }
-      } catch (MissingReferenceException e) {
-      } catch (NullReferenceException e) {
-      }
-    }
-    return -1;
+    return GetTerrainWithData(terr.terrainData);
   }
 
   // Get the X coordinate from the array index.
@@ -2705,14 +3105,25 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
  public
+  bool anyChunksDividing() {
+    for (int i = 0; i < terrains.Count; i++) {
+      if (terrains[i].isDividing) return true;
+    }
+    return false;
+  }
+ public
   void checkDoneLoadingSpawn() {
-    if (loadWaitCount > 0 || terrains.Count <= 1) {
+    TerrainGenerator.wasDoneLoadingSpawn = TerrainGenerator.doneLoadingSpawn;
+    if (TerrainGenerator.doneLoadingSpawn) return;
+    if (loadWaitCount > 0 || terrains.Count <= 1 || anyChunksDividing()) {
       TerrainGenerator.doneLoadingSpawn = false;
       return;
     }
     for (int i = 1; i < terrains.Count; i++) {
-      if (!terrains[i].terrReady || terrains[i].isDividing ||
-          terrains[i].terrQueue || terrains[i].texQueue) {
+      if (!terrains[i].terrReady || !terrains[i].hasDivided ||
+          terrains[i].terrQueue || terrains[i].texQueue ||
+          terrains[i].treeQueue || terrains[i].detailQueue ||
+          terrains[i].LODQueue || terrains[i].waterQueue) {
         TerrainGenerator.doneLoadingSpawn = false;
         return;
       }

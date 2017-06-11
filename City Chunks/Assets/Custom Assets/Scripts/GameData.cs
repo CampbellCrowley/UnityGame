@@ -56,6 +56,17 @@ class GameData : MonoBehaviour {
  public
   static int numVehicles = 0;
  public
+  static bool loading = false;
+ public
+  static float loadingPercent = 1f;
+ public
+  static string previousLoadingMessage = "Readying the pigeons.";
+ public
+  static string loadingMessage = "Readying the pigeons.";
+ private
+  static float loadEndTime = -1;
+
+ public
   static bool levelComplete() {
     return true;
   }
@@ -73,6 +84,19 @@ class GameData : MonoBehaviour {
     FindObjectOfType<UnityEngine.Networking.NetworkManager>()
         .ServerChangeScene(SceneManager.GetSceneByBuildIndex(nextIndex).name);
   }
+ public
+  static void AddLoadingScreen() {
+    Debug.Log("Additively loading loading screen scene.");
+    loading = true;
+    SceneManager.LoadScene("Loading", LoadSceneMode.Additive);
+ }
+ public
+  static void RemoveLoadingScreen() {
+    Debug.Log("Unloading loading screen scene.");
+    GameObject[] toUnload = GameObject.FindGameObjectsWithTag("LoadingScene");
+    loadEndTime = Time.time;
+    foreach (GameObject g in toUnload) { Destroy(g, 1f); }
+ }
  public
   static void nextLevel() {
     int nextIndex = getLevel() + 1;
@@ -110,6 +134,18 @@ class GameData : MonoBehaviour {
 
  public
   void Update() {
+#if UNITY_EDITOR || UNITY_STANDALONE
+    if (getLevel() == 0 || isPaused) {
+      Application.targetFrameRate = 30;
+    } else {
+      Application.targetFrameRate = -1;
+    }
+#endif
+    if (Time.time - loadEndTime > 1 &&
+        Time.time - loadEndTime - Time.deltaTime < 1 && loading &&
+        loadEndTime != -1) {
+      loading = false;
+    }
     if (Input.GetButtonDown("Pause") && getLevel() != 0 &&
         TerrainGenerator.doneLoadingSpawn) {
       GameData.isPaused = !GameData.isPaused;
