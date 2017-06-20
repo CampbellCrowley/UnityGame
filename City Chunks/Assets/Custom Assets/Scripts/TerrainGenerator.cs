@@ -149,8 +149,12 @@ using System.Collections.Generic;
   public bool terrReady = false;
   [Tooltip("True if the chunk can be unloaded.")]
   public bool terrToUnload = false;
+  [Tooltip("True if the chunk is being loaded from the disk and not generated.")]
+  public bool loadingFromDisk = false;
   [Tooltip("True if the chunk was loaded from the disk and not generated.")]
   public bool loadedFromDisk = false;
+  [Tooltip("True if the chunk was recently loaded from the disk and not generated and also not processed fully yet.")]
+  public bool justLoadedFromDisk = false;
   [Tooltip("Number of frames the chunk should live after it has been flagged to be unloaded.")]
   public int startTTL = 1500;
   public int currentTTL = 1500;
@@ -329,18 +333,23 @@ public class TerrainGenerator : MonoBehaviour {
       roughness *= 2f;
     }
 
-    Debug.Log("Generating spawn chunk");
-    // Initialize variables based off of values defining the terrain and add
-    // the spawn chunk to arrays for later reference.
-    UpdateSplat(GetComponent<Terrain>().terrainData);
-    GenerateTerrainChunk(0, 0);
-    Debug.Log("Creating spawn chunk fractal");
+
     // Generate height map. Disable slowing the generation because we want
     // everything do be done in this frame, but then return the feature to its
     // initial state later as the user may want it.
     bool slowHeightmap = GenMode.slowHeightmap;
-    int loadWaitCountTemp = loadWaitCount;
     GenMode.slowHeightmap = false;
+    int loadWaitCountTemp = loadWaitCount;
+    loadWaitCount = 0;
+
+    UpdateSplat(GetComponent<Terrain>().terrainData);
+
+    Debug.Log("Generating spawn chunk");
+    // Initialize variables based off of values defining the terrain and add
+    // the spawn chunk to arrays for later reference.
+    GenerateTerrainChunk(0, 0);
+
+    Debug.Log("Creating spawn chunk fractal");
     FractalNewTerrains(0, 0);
     Debug.Log("Applying spawn chunk height map");
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
@@ -358,15 +367,15 @@ public class TerrainGenerator : MonoBehaviour {
     terrains[0].treeQueue = false;
     terrains[0].detailQueue = false;
     terrains[0].terrReady = true;
-    Debug.Log("Saving spawn chunk to disk");
-    SaveChunk(0, 0);
-    radius = loadDist / ((terrWidth + terrLength) / 2.0f);
+    Debug.Log("Attempting to save spawn chunk to disk");
+    // SaveChunk(0, 0);
+    loadWaitCount = loadWaitCountTemp;
     GenMode.slowHeightmap = slowHeightmap;
+    radius = loadDist / ((terrWidth + terrLength) / 2.0f);
 
 #if DEBUG_HUD_LOADED
     LoadedChunkList = "";
 #endif
-    loadWaitCount = loadWaitCountTemp;
 #if NAVIGATION_MESH_BUILDER
     Debug.Log("Building Navigation Mesh Surface");
     NavMeshSurface nm = GetComponent<NavMeshSurface>();
@@ -531,16 +540,16 @@ public class TerrainGenerator : MonoBehaviour {
   void CalculateLoadPercent() {
       float total = 0f;
       int num = 137;
-      int count = 7;
+      int count = 8;
       for(int i=0; i<terrains.Count; i++) {
         if (terrains[i].isDividing) total += 0.5f / count;
         else if (terrains[i].waterQueue) total += 1.5f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
-        else if (terrains[i].treeQueue) total += 3.5f / count;
-        else if (terrains[i].splatQueue) total += 4.5f / count;
-        else if (terrains[i].texQueue) total += 5.5f / count;
-        else if (terrains[i].detailQueue) total += 6.5f / count;
-        // else if (terrains[i].LODQueue) total += 7.5f / count;
+        else if (terrains[i].LODQueue) total += 3.5f / count;
+        else if (terrains[i].treeQueue) total += 4.5f / count;
+        else if (terrains[i].splatQueue) total += 5.5f / count;
+        else if (terrains[i].texQueue) total += 6.5f / count;
+        else if (terrains[i].detailQueue) total += 7.5f / count;
         else if (terrains[i].terrReady) total += 1.0f;
       }
       GameData.loadingPercent = total / num;
@@ -572,6 +581,18 @@ public class TerrainGenerator : MonoBehaviour {
       if (!terrains[i].gameObject) {
         terrains.RemoveAt(i);
         i--;
+      }
+      if (!terrains[i].loadingFromDisk && terrains[i].justLoadedFromDisk &&
+          terrains[i].loadedFromDisk) {
+        terrains[i].texQueue = false;
+        terrains[i].detailQueue = false;
+        terrains[i].treeQueue = false;
+        terrains[i].isDividing = false;
+        terrains[i].hasDivided = true;
+        terrains[i].terrReady = true;
+        terrains[i].terrQueue = true;
+        terrains[i].waterQueue = true;
+        terrains[i].justLoadedFromDisk = false;
       }
     }
 
@@ -726,9 +747,10 @@ public class TerrainGenerator : MonoBehaviour {
       // Find next chunk that needs heightmap to be applied or continue the last
       // chunk if it was not finished.
       int tileCnt = GetTerrainWithCoord(lastTerrUpdated.x, lastTerrUpdated.z);
-      if (tileCnt <= 0 || !terrains[tileCnt].terrQueue) {
+      if (tileCnt < 0 || !terrains[tileCnt].terrQueue ||
+          terrains[tileCnt].loadingFromDisk) {
         for (int i = 0; i < terrains.Count; i++) {
-          if (terrains[i].terrQueue) {
+          if (terrains[i].terrQueue && !terrains[i].loadingFromDisk) {
             tileCnt = i;
             lastTerrUpdateLoc = 0;
             TerrTemplatePoints = MixHeights(tileCnt);
@@ -737,63 +759,58 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
       // Apply heightmap to chunk GenMode.HeightmapSpeed points at a time.
-      if (tileCnt > 0 && terrains[tileCnt].terrQueue) {
+      if (tileCnt >= 0 && terrains[tileCnt].terrQueue &&
+          !terrains[tileCnt].loadingFromDisk) {
         heightmapApplied = true;
         if (iTime == -1) iTime = Time.realtimeSinceStartup;
         if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
         int lastTerrUpdateLoc_ = lastTerrUpdateLoc;
-        int heightmapSpeed = GenMode.HeightmapSpeed == 0
-                                 ? heightmapWidth * heightmapWidth
-                                 : GenMode.HeightmapSpeed;
+        int heightmapSpeed = GenMode.HeightmapSpeed;
 
-        for (int i = lastTerrUpdateLoc_;
-             i < lastTerrUpdateLoc_ + heightmapSpeed; i++) {
-          int z = i % heightmapHeight;
-          int x = (int)Math.Floor((float)i / heightmapWidth);
+        if (GenMode.HeightmapSpeed != 0) {
+          for (int i = lastTerrUpdateLoc_;
+               i < lastTerrUpdateLoc_ + heightmapSpeed; i++) {
+            int z = i % heightmapHeight;
+            int x = (int)Math.Floor((float)i / heightmapWidth);
 #if DEBUG_CHUNK_LOADING
-          if (x < heightmapWidth)
-            Debug.Log("Update Coord: (" + z + ", " + x + ")\nI: " + i +
-                      "\nLastUpdateLoc: " + lastTerrUpdateLoc +
-                      "\nUpdateSpeed: " + GenMode.HeightmapSpeed +
-                      "\nHeight: " + terrains[tileCnt].terrPoints[ z, x ] +
-                      "\nLoc: " + tileCnt);
+            if (x < heightmapWidth)
+              Debug.Log("Update Coord: (" + z + ", " + x + ")\nI: " + i +
+                        "\nLastUpdateLoc: " + lastTerrUpdateLoc +
+                        "\nUpdateSpeed: " + GenMode.HeightmapSpeed +
+                        "\nHeight: " + terrains[tileCnt].terrPoints[ z, x ] +
+                        "\nLoc: " + tileCnt);
 #endif
-          // Heightmap is done being applied, remove it from the queue and flag
-          // it for texturing.
-          if (x >= heightmapWidth) {
-            terrains[tileCnt].terrQueue = false;
-            terrains[tileCnt].splatQueue = true;
-            terrains[tileCnt].texQueue = true;
-            terrains[tileCnt].treeQueue = true;
-            terrains[tileCnt].detailQueue = true;
-            break;
-          }
+            // Heightmap is done being applied, remove it from the queue and
+            // flag
+            // it for texturing.
+            if (x >= heightmapWidth) {
+              terrains[tileCnt].terrQueue = false;
+              terrains[tileCnt].splatQueue = true;
+              terrains[tileCnt].texQueue = true;
+              terrains[tileCnt].treeQueue = true;
+              terrains[tileCnt].detailQueue = true;
+              terrains[tileCnt].LODQueue = true;
+              break;
+            }
 
-          // TODO: Remove try-catches because they are ugly.
-          try {
             TerrUpdatePoints[ z, x ] = TerrTemplatePoints[ z, x ];
-          } catch (ArgumentOutOfRangeException e) {
-            Debug.LogError("Failed to read terrPoints(err1) " + tileCnt +
-                           " x:" + z + ", z:" + x + "\n\n" + e);
-            break;
-          } catch (NullReferenceException e) {
-            Debug.LogError("Failed to read terrPoints(err2) " + tileCnt +
-                           "\n\n" + e);
-            break;
-          } catch (IndexOutOfRangeException e) {
-            Debug.LogError("Failed to read terrPoints(err3) " + tileCnt +
-                           " x:" + z + ", z:" + x + "\n\n" + e);
-            break;
-          }
 
-          lastTerrUpdateLoc++;
+            lastTerrUpdateLoc++;
+          }
+        } else {
+          terrains[tileCnt].terrQueue = false;
+          terrains[tileCnt].splatQueue = true;
+          terrains[tileCnt].texQueue = true;
+          terrains[tileCnt].treeQueue = true;
+          terrains[tileCnt].detailQueue = true;
+          terrains[tileCnt].LODQueue = true;
+          TerrUpdatePoints = TerrTemplatePoints;
         }
 
         // TODO: Remove try-catch.
         try {
           // Set the terrain heightmap to the defined points.
           terrains[tileCnt].terrData.SetHeightsDelayLOD(0, 0, TerrUpdatePoints);
-          terrains[tileCnt].LODQueue = true;
         } catch (ArgumentException e) {
           Debug.LogWarning(
               "TerrUpdatePoints is incorrect size " + heightmapHeight + "x" +
@@ -810,7 +827,7 @@ public class TerrainGenerator : MonoBehaviour {
         // the another chunk to be loaded.
         if (!terrains[tileCnt].terrQueue) {
           TerrUpdatePoints = new float[ heightmapHeight, heightmapWidth ];
-          lastTerrUpdateLoc = 0;
+          lastTerrUpdateLoc = -1;
           lastTerrUpdated = new Terrains();
         }
       }
@@ -831,7 +848,7 @@ public class TerrainGenerator : MonoBehaviour {
     float iTime2 = -1;
     if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].LODQueue) {
+        if (terrains[i].LODQueue && !terrains[i].loadingFromDisk) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
           if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           terrains[i]
@@ -848,8 +865,8 @@ public class TerrainGenerator : MonoBehaviour {
     else LoadedChunkList += "\n";
 #endif
     if (LODUpdated) {
-      // GameData.loadingMessage = "Final touch-ups... (Don't screw up now!)";
-      GameData.loadingMessage = GameData.previousLoadingMessage;
+      GameData.loadingMessage = "Turning that FPS back up...";
+      // GameData.loadingMessage = GameData.previousLoadingMessage;
       done = LODUpdated;
       times.DeltaLODUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
@@ -860,7 +877,7 @@ public class TerrainGenerator : MonoBehaviour {
     float iTime2 = -1;
     if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].waterQueue) {
+        if (terrains[i].waterQueue && !terrains[i].loadingFromDisk) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
           if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           GenerateWaterChunk(GetXCoord(i), GetZCoord(i));
@@ -886,7 +903,7 @@ public class TerrainGenerator : MonoBehaviour {
     float iTime2 = -1;
     if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].splatQueue) {
+        if (terrains[i].splatQueue && !terrains[i].loadingFromDisk) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
           if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           UpdateSplat(terrains[i].terrData);
@@ -912,13 +929,12 @@ public class TerrainGenerator : MonoBehaviour {
     float iTime2 = -1;
     if(!done) {
       for(int i=0; i< terrains.Count; i++) {
-        if(terrains[i].treeQueue) {
+        if(terrains[i].treeQueue && !terrains[i].loadingFromDisk) {
           if(iTime==-1) iTime = Time.realtimeSinceStartup;
           if(iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           UpdateTreePrototypes(terrains[i].terrData);
           UpdateTrees(terrains[i].terrData);
           terrains[i].treeQueue = false;
-          terrains[i].LODQueue = true;
           treesUpdated = true;
           break;
         }
@@ -940,11 +956,10 @@ public class TerrainGenerator : MonoBehaviour {
     float iTime2 = -1;
     if(!done) {
       for(int i=0; i< terrains.Count; i++) {
-        if(terrains[i].detailQueue) {
+        if(terrains[i].detailQueue && !terrains[i].loadingFromDisk) {
           UpdateDetailPrototypes(terrains[i].terrData);
           UpdateGrass(terrains[i].terrData);
           terrains[i].detailQueue = false;
-          terrains[i].LODQueue = true;
           detailsUpdated = true;
           break;
         }
@@ -968,7 +983,7 @@ public class TerrainGenerator : MonoBehaviour {
     float iTime2 = -1;
     if (!done) {
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].texQueue) {
+        if (terrains[i].texQueue && !terrains[i].loadingFromDisk) {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
           if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           UpdateTexture(terrains[i]);
@@ -1054,7 +1069,7 @@ public class TerrainGenerator : MonoBehaviour {
     // Unload all chunks flagged for unloading.
     if (!anyChunksDividing() && !done) {
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].terrToUnload) {
+        if (terrains[i].terrToUnload && !terrains[i].loadingFromDisk) {
 #if DEBUG_HUD_LOADED
           LoadedChunkList += "(" + GetXCoord(i) + ", " + GetZCoord(i) + ", " +
                              Mathf.RoundToInt(terrains[i].currentTTL) + "), ";
@@ -1077,7 +1092,7 @@ public class TerrainGenerator : MonoBehaviour {
       }
     } else {
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].terrToUnload) {
+        if (terrains[i].terrToUnload && !terrains[i].loadingFromDisk) {
 #if DEBUG_HUD_LOADED
           LoadedChunkList += "(" + GetXCoord(i) + ", " + GetZCoord(i) + ", " +
                              Mathf.RoundToInt(terrains[i].currentTTL) + "), ";
@@ -1215,11 +1230,14 @@ public class TerrainGenerator : MonoBehaviour {
       FractalNewTerrains(x, z);
       done = true;
       loadWaitCount = 10;
-    } else if (pointIndex > 0 && pointIndex < terrains.Count &&
+    } else if (pointIndex >= 0 && pointIndex < terrains.Count &&
                (terrains[pointIndex].isDividing ||
                 (terrains[pointIndex].hasDivided &&
-                 !terrains[pointIndex].terrReady)) &&
-               !done) {
+                 !terrains[pointIndex].terrReady) ||
+                (!terrains[pointIndex].isDividing &&
+                 !terrains[pointIndex].hasDivided &&
+                 !terrains[pointIndex].loadingFromDisk)) &&
+               !done && !terrains[pointIndex].loadingFromDisk) {
       FractalNewTerrains(x, z);
       loadWaitCount = 10;
       done = true;
@@ -1398,12 +1416,7 @@ public class TerrainGenerator : MonoBehaviour {
   void FractalNewTerrains(int changeX, int changeZ) {
     float iTime = Time.realtimeSinceStartup;
 
-    int tileCnt;
-    if (changeX == 0 && changeZ == 0) {
-      tileCnt = 0;
-    } else {
-      tileCnt = GetTerrainWithCoord(changeX, changeZ);
-    }
+    int tileCnt = GetTerrainWithCoord(changeX, changeZ);
 #if DEBUG_ARRAY
     Debug.Log("TileCount: " + tileCnt + ", X: " + changeX + " Z: " + changeZ +
               "\nterrains.Count: " + terrains.Count + ", terrains[tileCnt]: " +
@@ -1515,7 +1528,7 @@ public class TerrainGenerator : MonoBehaviour {
       // Set all borders to the middle of valid points to cause the spawn chunk
       // to be around the middle of the possible heights and has a lower chance
       // of clipping extreme heights.
-      if (changeX == 0 && changeZ == 0) {
+      if (changeX == 0 && changeZ == 0 && !terrains[0].loadedFromDisk) {
         for (int r = 0; r < 4; r++) {
           for (int c = 0; c < iHeight; c++) {
             int i, j;
@@ -1740,7 +1753,8 @@ public class TerrainGenerator : MonoBehaviour {
 
     // Save each heightmap to the array to be applied later.
     terrains[terrIndex].terrPoints = flippedPoints;
-    terrains[terrIndex].terrPerlinPoints = perlinPoints;
+    if (!terrains[terrIndex].loadedFromDisk)
+      terrains[terrIndex].terrPerlinPoints = perlinPoints;
     terrains[terrIndex].terrQueue = true;
     terrains[terrIndex].waterQueue = true;
   }
@@ -2698,6 +2712,7 @@ public class TerrainGenerator : MonoBehaviour {
     terrainData.splatPrototypes = tex;
   }
 
+  // For use before SetHeights is called.
   float GetSteepness(float[, ] Heightmap, int x, int y) {
     float slopeX1 = Heightmap[ x, y ] -
                     Heightmap[ x < Heightmap.GetLength(0) - 1 ? x + 1 : x, y ];
@@ -2902,7 +2917,7 @@ public class TerrainGenerator : MonoBehaviour {
   void SaveChunk(int X, int Z) {
     if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
       return;
-
+    // Debug.Log("Saving Chunk (" + X + "," + Z + "," + worldID + ") to disk.");
     int terrID = GetTerrainWithCoord(X, Z);
     SaveLoad.WriteTerrain(X, Z, terrains[terrID].terrPoints,
                           terrains[terrID].terrPerlinPoints,
@@ -2911,23 +2926,15 @@ public class TerrainGenerator : MonoBehaviour {
   void LoadChunk(int X, int Z) {
     if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
       return;
-    if (!SaveLoad.TerrainExists(X, Z, worldID)) return;
     int terrID = GetTerrainWithCoord(X, Z);
+    if (terrains[terrID].loadedFromDisk ||
+        !SaveLoad.TerrainExists(X, Z, worldID))
+      return;
+    // Debug.Log("Loading Chunk (" + X + "," + Z + "," + worldID + ") from disk.");
     UpdateSplat(terrains[terrID].terrData);
     UpdateDetailPrototypes(terrains[terrID].terrData);
     UpdateTreePrototypes(terrains[terrID].terrData);
-    SaveLoad.ReadTerrain(X, Z, ref terrains[terrID].terrPoints,
-                         ref terrains[terrID].terrPerlinPoints,
-                         ref terrains[terrID].terrData, worldID);
-    terrains[terrID].splatQueue = false;
-    terrains[terrID].texQueue = false;
-    terrains[terrID].treeQueue = false;
-    terrains[terrID].detailQueue = false;
-    terrains[terrID].terrQueue = true;
-    terrains[terrID].isDividing = false;
-    terrains[terrID].hasDivided = true;
-    terrains[terrID].terrReady = false;
-    terrains[terrID].loadedFromDisk = true;
+    SaveLoad.ReadTerrain(terrains[terrID], worldID);
   }
 
   // Give array index from coordinates.

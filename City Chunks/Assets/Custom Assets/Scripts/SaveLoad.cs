@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using System.IO;
 using UnityEngine;
 
 // A is Divide Points (float[,])
@@ -14,179 +16,294 @@ using UnityEngine;
 
 public
 class SaveLoad : MonoBehaviour {
-  // float[, ] testA = {{4f, 5f, 6f}, {6f, 5f, 4f}, {7f, 8f, 9f}};
-  // float[, ] testB = {{4f, 5f, 6f}, {6f, 5f, 4f}, {7f, 8f, 9f}};
-  // float[, ] testC = {{1f}, {2f}, {3f}};
-  // float[, , ] testD = {{{1f}, {2f}}, {{3f}, {4f}}};
+ public
+  class TerrainBuffer {
+   public
+    string RW = "UNKNOWN";
+   public
+    int X;
+   public
+    int Z;
+   public
+    string seed;
+   public
+    float[, ] DividePoints;
+   public
+    float[, ] PerlinPoints;
+   public
+    float[, , ] alphamaps;
+   public
+    int[, , ] detailmaps;
+   public
+    int[] indexes;
+   public
+    float[, ] positions;
+   public
+    Terrains terrain;
+   public
+    TreeInstance[] treeInstances;
+   public
+    bool readyToSerialize = false;
+   public
+    virtual void Serialize() {}
+   public
+    float Sum() {
+      float sum = 0.0f;
+      if(DividePoints == null) {
+        foreach (float num in terrain.terrPoints) { sum += num; }
+      } else {
+        foreach (float num in DividePoints) { sum += num; }
+      }
+      return sum;
+    }
+  }
+
+  public class TerrainWriteBuffer : TerrainBuffer {
+   public
+    TerrainWriteBuffer(int X, int Z, float[, ] DividePoints,
+                       float[, ] PerlinPoints, TerrainData terrData,
+                       string seed) {
+      this.RW = "WRITE";
+      this.X = X;
+      this.Z = Z;
+      this.DividePoints = DividePoints;
+      this.PerlinPoints = PerlinPoints;
+      this.seed = seed;
+
+      // Need to deserialize terrData since it can only be accessed from the
+      // main thread.
+      this.alphamaps = terrData.GetAlphamaps(0, 0, terrData.alphamapWidth,
+                                             terrData.alphamapHeight);
+      this.detailmaps = new int[
+        terrData.detailPrototypes.Length,
+        terrData.detailWidth,
+        terrData.detailHeight
+      ];
+      for (int i = 0; i < terrData.detailPrototypes.Length; i++) {
+        int[, ] layerMap = terrData.GetDetailLayer(0, 0, terrData.detailWidth,
+                                                   terrData.detailHeight, i);
+        for (int x = 0; x < terrData.detailWidth; x++) {
+          for (int y = 0; y < terrData.detailHeight; y++) {
+            detailmaps[ i, x, y ] = layerMap[ x, y ];
+          }
+        }
+      }
+      this.indexes = new int[terrData.treeInstanceCount];
+      Vector3[] positions = new Vector3[terrData.treeInstanceCount];
+
+      for (int i = 0; i < terrData.treeInstanceCount; i++) {
+        this.indexes[i] = terrData.treeInstances[i].prototypeIndex;
+        positions[i] = terrData.treeInstances[i].position;
+      }
+      this.positions = Vector3ToFloat(positions);
+    }
+  }
+
+  public class TerrainReadBuffer : TerrainBuffer {
+   public
+    TerrainReadBuffer(Terrains terrain, string seed) {
+      this.RW = "READ";
+      this.terrain = terrain;
+      this.seed = seed;
+      this.X = terrain.x;
+      this.Z = terrain.z;
+    }
+   public
+    override void Serialize() {
+      terrain.terrPoints = this.DividePoints;
+      terrain.terrPerlinPoints = this.PerlinPoints;
+      int[, ] detailLayer =
+          new int[ detailmaps.GetLength(1), detailmaps.GetLength(2) ];
+      for (int i = 0; i < detailmaps.GetLength(0); i++) {
+        for (int x = 0; x < detailmaps.GetLength(1); x++) {
+          for (int y = 0; y < detailmaps.GetLength(2); y++) {
+            detailLayer[ x, y ] = detailmaps[ i, x, y ];
+          }
+        }
+        terrain.terrData.SetDetailLayer(0, 0, i, detailLayer);
+      }
+      terrain.terrData.treeInstances = treeInstances;
+      terrain.terrData.SetAlphamaps(0, 0, alphamaps);
+      terrain.loadedFromDisk = true;
+      terrain.justLoadedFromDisk = true;
+      terrain.loadingFromDisk = false;
+      Debug.Log("Serialized Chunk(" + terrain.x + ", " + terrain.z + ") = " +
+                Sum());
+    }
+  }
+
+  private static bool threadIsRunning = false;
  private
-  static string filenameChunk = "Temp";
+  static int currentIndex = 0;
+ public
+  static bool loadAsync = true;
+ public
+  static List<TerrainBuffer> Buffer = new List<TerrainBuffer>();
+ private
+  static string filenameChunk = "IfYouSeeThisSomethingBrokeMoo";
+ private
+  static string directoryChunk = "IfYouSeeThisSomethingBrokeOink";
 
   void Start() {
-    filenameChunk = Application.persistentDataPath + "/Chunks/Chunk";
+    directoryChunk = Application.persistentDataPath + "/Chunks/";
+    filenameChunk = directoryChunk + "Chunk";
   }
+
   void Update() {
-    // TerrainData terrData = new TerrainData();
-    if (Input.GetKeyDown("t")) {
-      float[, , ] map =
-          GetComponent<Terrain>().terrainData.GetAlphamaps(0, 0, 16, 16);
-      string output = "";
-      for (int i = 0; i < map.GetLength(0); i++) {
-        for (int j = 0; j < map.GetLength(1); j++) {
-          output += "{";
-          for (int k = 0; k < map.GetLength(2); k++) {
-            output += map[ i, j, k ] + ", ";
-          }
-          output += "}, ";
-        }
-        output += "\n";
+    foreach (TerrainBuffer buf in Buffer) {
+      if (buf.readyToSerialize) {
+        buf.Serialize();
       }
-      Debug.Log("Before:\n" + output);
-
-      map = BytesToFloat3D(FloatToBytes(map));
-
-      output = "";
-      for (int i = 0; i < map.GetLength(0); i++) {
-        for (int j = 0; j < map.GetLength(1); j++) {
-          output += "{";
-          for (int k = 0; k < map.GetLength(2); k++) {
-            output += map[ i, j, k ] + ", ";
-          }
-          output += "}, ";
-        }
-        output += "\n";
-      }
-      Debug.Log("After:\n" + output);
     }
-    // if (Input.GetKeyDown("w")) {
-    //   Debug.Log(testA[ 0, 0 ] + ", " + testA[ 0, 1 ] + ", " + testA[ 0, 2 ] +
-    //             "\n" + testA[ 1, 0 ] + ", " + testA[ 1, 1 ] + ", " +
-    //             testA[ 1, 2 ] + "\n" + testA[ 2, 0 ] + ", " + testA[ 2, 1 ] +
-    //             ", " + testA[ 2, 2 ]);
-    //   WriteTerrain(0, 0, testA, testB, terrData);
-    // }
-    // if (Input.GetKeyDown("r")) {
-    //   ReadTerrain(0, 0, ref testA, ref testB, ref terrData);
-    //   Debug.Log(testA[ 0, 0 ] + ", " + testA[ 0, 1 ] + ", " + testA[ 0, 2 ] +
-    //             "\n" + testA[ 1, 0 ] + ", " + testA[ 1, 1 ] + ", " +
-    //             testA[ 1, 2 ] + "\n" + testA[ 2, 0 ] + ", " + testA[ 2, 1 ] +
-    //             ", " + testA[ 2, 2 ]);
-    // }
+    // After serializing buffer.
+    if (!threadIsRunning && Buffer.Count > 0 && currentIndex == 0) {
+      Buffer.Clear();
+    }
   }
+
+ private
+  static void BeginProcessing() {
+    threadIsRunning = true;
+    while (threadIsRunning) {
+      switch (Buffer[currentIndex].RW) {
+        case "READ":
+          ReadTerrain_(currentIndex);
+          break;
+        case "WRITE":
+          WriteTerrain_(currentIndex);
+          break;
+        default:
+          break;
+      }
+      currentIndex++;
+      if (currentIndex >= Buffer.Count) {
+        currentIndex = 0;
+        threadIsRunning = false;
+      }
+    }
+  }
+
  public
   static void WriteTerrain(int X, int Z, float[, ] DividePoints,
                            float[, ] PerlinPoints, TerrainData terrData,
                            string seed) {
-    System.IO.Directory.CreateDirectory(Application.persistentDataPath +
-                                        "/Chunks/");
-
-    System.IO.File.Create(filenameChunk + seed + "A-" + X + "-" + Z + ".dat")
-        .Close();
-    System.IO.File.Create(filenameChunk + seed + "B-" + X + "-" + Z + ".dat")
-        .Close();
-
-    System.IO.File.WriteAllBytes(
-        filenameChunk + seed + "A-" + X + "-" + Z + ".dat",
-        FloatToBytes(DividePoints));
-    System.IO.File.WriteAllBytes(
-        filenameChunk + seed + "B-" + X + "-" + Z + ".dat",
-        FloatToBytes(PerlinPoints));
-    WriteTerrainData(X, Z, terrData, seed);
-    Debug.Log("Done writing (" + X + ", " + Z + ")");
+    Buffer.Add(new TerrainWriteBuffer(X, Z, DividePoints, PerlinPoints,
+                                      terrData, seed));
+    Debug.Log("Writing Terrain Chunk(" + X + ", " + Z + ") = " +
+              Buffer[Buffer.Count - 1].Sum());
+    if (!threadIsRunning) {
+      Thread thread = new Thread(BeginProcessing);
+      thread.Start();
+      while (!loadAsync && thread.IsAlive) {
+        Thread.Sleep(10);
+      }
+      if (!loadAsync) Buffer.RemoveAt(Buffer.Count - 1);
+    }
   }
+
+ private
+  static void WriteTerrain_(int index) {
+    int X = Buffer[index].X;
+    int Z = Buffer[index].Z;
+    string seed = Buffer[index].seed;
+
+    Directory.CreateDirectory(directoryChunk);
+
+    File.Create(filenameChunk + seed + "A-" + X + "-" + Z + ".dat").Close();
+    File.Create(filenameChunk + seed + "B-" + X + "-" + Z + ".dat").Close();
+
+    File.WriteAllBytes(filenameChunk + seed + "A-" + X + "-" + Z + ".dat",
+                       FloatToBytes(Buffer[index].DividePoints));
+    File.WriteAllBytes(filenameChunk + seed + "B-" + X + "-" + Z + ".dat",
+                       FloatToBytes(Buffer[index].PerlinPoints));
+    WriteTerrainData(index);
+  }
+
  public
   static bool TerrainExists(int X, int Z, string seed) {
-    if (!System.IO.File.Exists(filenameChunk + seed + "A-" + X + "-" + Z +
-                               ".dat"))
+    if (!File.Exists(filenameChunk + seed + "A-" + X + "-" + Z + ".dat"))
       return false;
-    if (!System.IO.File.Exists(filenameChunk + seed + "B-" + X + "-" + Z +
-                               ".dat"))
+    if (!File.Exists(filenameChunk + seed + "B-" + X + "-" + Z + ".dat"))
       return false;
-    if (!System.IO.File.Exists(filenameChunk + seed + "C1-" + X + "-" + Z +
-                               ".dat"))
+    if (!File.Exists(filenameChunk + seed + "C1-" + X + "-" + Z + ".dat"))
       return false;
-    if (!System.IO.File.Exists(filenameChunk + seed + "C2I-" + X + "-" + Z +
-                               ".dat"))
+    if (!File.Exists(filenameChunk + seed + "C2I-" + X + "-" + Z + ".dat"))
       return false;
-    if (!System.IO.File.Exists(filenameChunk + seed + "C2P-" + X + "-" + Z +
-                               ".dat"))
+    if (!File.Exists(filenameChunk + seed + "C2P-" + X + "-" + Z + ".dat"))
       return false;
-    if (!System.IO.File.Exists(filenameChunk + seed + "C3-" + X + "-" + Z +
-                               ".dat"))
+    if (!File.Exists(filenameChunk + seed + "C3-" + X + "-" + Z + ".dat"))
       return false;
     return true;
   }
+
  public
-  static void ReadTerrain(int X, int Z, ref float[, ] DividePoints,
-                          ref float[, ] PerlinPoints, ref TerrainData terrData,
-                          string seed) {
-    DividePoints = BytesToFloat2D(System.IO.File.ReadAllBytes(
-        filenameChunk + seed + "A-" + X + "-" + Z + ".dat"));
-    PerlinPoints = BytesToFloat2D(System.IO.File.ReadAllBytes(
-        filenameChunk + seed + "B-" + X + "-" + Z + ".dat"));
-    ReadTerrainData(X, Z, ref terrData, seed);
-    Debug.Log("Done reading (" + X + ", " + Z + ")");
-  }
- private
-  static void WriteTerrainData(int X, int Z, TerrainData terrData,
-                               string seed) {
-    System.IO.Directory.CreateDirectory(Application.persistentDataPath +
-                                        "/Chunks/");
-    System.IO.File.Create(filenameChunk + seed + "C1-" + X + "-" + Z + ".dat")
-        .Close();
-    System.IO.File.Create(filenameChunk + seed + "C2I-" + X + "-" + Z + ".dat")
-        .Close();
-    System.IO.File.Create(filenameChunk + seed + "C2P-" + X + "-" + Z + ".dat")
-        .Close();
-    System.IO.File.Create(filenameChunk + seed + "C3-" + X + "-" + Z + ".dat")
-        .Close();
-
-    System.IO.File.WriteAllBytes(
-        filenameChunk + seed + "C1-" + X + "-" + Z + ".dat",
-        FloatToBytes(terrData.GetAlphamaps(0, 0, terrData.alphamapWidth,
-                                           terrData.alphamapHeight)));
-    int[] indexes = new int[terrData.treeInstanceCount];
-    Vector3[] positions = new Vector3[terrData.treeInstanceCount];
-
-    for (int i = 0; i < terrData.treeInstanceCount; i++) {
-      indexes[i] = terrData.treeInstances[i].prototypeIndex;
-      positions[i] = terrData.treeInstances[i].position;
-    }
-
-    System.IO.File.WriteAllBytes(
-        filenameChunk + seed + "C2I-" + X + "-" + Z + ".dat",
-        IntToBytes(indexes));
-    System.IO.File.WriteAllBytes(
-        filenameChunk + seed + "C2P-" + X + "-" + Z + ".dat",
-        Vector3ToBytes(positions));
-
-    int[, , ] map = new int[
-      terrData.detailPrototypes.Length,
-      terrData.detailWidth,
-      terrData.detailHeight
-    ];
-    for (int i = 0; i < terrData.detailPrototypes.Length; i++) {
-      int[, ] layerMap = terrData.GetDetailLayer(0, 0, terrData.detailWidth,
-                                                 terrData.detailHeight, i);
-      for (int x = 0; x < terrData.detailWidth; x++) {
-        for (int y = 0; y < terrData.detailHeight; y++) {
-          map[ i, x, y ] = layerMap[ x, y ];
-        }
+  static void ReadTerrain(Terrains terrain, string seed) {
+    terrain.loadingFromDisk = true;
+    Buffer.Add(new TerrainReadBuffer(terrain, seed));
+    Debug.Log("Reading Terrain Chunk(" + terrain.x + ", " + terrain.z + ")");
+    if (!threadIsRunning) {
+      Thread thread = new Thread(BeginProcessing);
+      thread.Start();
+      while (!loadAsync && thread.IsAlive) {
+        Thread.Sleep(10);
+      }
+      if (!loadAsync) {
+        Buffer[Buffer.Count - 1].Serialize();
+        Buffer.RemoveAt(Buffer.Count - 1);
       }
     }
-    System.IO.File.WriteAllBytes(
-        filenameChunk + seed + "C3-" + X + "-" + Z + ".dat", IntToBytes(map));
   }
+
  private
-  static void ReadTerrainData(int X, int Z, ref TerrainData terrData,
-                              string seed) {
-    float[, , ] alphamaps = BytesToFloat3D(System.IO.File.ReadAllBytes(
-        filenameChunk + seed + "C1-" + X + "-" + Z + ".dat"));
-    int[] treeIndexes = BytesToInt(System.IO.File.ReadAllBytes(
-        filenameChunk + seed + "C2I-" + X + "-" + Z + ".dat"));
-    Vector3[] treePositions = BytesToVector3(System.IO.File.ReadAllBytes(
-        filenameChunk + seed + "C2P-" + X + "-" + Z + ".dat"));
-    int[, , ] detailLayers = BytesToInt3D(System.IO.File.ReadAllBytes(
-        filenameChunk + seed + "C3-" + X + "-" + Z + ".dat"));
+  static void ReadTerrain_(int index) {
+    Buffer[index].DividePoints = BytesToFloat2D(
+        File.ReadAllBytes(filenameChunk + Buffer[index].seed + "A-" +
+                          Buffer[index].X + "-" + Buffer[index].Z + ".dat"));
+
+    Buffer[index].PerlinPoints = BytesToFloat2D(
+        File.ReadAllBytes(filenameChunk + Buffer[index].seed + "B-" +
+                          Buffer[index].X + "-" + Buffer[index].Z + ".dat"));
+
+    ReadTerrainData(index);
+    Buffer[index].readyToSerialize = true;
+  }
+
+ private
+  static void WriteTerrainData(int index) {
+    int X = Buffer[index].X;
+    int Z = Buffer[index].Z;
+    string seed = Buffer[index].seed;
+
+    Directory.CreateDirectory(directoryChunk);
+    File.Create(filenameChunk + seed + "C1-" + X + "-" + Z + ".dat").Close();
+    File.Create(filenameChunk + seed + "C2I-" + X + "-" + Z + ".dat").Close();
+    File.Create(filenameChunk + seed + "C2P-" + X + "-" + Z + ".dat").Close();
+    File.Create(filenameChunk + seed + "C3-" + X + "-" + Z + ".dat").Close();
+
+    File.WriteAllBytes(filenameChunk + seed + "C1-" + X + "-" + Z + ".dat",
+                       FloatToBytes(Buffer[index].alphamaps));
+    File.WriteAllBytes(filenameChunk + seed + "C2I-" + X + "-" + Z + ".dat",
+                       IntToBytes(Buffer[index].indexes));
+    File.WriteAllBytes(filenameChunk + seed + "C2P-" + X + "-" + Z + ".dat",
+                       FloatToBytes(Buffer[index].positions));
+    File.WriteAllBytes(filenameChunk + seed + "C3-" + X + "-" + Z + ".dat",
+                       IntToBytes(Buffer[index].detailmaps));
+  }
+
+ private
+  static void ReadTerrainData(int index) {
+    float[, , ] alphamaps = BytesToFloat3D(
+        File.ReadAllBytes(filenameChunk + Buffer[index].seed + "C1-" +
+                          Buffer[index].X + "-" + Buffer[index].Z + ".dat"));
+    int[] treeIndexes = BytesToInt(
+        File.ReadAllBytes(filenameChunk + Buffer[index].seed + "C2I-" +
+                          Buffer[index].X + "-" + Buffer[index].Z + ".dat"));
+    Vector3[] treePositions = BytesToVector3(
+        File.ReadAllBytes(filenameChunk + Buffer[index].seed + "C2P-" +
+                          Buffer[index].X + "-" + Buffer[index].Z + ".dat"));
+    int[, , ] detailmaps = BytesToInt3D(
+        File.ReadAllBytes(filenameChunk + Buffer[index].seed + "C3-" +
+                          Buffer[index].X + "-" + Buffer[index].Z + ".dat"));
 
     TreeInstance[] treeInstances = new TreeInstance[treeIndexes.Length];
     for (int i = 0; i < treeInstances.Length; i++) {
@@ -199,18 +316,9 @@ class SaveLoad : MonoBehaviour {
       treeInstances[i].position = treePositions[i];
     }
 
-    terrData.SetAlphamaps(0, 0, alphamaps);
-    terrData.treeInstances = treeInstances;
-    int[, ] detailLayer =
-        new int[ detailLayers.GetLength(1), detailLayers.GetLength(2) ];
-    for (int i = 0; i < detailLayers.GetLength(0); i++) {
-      for (int x = 0; x < detailLayers.GetLength(1); x++) {
-        for (int y = 0; y < detailLayers.GetLength(2); y++) {
-          detailLayer[ x, y ] = detailLayers[ i, x, y ];
-        }
-      }
-      terrData.SetDetailLayer(0, 0, i, detailLayer);
-    }
+    Buffer[index].alphamaps = alphamaps;
+    Buffer[index].treeInstances = treeInstances;
+    Buffer[index].detailmaps = detailmaps;
   }
 
  private
@@ -219,6 +327,7 @@ class SaveLoad : MonoBehaviour {
     System.Buffer.BlockCopy(input, 0, output, 0, input.Length);
     return output;
   }
+
  private
   static byte[] IntToBytes(int[, ] input) {
     int length = input.GetLength(0) * input.GetLength(1) * sizeof(int);
@@ -233,6 +342,7 @@ class SaveLoad : MonoBehaviour {
     return processed;
     // return output;
   }
+
  private
   static byte[] IntToBytes(int[, , ] input) {
     int length = input.GetLength(0) * input.GetLength(1) * input.GetLength(2) *
@@ -251,37 +361,28 @@ class SaveLoad : MonoBehaviour {
     return processed;
     // return output;
   }
+
  private
-  static byte[] Vector3ToBytes(Vector3[] input) {
+  static float[, ] Vector3ToFloat(Vector3[] input) {
     float[, ] output = new float[ input.Length, 3 ];
     for (int i = 0; i < input.Length; i++) {
       for (int j = 0; j < 3; j++) {
         output[ i, j ] = input[i][j];
       }
     }
-    return FloatToBytes(output);
+    return output;
   }
+
+ private
+  static byte[] Vector3ToBytes(Vector3[] input) {
+    return FloatToBytes(Vector3ToFloat(input));
+  }
+
  private
   static byte[] FloatToBytes(float[, ] input) {
     int length = input.GetLength(0) * input.GetLength(1) * sizeof(float);
     byte[] output = new byte[length];
     System.Buffer.BlockCopy(input, 0, output, 0, length);
-
-    /*
-bool error = false;
-int length_ = length + 1;
-do {
-  error = false;
-  length_--;
-  try {
-    System.Buffer.BlockCopy(input, 0, output, 0, length_);
-  } catch (System.ArgumentException e) {
-    error = true;
-  }
-} while (length_ > 0 && error);
-Debug.Log("Length: " + length_);
-*/
-
     // Store the length of the first dimension in the last 2 bytes of the array.
     byte[] processed = new byte[output.Length + 2];
     output.CopyTo(processed, 0);
@@ -290,6 +391,7 @@ Debug.Log("Length: " + length_);
     return processed;
     // return output;
   }
+
  private
   static byte[] FloatToBytes(float[, , ] input) {
     int length = input.GetLength(0) * input.GetLength(1) * input.GetLength(2) *
@@ -315,6 +417,7 @@ Debug.Log("Length: " + length_);
     System.Buffer.BlockCopy(input, 0, output, 0, input.Length);
     return output;
   }
+
  private
   static int[, , ] BytesToInt3D(byte[] input) {
     int length1 =
@@ -326,6 +429,7 @@ Debug.Log("Length: " + length_);
     System.Buffer.BlockCopy(input, 0, output, 0, input.Length - 4);
     return output;
   }
+
  private
   static Vector3[] BytesToVector3(byte[] input) {
     float[, ] intermediate = BytesToFloat2D(input);
@@ -337,6 +441,7 @@ Debug.Log("Length: " + length_);
     }
     return output;
   }
+
  private
   static float[, ] BytesToFloat2D(byte[] input) {
     int length1 =
@@ -346,6 +451,7 @@ Debug.Log("Length: " + length_);
     System.Buffer.BlockCopy(input, 0, output, 0, input.Length - 2);
     return output;
   }
+
  private
   static float[, , ] BytesToFloat3D(byte[] input) {
     int length1 =
