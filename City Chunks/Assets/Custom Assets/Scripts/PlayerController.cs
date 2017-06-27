@@ -238,6 +238,7 @@ class PlayerController : NetworkBehaviour {
     lastFootstepTime = Time.time;
     lastSendTime = Time.realtimeSinceStartup;
 
+    TerrainGenerator.AddPlayer(GetComponent<InitPlayer>());
   }
 
   void Update() {
@@ -380,16 +381,14 @@ class PlayerController : NetworkBehaviour {
     }
 
     // Vehicles
-    VehicleController[] Vehicle = FindObjectsOfType<VehicleController>();
-    foreach(VehicleController V in Vehicle) {
-      V.UpdateInputs(moveVertical, moveHorizontal, lookHorizontal, lookVertical,
-                     sprintInput, Camera.GetComponent<Camera>());
-    }
     timeInVehicle += Time.deltaTime;
     if(GameData.Vehicle!= null && GameData.Vehicle.fuelRemaining < 0) {
       ExitVehicle();
     }
     if (GameData.Vehicle != null) {
+      GameData.Vehicle.UpdateInputs(moveVertical, moveHorizontal,
+                                    lookHorizontal, lookVertical, sprintInput,
+                                    Camera.GetComponent<Camera>());
       transform.position =
           GameData.Vehicle.gameObject.transform.position + Vector3.up * 0.25f;
       transform.rotation = GameData.Vehicle.gameObject.transform.rotation;
@@ -992,6 +991,8 @@ class PlayerController : NetworkBehaviour {
       }
     }
   }
-  // void OnDestroy() { DestroyImmediate(Camera, true); }
-  void onDestroy() { GameData.showCursor = true; }
+  void onDestroy() {
+    GameData.showCursor = true;
+    TerrainGenerator.RemovePlayer(GetComponent<InitPlayer>());
+  }
 }

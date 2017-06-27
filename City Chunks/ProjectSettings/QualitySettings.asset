@@ -93,7 +93,7 @@ QualitySettings:
     shadowCascades: 2
     shadowDistance: 150
     shadowNearPlaneOffset: 2
-    shadowCascade2Split: 0.33333334
+    shadowCascade2Split: 0.12500021
     shadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
     blendWeights: 2
     textureQuality: 0
@@ -119,7 +119,7 @@ QualitySettings:
     shadowCascades: 2
     shadowDistance: 250
     shadowNearPlaneOffset: 2
-    shadowCascade2Split: 0.33333334
+    shadowCascade2Split: 0.12333352
     shadowCascade4Split: {x: 0.06666667, y: 0.2, z: 0.46666667}
     blendWeights: 4
     textureQuality: 0
@@ -143,10 +143,10 @@ QualitySettings:
     shadowResolution: 3
     shadowProjection: 0
     shadowCascades: 4
-    shadowDistance: 500
+    shadowDistance: 300
     shadowNearPlaneOffset: 2
     shadowCascade2Split: 0.33333334
-    shadowCascade4Split: {x: 0.06666667, y: 0.19999999, z: 0.46666664}
+    shadowCascade4Split: {x: 0.029753942, y: 0.05738247, z: 0.13780662}
     blendWeights: 4
     textureQuality: 0
     anisotropicTextures: 2

@@ -34,7 +34,7 @@ RenderSettings:
   m_SpotCookie: {fileID: 10001, guid: 0000000000000000e000000000000000, type: 0}
   m_DefaultReflectionMode: 0
   m_DefaultReflectionResolution: 128
-  m_ReflectionBounces: 2
+  m_ReflectionBounces: 1
   m_ReflectionIntensity: 0.2
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
@@ -51,7 +51,7 @@ LightmapSettings:
     m_AlbedoBoost: 1
     m_TemporalCoherenceThreshold: 1
     m_EnvironmentLightingMode: 0
-    m_EnableBakedLightmaps: 0
+    m_EnableBakedLightmaps: 1
     m_EnableRealtimeLightmaps: 1
   m_LightmapEditorSettings:
     serializedVersion: 8
@@ -59,7 +59,7 @@ LightmapSettings:
     m_BakeResolution: 40
     m_TextureWidth: 1024
     m_TextureHeight: 1024
-    m_AO: 0
+    m_AO: 1
     m_AOMaxDistance: 1
     m_CompAOExponent: 1
     m_CompAOExponentDirect: 0
@@ -305,8 +305,8 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 98355678}
-  m_LocalRotation: {x: -0.23016039, y: 0.6283231, z: 0.20223962, w: 0.7150772}
-  m_LocalPosition: {x: -4112.492, y: -2728.351, z: 1693.7109}
+  m_LocalRotation: {x: 0.016464083, y: 0.9835141, z: 0.123982415, w: -0.13060397}
+  m_LocalPosition: {x: 148.82704, y: 343.3667, z: 154.352}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -3133,15 +3133,9 @@ MonoBehaviour:
     White: {fileID: 0}
     Black: {fileID: 0}
   TerrainTrees:
-  - {fileID: 1000011901478696, guid: 7de4ed2e68b8f6b41bf83021ed49741e, type: 2}
-  - {fileID: 1000013574824664, guid: 823e5f2073f8f044d9f3208c1125dd73, type: 2}
-  - {fileID: 1000014210774634, guid: 62667ccc8d0e7e84ba7bfc30177ea4cd, type: 2}
-  - {fileID: 1000010061563708, guid: 666ec3b7bb72c254495bd598576ab332, type: 2}
-  - {fileID: 173180, guid: 15e25f77f96ff474eb0e4f235d1338fe, type: 2}
-  - {fileID: 141540, guid: 82f258a1b46e8b640908bfe7ad2de692, type: 2}
-  - {fileID: 198302, guid: 7561f0cfc3da4a641beec58b15914c4b, type: 2}
-  - {fileID: 124586, guid: 25eae2d5b0e06f64495cc458bb635b02, type: 2}
-  - {fileID: 186646, guid: 81871a7d538556b4bac9f2ce0ee55b09, type: 2}
+  - {fileID: 100000, guid: b6972eaa35c2e574e8ab5083a59d8459, type: 3}
+  - {fileID: 100004, guid: 70417e08343ef354db9a6c398faf67bc, type: 3}
+  - {fileID: 100008, guid: 5c2ecb53217ee6d47845944d5e81b5a6, type: 3}
   - {fileID: 114418, guid: be878d9ea17907f4a8068678a5ce7908, type: 2}
   - {fileID: 114418, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 2}
   - {fileID: 114418, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 2}
@@ -3165,12 +3159,12 @@ Terrain:
   m_Enabled: 1
   serializedVersion: 3
   m_TerrainData: {fileID: 15600000, guid: e653b40a4375411408ce709477ff5bc9, type: 2}
-  m_TreeDistance: 2000
-  m_TreeBillboardDistance: 150
-  m_TreeCrossFadeLength: 75
-  m_TreeMaximumFullLODCount: 1764
-  m_DetailObjectDistance: 250
-  m_DetailObjectDensity: 1
+  m_TreeDistance: 1000
+  m_TreeBillboardDistance: 100
+  m_TreeCrossFadeLength: 50
+  m_TreeMaximumFullLODCount: 1750
+  m_DetailObjectDistance: 100
+  m_DetailObjectDensity: 0.5
   m_HeightmapPixelError: 13
   m_SplatMapDistance: 250
   m_HeightmapMaximumLOD: 0

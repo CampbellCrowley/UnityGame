@@ -119,12 +119,14 @@ using System.Collections.Generic;
   public int z = 0;
   [Tooltip("List of terrain data for setting heights. Equivalent to gameObject.GetComponent<Terrain>().terrainData.")]
   public TerrainData terrData;
-  [Tooltip("List of terrains for instantiating.")]
+  [Tooltip("Terrain GameObject.")]
   public GameObject gameObject;
   [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the DeltaDivide Generator.")]
   public float[, ] terrPoints;
   [Tooltip("List of terrain heightmap data points for setting heights over a period of time from the Perlin generator.")]
   public float[, ] terrPerlinPoints;
+  [Tooltip("List of trees currently on this chunk.")]
+  public List<GameObject> TreeInstances = new List<GameObject>();
   [Tooltip("The water GameObject attatched to this chunk.")]
   public GameObject waterTile;
   [Tooltip("Whether this terrain chunk is ready for its splatmap to be updated.")]
@@ -205,7 +207,7 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public int maxNumTrees = 500;
   // Player for deciding when to load chunks based on position.
   GameObject player;
-  InitPlayer[] players;
+  private static List<InitPlayer> players = new List<InitPlayer>();
   int numIdentifiedPlayers = 0;
   [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
   [SerializeField] public bool useSeed = true;
@@ -412,8 +414,7 @@ public class TerrainGenerator : MonoBehaviour {
     if (playerY < TerrainGenerator.waterHeight)
       playerY = TerrainGenerator.waterHeight;
 
-    players = GameObject.FindObjectsOfType<InitPlayer>();
-    if (players.Length == 0) {
+    if (players.Count == 0) {
       if (GetComponent<UnityEngine.Networking.NetworkIdentity>() == null) {
         Debug.LogError(
             "Could not find player with InitPlayer script attatched to it. " +
@@ -424,10 +425,10 @@ public class TerrainGenerator : MonoBehaviour {
             "No player found, but multiplayer support detected. Possibly " +
             "spawning later");
       }
-    } else if (players.Length > 1) {
+    } else if (players.Count > 1) {
       Debug.Log("Multiplayer detected!");
-      numIdentifiedPlayers = players.Length;
-      for(int i=0; i<players.Length; i++) {
+      numIdentifiedPlayers = players.Count;
+      for(int i=0; i<players.Count; i++) {
         player = players[i].gameObject;
         Debug.Log("Valid player found: " + player.transform.name);
         // Tell the player where to spawn.
@@ -619,9 +620,9 @@ public class TerrainGenerator : MonoBehaviour {
     float playerZ = playerSpawnZ;
     // Get the player spawn height from the heightmap height at the
     // coordinates where the player will spawn.
-    players = GameObject.FindObjectsOfType<InitPlayer>();
+    //players = GameObject.FindObjectsOfType<InitPlayer>();
     if (player == null) {
-      if (players.Length == 1) {
+      if (players.Count == 1) {
         player = players[0].gameObject;
         Debug.Log("Valid player found: " + player.transform.name);
         // Tell the player where to spawn.
@@ -630,7 +631,7 @@ public class TerrainGenerator : MonoBehaviour {
           playerY = TerrainGenerator.waterHeight;
         }
         (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-      } else if (players.Length == 0 && TerrainGenerator.doneLoadingSpawn) {
+      } else if (players.Count == 0 && TerrainGenerator.doneLoadingSpawn) {
         Debug.Log("Resetting TerrainGenerator");
         TerrainGenerator.doneLoadingSpawn = false;
         loadWaitCount = 50;
@@ -641,10 +642,10 @@ public class TerrainGenerator : MonoBehaviour {
         return;
       }
     }
-    if (players.Length > 1 && numIdentifiedPlayers < players.Length) {
+    if (players.Count > 1 && numIdentifiedPlayers < players.Count) {
       Debug.Log("New player connected!");
-      numIdentifiedPlayers = players.Length;
-      for (int i = 0; i < players.Length; i++) {
+      numIdentifiedPlayers = players.Count;
+      for (int i = 0; i < players.Count; i++) {
         player = players[i].gameObject;
         // Tell the player where to spawn.
         float playerY = GetTerrainHeight(playerX, playerZ);
@@ -653,14 +654,14 @@ public class TerrainGenerator : MonoBehaviour {
         }
         (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
       }
-    } else if (numIdentifiedPlayers > players.Length) {
+    } else if (numIdentifiedPlayers > players.Count) {
       Debug.Log("Player disconnected.");
-      numIdentifiedPlayers = players.Length;
+      numIdentifiedPlayers = players.Count;
     }
   }
 
   void UpdateAllLoadedChunks(ref bool done, ref float iTime) {
-    for (int num = 0; num < players.Length; num++) {
+    for (int num = 0; num < players.Count; num++) {
       player = players[num].gameObject;
       // Make sure the player stays above the terrain
       float xCenter = (player.transform.position.x - terrWidth / 2) / terrWidth;
@@ -2814,16 +2815,20 @@ public class TerrainGenerator : MonoBehaviour {
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
 
-    TreePrototype[] list = new TreePrototype[TerrainTrees.Length];
-    for (int i = 0; i < list.Length; i++) {
-      list[i] = new TreePrototype();
-      list[i].prefab = TerrainTrees[i];
+    List<TreePrototype> list = new List<TreePrototype>();
+    for (int i = 0; i < TerrainTrees.Length; i++) {
+      if (TerrainTrees[i].GetComponent<LODGroup>() == null) {
+        TreePrototype newTreePrototype = new TreePrototype();
+        newTreePrototype.prefab = TerrainTrees[i];
+        list.Add(newTreePrototype);
+      }
     }
 
-    terrainData.treePrototypes = list;
+    terrainData.treePrototypes = list.ToArray();
     terrainData.RefreshPrototypes();
   }
   void UpdateTrees(TerrainData terrainData) {
+    if (TerrainTrees.Length <= 0) return;
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
 
@@ -2831,25 +2836,44 @@ public class TerrainGenerator : MonoBehaviour {
     PerlinDivide(ref numberModifier, GetXCoord(terrID), GetZCoord(terrID), 2, 2,
                  PerlinSeedModifier * 2f, 0.1f);
     int numberOfTrees = (int)(numberModifier[ 0, 0 ] * maxNumTrees);
-    TreeInstance[] newTrees = new TreeInstance[numberOfTrees];
-    for (int i = 0; i < newTrees.Length; i++) {
+    terrains[terrID].TreeInstances.Clear();
+    List<TreeInstance> newTrees = new List<TreeInstance>();
+    for (int i = 0; i < numberOfTrees; i++) {
       float X = UnityEngine.Random.value;
       float Z = UnityEngine.Random.value;
-      float Y = terrainData.GetInterpolatedHeight(X, Z);
-      if (Y <= TerrainGenerator.waterHeight) continue;
-      if (terrainData.GetSteepness(X, Z) > 30f) continue;
-      newTrees[i] = new TreeInstance();
-      newTrees[i].prototypeIndex =
-          UnityEngine.Random.Range(0, terrainData.treePrototypes.Length - 1);
-      newTrees[i].color = new Color(1, 1, 1);
-      newTrees[i].lightmapColor = new Color(1, 1, 1);
-      newTrees[i].heightScale = 1.0f;
-      newTrees[i].widthScale = 1.0f;
-      newTrees[i].position = new Vector3(X, (Y - 2f) / terrHeight, Z);
-    }
+      float Y;
 
-    terrainData.treeInstances = newTrees;
-    if (terrID >= 0) {
+      // If trees have a LOD group, there is no reason to add it to the terrain,
+      // so we just instantiate it as a game object.
+      int TreeID = UnityEngine.Random.Range(0, TerrainTrees.Length);
+      if (TerrainTrees[TreeID].GetComponent<LODGroup>() == null) {
+        Y = terrainData.GetInterpolatedHeight(X, Z);
+        if (Y <= TerrainGenerator.waterHeight) continue;
+        if (terrainData.GetSteepness(X, Z) > 30f) continue;
+        int index = 0;
+        for (int j = 0; j < TreeID; j++) {
+          if (TerrainTrees[j].GetComponent<LODGroup>() == null) index++;
+        }
+        TreeInstance newTreeInstance = new TreeInstance();
+        newTreeInstance.prototypeIndex = index;
+        newTreeInstance.color = new Color(1, 1, 1);
+        newTreeInstance.lightmapColor = new Color(1, 1, 1);
+        newTreeInstance.heightScale = 1.0f;
+        newTreeInstance.widthScale = 1.0f;
+        newTreeInstance.position = new Vector3(X, (Y - 2f) / terrHeight, Z);
+        newTrees.Add(newTreeInstance);
+      } else {
+        Y = terrainData.GetHeight((int)(X * heightmapHeight),
+                                  (int)(Z * heightmapWidth));
+        if (Y <= TerrainGenerator.waterHeight) continue;
+        if (terrainData.GetSteepness(X, Z) > 30f) continue;
+        terrains[terrID].TreeInstances.Add(Instantiate(
+            TerrainTrees[TreeID],
+            new Vector3(X * terrWidth + terrWidth * terrains[terrID].x, Y,
+                        Z * terrLength + terrLength * terrains[terrID].z),
+            Quaternion.identity, terrains[terrID].gameObject.transform));
+      }
+      terrainData.treeInstances = newTrees.ToArray();
       Terrain terrain = terrains[terrID].gameObject.GetComponent<Terrain>();
       terrain.Flush();
       // Refresh the collider since unity doesn't update this unless
@@ -3136,5 +3160,20 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
     TerrainGenerator.doneLoadingSpawn = true;
+  }
+
+ public
+  static void RemovePlayer(InitPlayer player) {
+    for (int i = 0; i < players.Count; i++) {
+      if (players[i] == player) {
+        players.RemoveAt(i);
+        return;
+      }
+    }
+  }
+
+ public
+  static void AddPlayer(InitPlayer newPlayer) {
+    players.Add(newPlayer);
   }
 }
