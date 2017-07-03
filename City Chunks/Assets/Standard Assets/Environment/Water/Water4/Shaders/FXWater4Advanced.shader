@@ -1,3 +1,5 @@
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
 // Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
 
 Shader "FX/Water4" {
@@ -156,7 +158,7 @@ CGINCLUDE
 
 		o.viewInterpolator.xyz = worldSpaceVertex - _WorldSpaceCameraPos;
 
-		o.pos = mul(UNITY_MATRIX_MVP, v.vertex);
+		o.pos = UnityObjectToClipPos(v.vertex);
 
 		ComputeScreenAndGrabPassPos(o.pos, o.screenPos, o.grabPassPos);
 		
@@ -260,7 +262,7 @@ CGINCLUDE
 
 		o.viewInterpolator.xyz = worldSpaceVertex - _WorldSpaceCameraPos;
 
-		o.pos = mul(UNITY_MATRIX_MVP, v.vertex);
+		o.pos = UnityObjectToClipPos(v.vertex);
 
 		o.screenPos = ComputeNonStereoScreenPos(o.pos);
 		
@@ -330,7 +332,7 @@ CGINCLUDE
 
 		o.viewInterpolator.xyz = worldSpaceVertex-_WorldSpaceCameraPos;
 		
-		o.pos = mul(UNITY_MATRIX_MVP,  v.vertex);
+		o.pos = UnityObjectToClipPos(v.vertex);
 		
 		o.viewInterpolator.w = 1;//GetDistanceFadeout(ComputeNonStereoScreenPos(o.pos).w, DISTANCE_SCALE);
 		
@@ -365,7 +367,7 @@ ENDCG
 
 Subshader
 {
-	Tags {"RenderType"="Transparent" "Queue"="Transparent"}
+	Tags {"RenderType"="Transparent" "Queue"="Transparent-200"}
 	
 	Lod 500
 	ColorMask RGB
@@ -396,7 +398,7 @@ Subshader
 
 Subshader
 {
-	Tags {"RenderType"="Transparent" "Queue"="Transparent"}
+	Tags {"RenderType"="Transparent" "Queue"="Transparent-200"}
 	
 	Lod 300
 	ColorMask RGB
@@ -425,7 +427,7 @@ Subshader
 
 Subshader
 {
-	Tags {"RenderType"="Transparent" "Queue"="Transparent"}
+	Tags {"RenderType"="Transparent" "Queue"="Transparent-200"}
 	
 	Lod 200
 	ColorMask RGB
