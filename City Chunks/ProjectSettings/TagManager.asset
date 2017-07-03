@@ -7,6 +7,7 @@ TagManager:
   - Enemy
   - Vehicle
   - LoadingScene
+  - Sun
   layers:
   - Default
   - TransparentFX
@@ -22,8 +23,8 @@ TagManager:
   - Sky
   - Player
   - LoadingScene
-  - 
-  - 
+  - Vegetation
+  - Debug
   - 
   - 
   - 

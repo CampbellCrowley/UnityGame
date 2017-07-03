@@ -115,6 +115,7 @@
      <None Include="Assets\Standard Assets\Environment\Water\Water4\Shaders\FXWater4Simple.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\Blit.shader" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformRender.shader" />
+     <None Include="Assets\Custom Assets\Shaders\Grass.shader" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\VectorscopeCompute.compute" />
      <None Include="Assets\PostProcessing\Resources\Shaders\FXAA3.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.shader" />

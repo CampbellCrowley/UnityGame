@@ -11,6 +11,7 @@
 // #define DEBUG_BORDERS_4 // BOTTOM -z
 // #define DEBUG_CHUNK_LOADING
 // #define DEBUG_DIVIDE
+// #define DEBUG_GRASS_NORMALS
 // #define DEBUG_HEIGHTS
 // #define DEBUG_MISC
 // #define DEBUG_POSITION
@@ -20,6 +21,12 @@
 // #define DEBUG_HUD_POS
 // #define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
+#define GRASS_MODE_0  // Unity terrain detail meshes
+// #define GRASS_MODE_1  // Individual game objects
+// #define GRASS_MODE_2  // Unity terrain trees
+// #define DIVIDE_MODE_0  // Predetermined recursive depth and delta time.
+// #define DIVIDE_MODE_1  // Maximum time for dividing each frame. (Not working)
+#define DIVIDE_MODE_2  // Separate thread.
 #pragma warning disable 0168
 #pragma warning disable 0219
 
@@ -27,6 +34,9 @@ using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+#if DIVIDE_MODE_2
+using System.Threading;
+#endif
 
 [Serializable] public class GeneratorModes {
   [Header("Displace Divide")]
@@ -50,10 +60,15 @@ using System.Collections.Generic;
   [Range(0, 513*513)] public int HeightmapSpeed = 1000;
   [Tooltip("Splits calculating the heightmap among 4^slowAmount frames instead of doing it all in 1.")]
   public bool slowHeightmap = true;
+#if DIVIDE_MODE_0
   [Tooltip("Maximum depth the recursion should delay continuing.")]
-  public int slowAmount = 1;
+  public int slowAmount = 3;
   [Tooltip("Number of seconds to wait between each delay.")]
-  public float slowDelay = 0.1f;
+  public float slowDelay = 0.01f;
+#elif DIVIDE_MODE_1
+  [Tooltip("Maximum time in milliseconds dividing may take each frame.")]
+  public float maxDivideTime = 16f;
+#endif
   [Tooltip("Allows most of the hard work of generating chunks to happen in Start() rather than multiple frames. Only applies for spawn chunks.")]
   public bool PreLoadChunks = false;
 }
@@ -205,6 +220,10 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public GameObject waterTile;
   [Tooltip("Maximum number of trees per chunk to be generated.")]
   [SerializeField] public int maxNumTrees = 500;
+#if GRASS_MODE_1 || GRASS_MODE_2
+  [Tooltip("Maximum number of grass objects per chunk to be generated.")]
+  [SerializeField] public int maxNumGrass = 10000;
+#endif
   // Player for deciding when to load chunks based on position.
   GameObject player;
   private static List<InitPlayer> players = new List<InitPlayer>();
@@ -242,12 +261,19 @@ public class TerrainGenerator : MonoBehaviour {
   [Header("Visuals")]
   [Tooltip("Array of textures to apply to the terrain.")]
   [SerializeField] public Textures TerrainTextures;
-  [Tooltip("The normals that corespond to the textures.")]
+  [Tooltip("The normals that corespond to the terrain textures.")]
   [SerializeField] public TextureNormals TerrainTextureNormals;
+#if GRASS_MODE_1 || GRASS_MODE_2
+  [Tooltip("The grass GameObjects.")]
+  [SerializeField] public GameObject[] TerrainGrass;
+#endif
   [Tooltip("Tree prefabs to place on the terrain.")]
   [SerializeField] public GameObject[] TerrainTrees;
-  [Tooltip("Detail Prototypes for grass.")]
-  [SerializeField] public DetailPrototype[] TerrainGrasses;
+
+#if GRASS_MODE_1 || GRASS_MODE_2
+  private List<GameObject> TerrainGrasses = new List<GameObject>();
+#endif
+  private DetailPrototype[] TerrainGrassPrototypes;
 
   public static bool doneLoadingSpawn = false;
   public static bool wasDoneLoadingSpawn = false;
@@ -297,12 +323,25 @@ public class TerrainGenerator : MonoBehaviour {
   float lastMaxUpdateTime = 0;
   bool preLoadingDone = false;
   bool preLoadingChunks = false;
+
+#if DIVIDE_MODE_1
+  float divideStartTime = -1f;
+#elif DIVIDE_MODE_2
+  Thread thread;
+  IEnumerator divideEnumerator;
+  System.Random rand;
+#endif
+#if GRASS_MODE_2
+  int numTreePrototypes = 0;
+#endif
 #if DEBUG_HUD_LOADED
   // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
 #endif
 
-  // void Awake() { Debug.Log("Terrain Generator Awake"); }
+  void Awake() {
+    players = new List<InitPlayer>(FindObjectsOfType<InitPlayer>());
+  }
 
   void Start() {
     Debug.Log("Terrain Generator Start!");
@@ -346,6 +385,7 @@ public class TerrainGenerator : MonoBehaviour {
 
     UpdateSplat(GetComponent<Terrain>().terrainData);
 
+
     Debug.Log("Generating spawn chunk");
     // Initialize variables based off of values defining the terrain and add
     // the spawn chunk to arrays for later reference.
@@ -353,14 +393,22 @@ public class TerrainGenerator : MonoBehaviour {
 
     Debug.Log("Creating spawn chunk fractal");
     FractalNewTerrains(0, 0);
+    Debug.Log("Clearing trees");
+    ClearTreeInstances(terrains[0]);
     Debug.Log("Applying spawn chunk height map");
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
     Debug.Log("Adding Trees to spawn chunk");
     UpdateTreePrototypes(terrains[0].terrData);
     UpdateTrees(terrains[0].terrData);
     Debug.Log("Adding Grass to spawn chunk");
+#if GRASS_MODE_0
     UpdateDetailPrototypes(terrains[0].terrData);
-    UpdateGrass(terrains[0].terrData);
+    UpdateGrassDetail(terrains[0].terrData);
+#elif GRASS_MODE_1
+    UpdateGrassObjects(terrains[0]);
+#elif GRASS_MODE_2
+    UpdateGrass(terrains[0]);
+#endif
     Debug.Log("Texturing spawn chunk");
     UpdateTexture(terrains[0]);
     terrains[0].terrQueue = false;
@@ -488,7 +536,11 @@ public class TerrainGenerator : MonoBehaviour {
 
     UpdateAllTextures(ref done, ref iTime);
 
+#if GRASS_MODE_0
     UpdateAllDetails(ref done, ref iTime);
+#elif GRASS_MODE_1 || GRASS_MODE_2
+    UpdateAllGrass(ref done, ref iTime);
+#endif
 
     UpdateAllLoadedChunks(ref done, ref iTime);
 
@@ -508,11 +560,16 @@ public class TerrainGenerator : MonoBehaviour {
     int x, y;
     bool done = false;
     bool keepGoing;
+#if DIVIDE_MODE_0
     float slowDelay = GenMode.slowDelay;
     GenMode.slowDelay = 0f;
-    GenMode.slowAmount--;
+    int slowAmount = GenMode.slowAmount;
+    GenMode.slowAmount = 0;
+#elif DIVIDE_MODE_1
+    float maxDivideTime = GenMode.maxDivideTime;
+    GenMode.maxDivideTime = 10f;
+#endif
     do {
-      CustomDebug.Assert(false, "Start Frame");
       keepGoing = false;
       done = false;
       loadWaitCount = 0;
@@ -528,12 +585,15 @@ public class TerrainGenerator : MonoBehaviour {
           }
         }
       }
-      CustomDebug.Assert(false, "End of frame");
       yield return null;
     } while (keepGoing);
     Debug.Log("Done Pre-Loading Chunks");
+#if DIVIDE_MODE_0
     GenMode.slowDelay = slowDelay;
-    GenMode.slowAmount++;
+    GenMode.slowAmount = slowAmount;
+#elif DIVIDE_MODE_1
+    GenMode.maxDivideTime = maxDivideTime;
+#endif
     preLoadingDone = true;
     preLoadingChunks = false;
   }
@@ -544,7 +604,7 @@ public class TerrainGenerator : MonoBehaviour {
       int count = 8;
       for(int i=0; i<terrains.Count; i++) {
         if (terrains[i].isDividing) total += 0.5f / count;
-        else if (terrains[i].waterQueue) total += 1.5f / count;
+        else if (terrains[i].waterQueue) total += 2.0f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
         else if (terrains[i].LODQueue) total += 3.5f / count;
         else if (terrains[i].treeQueue) total += 4.5f / count;
@@ -952,14 +1012,42 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
+  void UpdateAllGrass(ref bool done, ref float iTime) {
+    bool grassUpdated = false;
+    float iTime2=-2;
+    if(!done) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].detailQueue && !terrains[i].loadingFromDisk) {
+#if GRASS_MODE_1
+          UpdateGrassObjects(terrains[i]);
+#elif GRASS_MODE_2
+          UpdateGrass(terrains[i]);
+#endif
+          terrains[i].detailQueue = false;
+          grassUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADED
+    if (grassUpdated) LoadedChunkList += "Updating Grass\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (grassUpdated) {
+      done = grassUpdated;
+      times.DeltaDetailUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+      GameData.loadingMessage = "Watching grass grow...";
+    }
+  }
+
   void UpdateAllDetails(ref bool done, ref float iTime) {
     bool detailsUpdated = false;
     float iTime2 = -1;
-    if(!done) {
-      for(int i=0; i< terrains.Count; i++) {
-        if(terrains[i].detailQueue && !terrains[i].loadingFromDisk) {
+    if (!done) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].detailQueue && !terrains[i].loadingFromDisk) {
           UpdateDetailPrototypes(terrains[i].terrData);
-          UpdateGrass(terrains[i].terrData);
+          UpdateGrassDetail(terrains[i].terrData);
           terrains[i].detailQueue = false;
           detailsUpdated = true;
           break;
@@ -1008,7 +1096,7 @@ public class TerrainGenerator : MonoBehaviour {
     // Update terrain neighbors every times.UpdateSpeed seconds.
     // TODO: Is this even necessary? I don't really know what updating neighbors
     // does.
-    if (Time.time > times.lastUpdate + times.UpdateSpeed) {
+    if (Time.time > times.lastUpdate + times.UpdateSpeed && player != null) {
       float iTime2 = Time.realtimeSinceStartup;
       UpdateTerrainNeighbors(
           (int)Math.Floor(player.transform.position.x / terrWidth),
@@ -1495,6 +1583,7 @@ public class TerrainGenerator : MonoBehaviour {
   // Called by FractalNewTerrains. Creates a iWidth x iHeight matrix of
   // interpolated heightmap points.
   void GenerateNew(int changeX, int changeZ, float iRoughness) {
+    if (thread != null && thread.IsAlive) return;
     float iTime = Time.realtimeSinceStartup;
     float iHeight = heightmapHeight;
     float iWidth = heightmapWidth;
@@ -1609,16 +1698,24 @@ public class TerrainGenerator : MonoBehaviour {
         // If we are using GenMode.slowHeightmap, then the terrain has not
         // been finished being divided. Otherwise, the whole process could
         // happen before the function returns.
-        CustomDebug.Assert(false, "Pre-Divide");
-        StartCoroutine(
+        IEnumerator enumerator =
             DivideNewGrid(changeX, changeZ, 0, 0, iWidth, iHeight,
                           points[ 0, 0 ], points[ 0, (int)iHeight - 1 ],
                           points[ (int)iWidth - 1, (int)iHeight - 1 ],
-                          points[ (int)iWidth - 1, 0 ]));
-        if (terrains[terrIndex].isDividing || !terrains[terrIndex].hasDivided) {
+                          points[ (int)iWidth - 1, 0 ]);
+        if(GenMode.slowHeightmap) {
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
+          StartCoroutine(enumerator);
+#elif DIVIDE_MODE_2
+          divideEnumerator = enumerator;
+          thread = new Thread(DivideHelper);
+          thread.Start();
+#endif
           return;
+        } else {
+          while (enumerator.MoveNext()) {
+          }
         }
-        CustomDebug.Assert(false, "Post-Divide");
       }
     }
 
@@ -1740,9 +1837,6 @@ public class TerrainGenerator : MonoBehaviour {
           Debug.LogWarning(-logCount + " additional suppressed warnings.");
         }
       }
-      // Smooth the edge of chunks where they meet in order to hide seams
-      // better.
-      // SmoothEdges(iWidth, iHeight, ref flippedPoints);
 
       // Double check that all the edges match up.
       if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints)) {
@@ -1817,360 +1911,42 @@ public class TerrainGenerator : MonoBehaviour {
     return true;
   }
 
-  // This looks at how each chunk ends a tries to match them better so the
-  // transition between chunks looks better and hides seams.
-  void SmoothEdges(float iWidth, float iHeight, ref float[, ] points) {
-    // Left
-    for (int r = 1; r < iHeight - 1; r++) {
-      for (int c = 1; c < iWidth / 2; c++) {
-        // float mod = 1f-((float)Math.Pow(c,2))/((float)Math.Pow(c,2)+1f);
-        float mod = c / (iWidth / 2);
-        points[ c, r ] = (points[ 0, r ] * mod) + (points[ c, r ] * (1 - mod));
-      }
-    }
-    // Top
-    for (int c = 1; c < iWidth - 1; c++) {
-      for (int r = (int)iHeight - 2; r > iHeight / 2; r--) {
-        // float mod = 1f-((float)Math.Pow(r,2))/((float)Math.Pow(r,2)+1f);
-        float mod = r / (iHeight / 2);
-        points[ c, r ] = (points[ c, (int)iHeight - 1 ] * mod) +
-                         (points[ c, r ] * (1 - mod));
-      }
-    }
-    // Right
-    for (int r = 1; r < iHeight - 1; r++) {
-      for (int c = (int)iWidth - 2; c > iWidth / 2; c--) {
-        // float mod = 1f-((float)Math.Pow(c,2))/((float)Math.Pow(c,2)+1f);
-        float mod = c / (iWidth / 2);
-        points[ c, r ] =
-            (points[ (int)iWidth - 1, r ] * mod) + (points[ c, r ] * (1 - mod));
-      }
-    }
-    // Bottom
-    for (int c = 1; c < iWidth - 1; c++) {
-      for (int r = 1; r < iHeight / 2; r++) {
-        // float mod = 1f-((float)Math.Pow(r,2))/((float)Math.Pow(r,2)+1f);
-        float mod = r / (iHeight / 2);
-        points[ c, r ] = (points[ 0, r ] * mod) + (points[ c, r ] * (1 - mod));
-      }
+#if DIVIDE_MODE_2
+  // Intended to be run as a separate thread.
+  void DivideHelper() {
+    while (divideEnumerator.MoveNext()) {
     }
   }
+#endif
 
   // The center of the chunk is displaced a random amount from the average of
   // the four corners. It is then split into four sections, each of which has
-  // its center displaced from the average of the section's for corners. This
+  // its center displaced from the average of the section's four corners. This
   // then splits each section into four more sections, and repeats until every
   // point of the heightmap is defined.
-  /*void DivideNewGrid(ref float[, ] points, float dX, float dY, float dwidth,
-                     float dheight, float c1, float c2, float c3, float c4) {
-    divideAmount++;
-    if (logCount > -1 && dwidth != dheight) {
-      Debug.LogWarning("Width-Height Mismatch: Expected square grid.\nDX: " +
-                       dX + ", DY: " + dY + ", dwidth: " + dwidth +
-                       ", dheight: " + dheight);
-      logCount--;
-    }
-#if DEBUG_ATTRIBUTES
-    else if (logCount > 10) {
-      Debug.Log("DX: " + dX + ", DY: " + dY + ", dwidth: " + dwidth +
-                ", dheight: " + dheight);
-      logCount--;
-    }
-#endif
-    float Edge1, Edge2, Edge3, Edge4, Middle;
-    float newWidth = (float)Math.Floor(dwidth / 2);
-    float newHeight = (float)Math.Floor(dheight / 2);
-    if (dwidth > 1 || dheight > 1) {
-      // Reach and Cube are things I tried that had interesting outcomes that I
-      // thought were cool and wanted to keep, but are not supported.
-      if (GenMode.Reach) {
-        // TODO: Remove try-catches
-        try {
-          c1 = points[ (int)dX - 1, (int)dY ];
-        } catch (IndexOutOfRangeException e) {
-          c1 = points[ (int)dX, (int)dY ];
-        }
-        try {
-          c2 = points[ (int)dX, (int)dY + (int)dheight ];
-        } catch (IndexOutOfRangeException e) {
-          c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
-        }
-        try {
-          c3 = points[ (int)dX + (int)dwidth, (int)dY + (int)dheight ];
-        } catch (IndexOutOfRangeException e) {
-          c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
-        }
-        try {
-          c4 = points[ (int)dX + (int)dwidth - 1, (int)dY - 1 ];
-        } catch (IndexOutOfRangeException e) {
-          c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
-        }
-      } else if (GenMode.Cube) {
-                 if (GenMode.slowHeightmap && recursiveDepth <= 1)
-                               yield return new WaitForSeconds(0.25f);
-                 c1 = points[ (int)dX, (int)dY ];
-        c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
-        c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
-        c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
-      }
-      Middle = points[
-        (int)Math.Floor((dX + dX + dwidth) / 2),
-        (int)Math.Floor((dY + dY + dheight) / 2)
-      ];
-      // Find the center point height of each side of the section.
-      Edge1 = points[ (int)dX, (int)Math.Floor((dY + dY + dheight) / 2) ];
-      Edge2 = points
-          [ (int)Math.Floor((dX + dX + dwidth) / 2), (int)(dY + dheight - 1) ];
-      Edge3 = points
-          [ (int)(dX + dwidth - 1), (int)Math.Floor((dY + dY + dheight) / 2) ];
-      Edge4 = points[ (int)Math.Floor((dX + dX + dwidth) / 2), (int)dY ];
-
-      if (c1 < 0) {
-        c1 = points[ (int)dX, (int)dY ];
-        // Only find a value for the point of it is not already defined.
-        if (c1 <= EmptyPoint)
-          c1 = AverageCorners(EmptyPoint, c2, c3, c4) +
-               Displace(newWidth + newHeight);
-        else
-          Displace(0);
-        // If it is somehow defined incorrectly, give it a random value because
-        // something went wrong and this is the best fix.
-        if (c1 < -1)
-          c1 = Displace(dwidth + dheight);
-        else
-          Displace(0);
-      } else {
-        Displace(0);
-        Displace(0);  // In order to maintain consistency with the random values
-                      // returned
-      }
-      if (c2 < 0) {
-        c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
-        if (c2 <= EmptyPoint)
-          c2 = AverageCorners(c1, EmptyPoint, c3, c4) +
-               Displace(newWidth + newHeight);
-        else
-          Displace(0);
-        if (c2 < -1)
-          c2 = Displace(dwidth + dheight);
-        else
-          Displace(0);
-      } else {
-        Displace(0);
-        Displace(0);  // In order to maintain consistency with the random values
-                      // returned
-      }
-      if (c3 < 0) {
-        c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
-        if (c3 <= EmptyPoint)
-          c3 = AverageCorners(c1, c2, EmptyPoint, c4) +
-               Displace(newWidth + newHeight);
-        else
-          Displace(0);
-        if (c3 < -1)
-          c3 = Displace(dwidth + dheight);
-        else
-          Displace(0);
-      } else {
-        Displace(0);
-        Displace(0);  // In order to maintain consistency with the random values
-                      // returned
-      }
-      if (c4 < 0) {
-        c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
-        if (c4 <= EmptyPoint)
-          c4 = AverageCorners(c1, c2, c3, EmptyPoint) +
-               Displace(newWidth + newHeight);
-        else
-          Displace(0);
-        if (c4 < -1)
-          c4 = Displace(dwidth + dheight);
-        else
-          Displace(0);
-      } else {
-        Displace(0);
-        Displace(0);  // In order to maintain consistency with the random values
-                      // returned
-      }
-      if (Middle < 0) {
-        Middle = ((c1 + c2 + c3 + c4) / 4) +
-                 Displace((dwidth + dheight) *
-                          PeakModifier);  // Randomly displace the midpoint!
-      } else {
-        Displace(0);  // In order to maintain consistency with the random values
-                      // returned
-      }
-      if (Edge1 < 0) {
-        Edge1 = ((c1 + c2) / 2);
-      }
-      if (Edge2 < 0) {
-        Edge2 = ((c2 + c3) / 2);
-      }
-      if (Edge3 < 0) {
-        Edge3 = ((c3 + c4) / 2);
-      }
-      if (Edge4 < 0) {
-        Edge4 = ((c4 + c1) / 2);
-      }
-
-      bool ShowWarning = false;
-      if (logCount > 0 && (Edge1 < 0 || Edge2 < 0 || Edge3 < 0 || Edge4 < 0 ||
-                           c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0)) {
-        ShowWarning = true;
-        Debug.LogWarning ("Divide(Pre-Rectify):\n"
-					+ "C1: (0, 0):      " + points [0, 0] + "/" + c1 + "\n"
-					+ "C2: (0, " + (int)(dheight - 1) + "):      " +
-			  		points [0, (int)dheight - 1] + "/" + c2 + "\n"
-					+ "C3: (" + (int)(dwidth - 1) + ", " + (int)(dheight - 1) + "):      " +
-			  		points [(int)dwidth - 1, (int)dheight - 1] + "/" + c3 + "\n"
-					+ "C4: (" + (int)(dwidth - 1) + ", 0):      " +
-			  		points [(int)dwidth - 1, 0] + "/" + c4 + "\n"
-
-					+ "Edge1: (0, " + (int)Math.Floor ((dheight) / 2) + "):      " +
-			  		points [0, (int)Math.Floor ((dheight) / 2)] + "/" + Edge1 + "\n"
-					+ "Edge2: (" + (int)Math.Floor ((dwidth) / 2) + ", " +
-					(int)(dheight - 1) + "):      " +
-			  		points [(int)Math.Floor ((dwidth) / 2), (int)dheight - 1] + "/" +
-                                                                    Edge2 + "\n"
-					+ "Edge3: (" + (int)(dwidth - 1) + ", " +
-			  		(int)Math.Floor ((dheight - 1) / 2) + "):      " +
-			  		points [(int)dwidth - 1, (int)Math.Floor ((dheight) / 2)] + "/" +
-                                                                    Edge3 + "\n"
-					+ "Edge4: (" + (int)Math.Floor ((dwidth) / 2) + ", 0):      " +
-					  points [(int)Math.Floor ((dwidth) / 2), 0] + "/" + Edge4 + "\n"
-
-					+ "Middle: (" + (int)Math.Floor ((dwidth - 1) / 2) + ", " +
-				  	(int)Math.Floor ((dheight - 1) / 2) + "):      " +
-				  	points [
-                (int)Math.Floor ((dwidth - 1) / 2),
-                (int)Math.Floor ((dheight - 1) / 2)
-				    ]
-					+ "/" + Middle + "\n"
-					+ "\n"
-					+ "dX: " + dX + ", dY: " + dY + ", dwidth: " +
-					  dwidth + ", dheight: " + dheight);
-        logCount--;
-      }
-
-      // Make sure that the midpoint doesn't accidentally randomly displace past
-      // the boundaries.
-      Rectify(ref Middle);
-      Rectify(ref Edge1);
-      Rectify(ref Edge2);
-      Rectify(ref Edge3);
-      Rectify(ref Edge4);
-
-      // Save points to array
-      points[
-        (int)Math.Floor((dX + dX + dwidth) / 2),
-        (int)Math.Floor((dY + dY + dheight) / 2)
-      ] = Middle;
-
-      points[ (int)dX, (int)Math.Floor((dY + dY + dheight) / 2) ] = Edge1;
-      points[
-        (int)Math.Floor((dX + dX + dwidth) / 2),
-        (int)(dY + dheight - 1)
-      ] = Edge2;
-      points[
-        (int)(dX + dwidth - 1),
-        (int)Math.Floor((dY + dY + dheight) / 2)
-      ] = Edge3;
-      points[ (int)Math.Floor((dX + dX + dwidth) / 2), (int)dY ] = Edge4;
-
-      // Rectify corners then save them to array.
-      Rectify(ref c1);
-      Rectify(ref c2);
-      Rectify(ref c3);
-      Rectify(ref c4);
-      points[ (int)dX, (int)dY ] = c1;
-      points[ (int)dX, (int)dY + (int)dheight - 1 ] = c2;
-      points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ] = c3;
-      points[ (int)dX + (int)dwidth - 1, (int)dY ] = c4;
-
-      if (ShowWarning) {
-        Debug.LogWarning ("Divide(Post-Rectify):\n"
-					+ "C1: (0, 0):      " + points [0, 0] + "/" + c1 + "\n"
-					+ "C2: (0, " + (int)(dheight - 1) + "):      " +
-			  		points [0, (int)dheight - 1] + "/" + c2 + "\n"
-					+ "C3: (" + (int)(dwidth - 1) + ", " + (int)(dheight - 1) + "):      " +
-			  		points [(int)dwidth - 1, (int)dheight - 1] + "/" + c3 + "\n"
-					+ "C4: (" + (int)(dwidth - 1) + ", 0):      " +
-			  		points [(int)dwidth - 1, 0] + "/" + c4 + "\n"
-
-					+ "Edge1: (0, " + (int)Math.Floor ((dheight) / 2) + "):      " +
-			  		points [0, (int)Math.Floor ((dheight) / 2)] + "/" + Edge1 + "\n"
-					+ "Edge2: (" + (int)Math.Floor ((dwidth) / 2) + ", " +
-					(int)(dheight - 1) + "):      " +
-			  		points [(int)Math.Floor ((dwidth) / 2), (int)dheight - 1] + "/" +
-                                                                    Edge2 + "\n"
-					+ "Edge3: (" + (int)(dwidth - 1) + ", " +
-			  		(int)Math.Floor ((dheight - 1) / 2) + "):      " +
-			  		points [(int)dwidth - 1, (int)Math.Floor ((dheight) / 2)] + "/" +
-                                                                    Edge3 + "\n"
-					+ "Edge4: (" + (int)Math.Floor ((dwidth) / 2) + ", 0):      " +
-					  points [(int)Math.Floor ((dwidth) / 2), 0] + "/" + Edge4 + "\n"
-
-					+ "Middle: (" + (int)Math.Floor ((dwidth - 1) / 2) + ", " +
-				  	(int)Math.Floor ((dheight - 1) / 2) + "):      " +
-				  	points [
-                (int)Math.Floor ((dwidth - 1) / 2),
-                (int)Math.Floor ((dheight - 1) / 2)
-				    ]
-					+ "/" + Middle + "\n"
-					+ "\n"
-					+ "dX: " + dX + ", dY: " + dY + ", dwidth: " +
-					  dwidth + ", dheight: " + dheight);
-      }
-
-      // Do the operation over again for each of the four new
-      // grids.
-      DivideNewGrid(ref points, dX, dY, newWidth, newHeight, c1, Edge1, Middle,
-                    Edge4);
-      DivideNewGrid(ref points, dX + newWidth, dY, newWidth, newHeight, Edge4,
-                    Middle, Edge3, c4);
-      DivideNewGrid(ref points, dX + newWidth, dY + newHeight, newWidth,
-                    newHeight, Middle, Edge2, c3, Edge3);
-      DivideNewGrid(ref points, dX, dY + newHeight, newWidth, newHeight, Edge1,
-                    c2, Edge2, Middle);
-
-    } else {
-      if (dheight < 1) dheight = 1;
-      if (dwidth < 1) dwidth = 1;
-      if (GenMode.Cube || GenMode.Reach) {
-        c1 = points[ (int)dX, (int)dY ];
-        c2 = points[ (int)dX, (int)dY + (int)dheight - 1 ];
-        c3 = points[ (int)dX + (int)dwidth - 1, (int)dY + (int)dheight - 1 ];
-        c4 = points[ (int)dX + (int)dwidth - 1, (int)dY ];
-      }
-      // The four corners of the grid piece will be averaged and drawn as a
-      // single pixel.
-      float c = AverageCorners(c1, c2, c3, c4);
-      points[ (int)(dX), (int)(dY) ] = c;
-      if (dwidth == 2) {
-        points[ (int)(dX + 1), (int)(dY) ] = c;
-      }
-      if (dheight == 2) {
-        points[ (int)(dX), (int)(dY + 1) ] = c;
-      }
-      if ((dwidth == 2) && (dheight == 2)) {
-        points[ (int)(dX + 1), (int)(dY + 1) ] = c;
-      }
-      // Does not repeat since the size of this section is 1x1. This means
-      // it cannot be divided further and we are done.
-    }
-  }*/
-  // Same as above, but splits up work between frames.
+  //
+  // Each recursive step can be split among a configurable number of frames,
+  // time delay, or the whole thing can be given its own thread.
   IEnumerator DivideNewGrid(int chunkX, int chunkY, float dX, float dY,
                             float dwidth, float dheight, float c1, float c2,
                             float c3, float c4, int index = -1,
                             int recursiveDepth = 0) {
-    if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin Divide");
+
+    if (index == -1) index = GetTerrainWithCoord(chunkX, chunkY);
+#if DIVIDE_MODE_1
+    if (recursiveDepth == 0) {
+      divideStartTime = Time.realtimeSinceStartup;
+    }
+#endif
     if (useSeed && recursiveDepth == 0) {
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
       UnityEngine.Random.InitState(
+#elif DIVIDE_MODE_2
+      rand = new System.Random(
+#endif
           (int)(Seed +
                 PerfectlyHashThem((short)(chunkX * 3), (short)(chunkY * 3))));
     }
-    if (index == -1) index = GetTerrainWithCoord(chunkX, chunkY);
     divideAmount++;
     if (logCount > -1 && dwidth != dheight) {
       Debug.LogWarning("Width-Height Mismatch: Expected square grid.\nDX: " +
@@ -2336,10 +2112,12 @@ public class TerrainGenerator : MonoBehaviour {
       if (logCount > 0 && (Edge1 < 0 || Edge2 < 0 || Edge3 < 0 || Edge4 < 0 ||
                            c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0)) {
         ShowWarning = true;
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
         string list = "";
         if(chunkListInfo != null) {
           list = "Loaded Chunk List: " + chunkListInfo.text;
         }
+#endif
         Debug.LogWarning(
             "Divide(Pre-Rectify):\n" + "C1: (0, 0):      " +
             terrains[index].terrPoints[ 0, 0 ] + "/" + c1 + "\n" + "C2: (0, " +
@@ -2374,7 +2152,11 @@ public class TerrainGenerator : MonoBehaviour {
             ] +
             "/" + Middle + "\n" + "\n" + "dX: " + dX + ", dY: " + dY +
             ", dwidth: " + dwidth + ", dheight: " + dheight + ", Coord(" +
-            chunkX + ", " + chunkY + ")" + "\n" + list);
+            chunkX + ", " + chunkY + ")"
+#if DIVIDE_MODE_0 || DIVIDE_MODE1
+            + "\n" + list
+#endif
+            );
         logCount--;
       }
 
@@ -2459,106 +2241,177 @@ public class TerrainGenerator : MonoBehaviour {
       // grids.
 
       // 1/4
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 1/4");
       if (useSeed && recursiveDepth == 0) {
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
         UnityEngine.Random.InitState(
+#elif DIVIDE_MODE_2
+        rand = new System.Random(
+#endif
             (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
                                            (short)(chunkY * 3 - 2))));
       }
-      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
-        yield return StartCoroutine(
-            DivideNewGrid(chunkX, chunkY, dX, dY, newWidth, newHeight, c1,
-                          Edge1, Middle, Edge4, index, recursiveDepth + 1));
-      } else {
-        StartCoroutine(DivideNewGrid(chunkX, chunkY, dX, dY, newWidth,
-                                     newHeight, c1, Edge1, Middle, Edge4, index,
-                                     recursiveDepth + 1));
+      IEnumerator enumerator =
+          DivideNewGrid(chunkX, chunkY, dX, dY, newWidth, newHeight, c1, Edge1,
+                        Middle, Edge4, index, recursiveDepth + 1);
+#if DIVIDE_MODE_1
+      while (enumerator.MoveNext()) {
+        if ((Time.realtimeSinceStartup - divideStartTime) * 1000f >=
+            GenMode.maxDivideTime) {
+          // Debug.Log("Waiting until next frame " + Time.realtimeSinceStartup +
+          //           " pts:" + debugpoints + " dpth:" + recursiveDepth +
+          //           " strt:" + divideStartTime + " delta:" +
+          //           (Time.realtimeSinceStartup - divideStartTime) * 1000f +
+          //           " max:" + GenMode.maxDivideTime + " frame count: " +
+          //           Time.frameCount);
+          UnityEngine.Random.State seedState = UnityEngine.Random.state;
+          yield return enumerator.Current;
+          // Debug.Log("Frame: " + Time.frameCount);
+          UnityEngine.Random.state = seedState;
+          divideStartTime = Time.realtimeSinceStartup;
+        }
       }
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 1/4");
-      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+#elif DIVIDE_MODE_0
+      yield return StartCoroutine(enumerator);
+      if (recursiveDepth <= GenMode.slowAmount) {
         UnityEngine.Random.State seedState = UnityEngine.Random.state;
         yield return new WaitForSeconds(GenMode.slowDelay);
-        // yield return null;
         UnityEngine.Random.state = seedState;
         index = GetTerrainWithCoord(chunkX, chunkY);
       }
+#else
+      while (enumerator.MoveNext()) {
+      }
+#endif
 
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 2/4");
       // 2/4
       if (useSeed && recursiveDepth == 0) {
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
         UnityEngine.Random.InitState(
+#elif DIVIDE_MODE_2
+        rand = new System.Random(
+#endif
             (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
                                            (short)(chunkY * 3 - 2))));
       }
-      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
-        yield return StartCoroutine(DivideNewGrid(
-            chunkX, chunkY, dX + newWidth, dY, newWidth, newHeight, Edge4,
-            Middle, Edge3, c4, index, recursiveDepth + 1));
-      } else {
-        StartCoroutine(DivideNewGrid(chunkX, chunkY, dX + newWidth, dY,
-                                     newWidth, newHeight, Edge4, Middle, Edge3,
-                                     c4, index, recursiveDepth + 1));
+      enumerator =
+          DivideNewGrid(chunkX, chunkY, dX + newWidth, dY, newWidth, newHeight,
+                        Edge4, Middle, Edge3, c4, index, recursiveDepth + 1);
+#if DIVIDE_MODE_1
+      while (enumerator.MoveNext()) {
+        if ((Time.realtimeSinceStartup - divideStartTime) * 1000f >=
+            GenMode.maxDivideTime) {
+          // Debug.Log("Waiting until next frame " + Time.realtimeSinceStartup +
+          //           " pts:" + debugpoints + " dpth:" + recursiveDepth +
+          //           " strt:" + divideStartTime + " delta:" +
+          //           (Time.realtimeSinceStartup - divideStartTime) * 1000f +
+          //           " max:" + GenMode.maxDivideTime + " frame count: " +
+          //           Time.frameCount);
+          UnityEngine.Random.State seedState = UnityEngine.Random.state;
+          yield return enumerator.Current;
+          // Debug.Log("Frame: " + Time.frameCount);
+          UnityEngine.Random.state = seedState;
+          divideStartTime = Time.realtimeSinceStartup;
+        }
       }
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 2/4");
-      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+#elif DIVIDE_MODE_0
+      yield return StartCoroutine(enumerator);
+      if (recursiveDepth <= GenMode.slowAmount) {
         UnityEngine.Random.State seedState = UnityEngine.Random.state;
         yield return new WaitForSeconds(GenMode.slowDelay);
-        // yield return null;
         UnityEngine.Random.state = seedState;
         index = GetTerrainWithCoord(chunkX, chunkY);
       }
+#else
+      while (enumerator.MoveNext()) {
+      }
+#endif
 
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 3/4");
       // 3/4
       if (useSeed && recursiveDepth == 0) {
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
         UnityEngine.Random.InitState(
+#elif DIVIDE_MODE_2
+        rand = new System.Random(
+#endif
             (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 1),
                                            (short)(chunkY * 3 - 1))));
       }
-      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
-        yield return StartCoroutine(DivideNewGrid(
-            chunkX, chunkY, dX + newWidth, dY + newHeight, newWidth, newHeight,
-            Middle, Edge2, c3, Edge3, index, recursiveDepth + 1));
-      } else {
-        StartCoroutine(DivideNewGrid(
-            chunkX, chunkY, dX + newWidth, dY + newHeight, newWidth, newHeight,
-            Middle, Edge2, c3, Edge3, index, recursiveDepth + 1));
+      enumerator = DivideNewGrid(chunkX, chunkY, dX + newWidth, dY + newHeight,
+                                 newWidth, newHeight, Middle, Edge2, c3, Edge3,
+                                 index, recursiveDepth + 1);
+#if DIVIDE_MODE_1
+      while (enumerator.MoveNext()) {
+        if ((Time.realtimeSinceStartup - divideStartTime) * 1000f >=
+            GenMode.maxDivideTime) {
+          // Debug.Log("Waiting until next frame " + Time.realtimeSinceStartup +
+          //           " pts:" + debugpoints + " dpth:" + recursiveDepth +
+          //           " strt:" + divideStartTime + " delta:" +
+          //           (Time.realtimeSinceStartup - divideStartTime) * 1000f +
+          //           " max:" + GenMode.maxDivideTime + " frame count: " +
+          //           Time.frameCount);
+          UnityEngine.Random.State seedState = UnityEngine.Random.state;
+          yield return enumerator.Current;
+          // Debug.Log("Frame: " + Time.frameCount);
+          UnityEngine.Random.state = seedState;
+          divideStartTime = Time.realtimeSinceStartup;
+        }
       }
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 3/4");
-      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+#elif DIVIDE_MODE_0
+      yield return StartCoroutine(enumerator);
+      if (recursiveDepth <= GenMode.slowAmount) {
         UnityEngine.Random.State seedState = UnityEngine.Random.state;
         yield return new WaitForSeconds(GenMode.slowDelay);
-        // yield return null;
         UnityEngine.Random.state = seedState;
         index = GetTerrainWithCoord(chunkX, chunkY);
       }
+#else
+      while (enumerator.MoveNext()) {
+      }
+#endif
 
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "Begin 4/4");
       // 4/4
       if (useSeed && recursiveDepth == 0) {
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
         UnityEngine.Random.InitState(
+#elif DIVIDE_MODE_2
+        rand = new System.Random(
+#endif
             (int)(Seed + PerfectlyHashThem((short)(chunkX * 3 - 2),
                                            (short)(chunkY * 3 - 1))));
       }
-      if (GenMode.slowHeightmap && recursiveDepth < GenMode.slowAmount) {
-        yield return StartCoroutine(DivideNewGrid(
-            chunkX, chunkY, dX, dY + newHeight, newWidth, newHeight, Edge1, c2,
-            Edge2, Middle, index, recursiveDepth + 1));
-      } else {
-        StartCoroutine(DivideNewGrid(chunkX, chunkY, dX, dY + newHeight,
-                                     newWidth, newHeight, Edge1, c2, Edge2,
-                                     Middle, index, recursiveDepth + 1));
+      enumerator =
+          DivideNewGrid(chunkX, chunkY, dX, dY + newHeight, newWidth, newHeight,
+                        Edge1, c2, Edge2, Middle, index, recursiveDepth + 1);
+#if DIVIDE_MODE_1
+      while (enumerator.MoveNext()) {
+        if ((Time.realtimeSinceStartup - divideStartTime) * 1000f >=
+            GenMode.maxDivideTime) {
+          // Debug.Log("Waiting until next frame " + Time.realtimeSinceStartup +
+          //           " pts:" + debugpoints + " dpth:" + recursiveDepth +
+          //           " strt:" + divideStartTime + " delta:" +
+          //           (Time.realtimeSinceStartup - divideStartTime) * 1000f +
+          //           " max:" + GenMode.maxDivideTime + " frame count: " +
+          //           Time.frameCount);
+          UnityEngine.Random.State seedState = UnityEngine.Random.state;
+          yield return enumerator.Current;
+          // Debug.Log("Frame: " + Time.frameCount);
+          UnityEngine.Random.state = seedState;
+          divideStartTime = Time.realtimeSinceStartup;
+        }
       }
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "End 4/4");
-      if (GenMode.slowHeightmap && recursiveDepth <= GenMode.slowAmount) {
+#elif DIVIDE_MODE_0
+      yield return StartCoroutine(enumerator);
+      if (recursiveDepth <= GenMode.slowAmount) {
         UnityEngine.Random.State seedState = UnityEngine.Random.state;
         yield return new WaitForSeconds(GenMode.slowDelay);
-        // yield return null;
         UnityEngine.Random.state = seedState;
         index = GetTerrainWithCoord(chunkX, chunkY);
       }
+#else
+      while (enumerator.MoveNext()) {
+      }
+#endif
 
-      if (recursiveDepth == 0) CustomDebug.Assert(false, "Done");
       if (recursiveDepth == 0) {
 #if DEBUG_DIVIDE
         Debug.Log("Terrain divide has finished chunk " + index + " (" + chunkX +
@@ -2594,6 +2447,7 @@ public class TerrainGenerator : MonoBehaviour {
       // Does not repeat since the size of this section is 1x1. This means
       // it cannot be divided further and we are done.
     }
+    yield break;
   }
   // Uses perlin noise to define a heightmap.
   void PerlinDivide(ref float[, ] points, float x, float y, float w, float h,
@@ -2656,7 +2510,11 @@ public class TerrainGenerator : MonoBehaviour {
   // being defined becomes smaller.
   float Displace(float SmallSize) {
     float Max = SmallSize / gBigSize * gRoughness;
+#if DIVIDE_MODE_0 || DIVIDE_MODE_1
     return (float)(UnityEngine.Random.value - 0.5) * Max;
+#elif DIVIDE_MODE_2
+    return (float)(rand.NextDouble() - 0.5) * Max;
+#endif
   }
 
   void UpdateSplat(TerrainData terrainData) {
@@ -2715,6 +2573,16 @@ public class TerrainGenerator : MonoBehaviour {
 
   // For use before SetHeights is called.
   float GetSteepness(float[, ] Heightmap, int x, int y) {
+    return GetSteepness(GetNormal(Heightmap, x, y));
+  }
+  float GetSteepness(Vector3 normal) {
+    return Mathf.Acos(Vector3.Dot(normal, Vector3.up)) * 180f / Mathf.PI;
+  }
+  Vector3 GetNormal(float[, ] Heightmap, int x, int y) {
+    if (x >= Heightmap.GetLength(0)) x = Heightmap.GetLength(0) - 1;
+    if (y >= Heightmap.GetLength(1)) y = Heightmap.GetLength(1) - 1;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
     float slopeX1 = Heightmap[ x, y ] -
                     Heightmap[ x < Heightmap.GetLength(0) - 1 ? x + 1 : x, y ];
     float slopeZ1 = Heightmap[ x, y ] -
@@ -2728,12 +2596,12 @@ public class TerrainGenerator : MonoBehaviour {
     if (x == 0 || x == Heightmap.GetLength(0) - 1) slopeX *= 2;
     if (y == 0 || y == Heightmap.GetLength(1) - 1) slopeZ *= 2;
 
-    slopeX *= terrHeight;
-    slopeZ *= terrHeight;
+    slopeX *= terrHeight / 2f;
+    slopeZ *= terrHeight / 2f;
 
-    Vector3 normal = new Vector3(-slopeX, 2, slopeZ);
+    Vector3 normal = new Vector3(slopeX, 2, slopeZ);
     normal.Normalize();
-    return Mathf.Acos(Vector3.Dot(normal, Vector3.up)) * 180f / Mathf.PI;
+    return normal;
   }
 
   // Create and apply a texture to a chunk.
@@ -2811,6 +2679,147 @@ public class TerrainGenerator : MonoBehaviour {
     terrain.texQueue = false;
   }
 
+  void ClearTreeInstances(Terrains terrain) {
+    TreeInstance[] emptyTrees = new TreeInstance[0];
+    terrain.terrData.treeInstances = emptyTrees;
+    terrain.gameObject.GetComponent<Terrain>().Flush();
+  }
+
+#if GRASS_MODE_2
+  void UpdateGrass(Terrains terrain) {
+    int numGrasses = TerrainGrass.Length;
+    if (numGrasses == 0) return;
+    if (useSeed) {
+      UnityEngine.Random.InitState(
+          (int)(Seed + PerfectlyHashThem((short)(terrain.x * 3 - 2),
+                                         (short)(terrain.z * 3 - 2))));
+    }
+
+    List<TreeInstance> newGrass =
+        new List<TreeInstance>(terrain.terrData.treeInstances);
+    for (int i = 0; i < maxNumGrass; ++i) {
+      float X = UnityEngine.Random.value;
+      float Z = UnityEngine.Random.value;
+      float Y = terrain.terrData.GetInterpolatedHeight(X, Z);
+      int index = UnityEngine.Random.Range(0, numGrasses) + numTreePrototypes;
+      float steepness =
+          GetSteepness(terrain.terrPoints, Mathf.RoundToInt(X * heightmapWidth),
+                       Mathf.RoundToInt(Z * heightmapHeight));
+      float WMultiplier =
+          ((90f - steepness) / 90f + UnityEngine.Random.value) / 2f;
+      float HMultiplier =
+          ((90f - steepness) / 90f + UnityEngine.Random.value) / 2f;
+      if (Y <= waterHeight) continue;
+      if (terrain.terrData.GetSteepness(X, Z) > 30f) continue;
+
+      TreeInstance newGrassInstance = new TreeInstance();
+      newGrassInstance.prototypeIndex = index;
+      newGrassInstance.color = new Color(1, 1, 1);
+      newGrassInstance.lightmapColor = new Color(1, 1, 1);
+      newGrassInstance.heightScale = 0.7f * HMultiplier;
+      newGrassInstance.widthScale = 4.0f * WMultiplier;
+      newGrassInstance.position = new Vector3(X, Y / terrHeight, Z);
+      newGrass.Add(newGrassInstance);
+    }
+
+    terrain.terrData.treeInstances = newGrass.ToArray();
+    terrain.gameObject.GetComponent<Terrain>().Flush();
+  }
+#endif
+#if GRASS_MODE_1
+  void UpdateGrassObjects(Terrains terrain) {
+    int numGrasses = TerrainGrass.Length;
+    if (numGrasses == 0) return;
+    if (useSeed) {
+      UnityEngine.Random.InitState(
+          (int)(Seed + PerfectlyHashThem((short)(terrain.x * 3 - 2),
+                                         (short)(terrain.z * 3 - 2))));
+    }
+
+    TerrainGrasses.Clear();
+    for (int i = 0; i < maxNumGrass; ++i) {
+      float X = UnityEngine.Random.value;
+      float Z = UnityEngine.Random.value;
+      float Y = terrain.terrData.GetInterpolatedHeight(X, Z);
+      int index = UnityEngine.Random.Range(0, numGrasses);
+      float heightMultiplier = UnityEngine.Random.value * 2f;
+      if (Y <= waterHeight) continue;
+      if (terrain.terrData.GetSteepness(X, Z) > 30f) continue;
+
+      Vector3 rotationVector =
+          GetNormal(terrain.terrPoints, Mathf.RoundToInt(X * heightmapWidth),
+                    Mathf.RoundToInt(Z * heightmapHeight));
+      float widthMultiplier = (45f - GetSteepness(rotationVector)) / 45f;
+      Vector3 position = new Vector3(
+          X * terrWidth + terrWidth * terrain.x,
+          Y +
+              (TerrainGrass[index].transform.localScale.z * heightMultiplier) /
+                  .4f -
+              0.05f,
+          Z * terrLength + terrLength * terrain.z);
+
+#if DEBUG_GRASS_NORMALS
+      Vector3 testPos = new Vector3(
+          (Mathf.Round(X * heightmapWidth) / heightmapWidth) * terrWidth +
+              terrWidth * terrain.x,
+          Y, (Mathf.Round(Z * heightmapHeight) / heightmapHeight) * terrLength +
+                 terrLength * terrain.z);
+
+      Debug.DrawLine(testPos, testPos + rotationVector * 2f, Color.red, 60f,
+                     true);
+#endif
+
+      GameObject newGrass =
+          Instantiate(TerrainGrass[index], position,
+                      // Quaternion.Euler(90f, 0, 0),
+                      Quaternion.LookRotation(-rotationVector),
+                      terrain.gameObject.transform);
+      Vector3 oldScale = newGrass.transform.localScale;
+      Vector3 newScale = new Vector3(oldScale.x * widthMultiplier, oldScale.y,
+                                     oldScale.z * widthMultiplier);
+      newGrass.transform.localScale = newScale;
+      TerrainGrasses.Add(newGrass);
+    }
+  }
+#endif
+#if GRASS_MODE_0
+  void UpdateGrassDetail(TerrainData terrainData) {
+    float iTime = Time.realtimeSinceStartup;
+    int[,] map = new int[terrainData.detailWidth, terrainData.detailHeight];
+    float max = 16f;
+
+    for (int x = 0; x < terrainData.detailWidth; x++) {
+      for (int z = 0; z < terrainData.detailHeight; z++) {
+        // map[ x, z ] = (int)((float)x / (float)terrainData.detailWidth * max);
+        float height = terrainData.GetInterpolatedHeight(
+            (float)x / (float)(terrainData.detailWidth - 1),
+            (float)z / (float)(terrainData.detailHeight - 1));
+        if (height <= TerrainGenerator.waterHeight ||
+            height >= TerrainGenerator.snowHeight) {
+          map[ z, x ] = 0;
+        } else {
+          map[ z, x ] =
+              (int)((1 - (terrainData.GetSteepness(
+                              (float)x / (float)terrainData.detailWidth,
+                              (float)z / (float)terrainData.detailHeight) /
+                          60f)) *
+                    max);
+        }
+      }
+    }
+
+    Terrain t = terrains[GetTerrainWithData(terrainData)]
+                    .gameObject.GetComponent<Terrain>();
+
+    for (int i = 0; i < terrainData.detailPrototypes.Length; i++) {
+      terrainData.SetDetailLayer(0, 0, i, map);
+    }
+    t.Flush();
+
+    times.DeltaGrassUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
+  }
+#endif
+
   void UpdateTreePrototypes(TerrainData terrainData) {
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
@@ -2823,6 +2832,14 @@ public class TerrainGenerator : MonoBehaviour {
         list.Add(newTreePrototype);
       }
     }
+#if GRASS_MODE_2
+    numTreePrototypes = list.Count;
+    for (int i = 0; i < TerrainGrass.Length; i++) {
+      TreePrototype newGrassPrototype = new TreePrototype();
+      newGrassPrototype.prefab = TerrainGrass[i];
+      list.Add(newGrassPrototype);
+    }
+#endif
 
     terrainData.treePrototypes = list.ToArray();
     terrainData.RefreshPrototypes();
@@ -2837,7 +2854,13 @@ public class TerrainGenerator : MonoBehaviour {
                  PerlinSeedModifier * 2f, 0.1f);
     int numberOfTrees = (int)(numberModifier[ 0, 0 ] * maxNumTrees);
     terrains[terrID].TreeInstances.Clear();
-    List<TreeInstance> newTrees = new List<TreeInstance>();
+    List<TreeInstance> newTrees =
+        new List<TreeInstance>(terrainData.treeInstances);
+    if (useSeed) {
+      UnityEngine.Random.InitState(
+          (int)(Seed + PerfectlyHashThem((short)(terrains[terrID].x * 3 - 1),
+                                         (short)(terrains[terrID].z * 3 - 2))));
+    }
     for (int i = 0; i < numberOfTrees; i++) {
       float X = UnityEngine.Random.value;
       float Z = UnityEngine.Random.value;
@@ -2888,48 +2911,11 @@ public class TerrainGenerator : MonoBehaviour {
     if (terrID < 0) return;
 
     if(terrID != 0) {
-      terrainData.detailPrototypes = TerrainGrasses;
+      terrainData.detailPrototypes = TerrainGrassPrototypes;
       terrainData.RefreshPrototypes();
     } else {
-      TerrainGrasses = terrainData.detailPrototypes;
+      TerrainGrassPrototypes = terrainData.detailPrototypes;
     }
-  }
-  void UpdateGrass(TerrainData terrainData) {
-    float iTime = Time.realtimeSinceStartup;
-    int[,] map = new int[terrainData.detailWidth, terrainData.detailHeight];
-    // Grass is horribly un-optimized in unity so...
-    // TODO: Find a better solution to grass.
-    float max = 16f;
-
-    for (int x = 0; x < terrainData.detailWidth; x++) {
-      for (int z = 0; z < terrainData.detailHeight; z++) {
-        // map[ x, z ] = (int)((float)x / (float)terrainData.detailWidth * max);
-        float height = terrainData.GetInterpolatedHeight(
-            (float)x / (float)(terrainData.detailWidth - 1),
-            (float)z / (float)(terrainData.detailHeight - 1));
-        if (height <= TerrainGenerator.waterHeight ||
-            height >= TerrainGenerator.snowHeight) {
-          map[ z, x ] = 0;
-        } else {
-          map[ z, x ] =
-              (int)((1 - (terrainData.GetSteepness(
-                              (float)x / (float)terrainData.detailWidth,
-                              (float)z / (float)terrainData.detailHeight) /
-                          30f)) *
-                    max);
-        }
-      }
-    }
-
-    Terrain t = terrains[GetTerrainWithData(terrainData)]
-                    .gameObject.GetComponent<Terrain>();
-
-    for (int i = 0; i < terrainData.detailPrototypes.Length; i++) {
-      terrainData.SetDetailLayer(0, 0, i, map);
-    }
-    t.Flush();
-
-    times.DeltaGrassUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
   }
 
  public

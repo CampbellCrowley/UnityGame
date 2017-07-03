@@ -42,7 +42,7 @@ public class DayNightController : MonoBehaviour {
     if (!GameData.loading) {
 		currentTime += Time.deltaTime*daySpeedMultiplier
 #if true
-      + Input.GetAxis("Mouse ScrollWheel") / 10f
+      + Input.GetAxis("Mouse ScrollWheel") / 5f
 #endif
      ;
     }

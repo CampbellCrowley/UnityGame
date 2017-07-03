@@ -54,14 +54,15 @@ class PlayerController : NetworkBehaviour {
   [Header("OSDs/HUD")]
  public
   GUIText collectedCounter;
- public
-  GUIText lifeCounter;
+  [Tooltip("LifeOSD")] public GUIText lifeCounter;
  public
   GUIText timer;
  public
   GUIText stamina;
+ [Tooltip("LevelOSD")]
  public
   GUIText levelDisplay;
+ [Tooltip("UsernameOSD")]
  public
   GUIText usernameOSD;
  public
@@ -223,11 +224,27 @@ class PlayerController : NetworkBehaviour {
     Debug.Log("Send Freqency: " + sendFreqency);
     CmdChangeName(GameData.username);
     CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
-                           transform.position, transform.rotation);
+                    transform.position, transform.rotation);
 
-    if (lifeCounter != null) lifeCounter = Instantiate(lifeCounter);
-    if (levelDisplay != null) levelDisplay = Instantiate(levelDisplay);
-    if (usernameOSD != null) usernameOSD = Instantiate(usernameOSD);
+    GameObject temp;
+    if (lifeCounter != null) {
+      lifeCounter = Instantiate(lifeCounter);
+    } else {
+      temp = GameObject.Find("LifeOSD");
+      if (temp != null) lifeCounter = temp.GetComponent<GUIText>();
+    }
+    if (levelDisplay != null) {
+      levelDisplay = Instantiate(levelDisplay);
+    } else {
+      temp = GameObject.Find("LevelOSD");
+      if (temp != null) levelDisplay = temp.GetComponent<GUIText>();
+    }
+    if (usernameOSD != null) {
+      usernameOSD = Instantiate(usernameOSD);
+    } else {
+      temp = GameObject.Find("UsernameOSD");
+      if (temp != null) usernameOSD = temp.GetComponent<GUIText>();
+    }
     if (debug != null) debug = Instantiate(debug);
 
     levelStartTime = Time.time;
@@ -322,8 +339,9 @@ class PlayerController : NetworkBehaviour {
     if(Input.GetButtonDown("GodMode")) godMode = !godMode;
     RaycastHit hitinfo;
     isGrounded =
-        Physics.SphereCast(transform.position + Vector3.up * (-0.49f + 1.2f),
-                           0.0f, Vector3.down, out hitinfo, 0.8f);
+        Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.1f);
+    //     Physics.SphereCast(transform.position + Vector3.up * (-0.49f + 1.2f),
+    //                        0.0f, Vector3.down, out hitinfo, 0.8f);
     isCrouched = Input.GetAxis("Crouch") > 0.5;
     bool jump = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched &&
                 lastJumpTime >= jumpFrequency;
