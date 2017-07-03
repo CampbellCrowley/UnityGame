@@ -2674,13 +2674,13 @@ MonoBehaviour:
     Pain: {fileID: 0}
     LevelFail: {fileID: 0}
     FootSteps: []
-  sendFreqency: 0.1
+  sendFrequency: 0.01
   GameTime: 10
   RagdollTemplate: {fileID: 0}
   isDead: 0
   spawned: 0
   flyDownTime: 6
-  flyDownEndTime: 1.5
+  flyDownEndTime: 0.25
   username: Username
 --- !u!114 &114939371627269268
 MonoBehaviour:

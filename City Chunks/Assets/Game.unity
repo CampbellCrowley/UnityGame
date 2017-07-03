@@ -305,8 +305,8 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 98355678}
-  m_LocalRotation: {x: 0.007878359, y: 0.9443025, z: 0.022667635, w: -0.3282026}
-  m_LocalPosition: {x: 500.60034, y: 392.5852, z: 460.17487}
+  m_LocalRotation: {x: 0.2925256, y: 0.3650314, z: 0.12197923, w: -0.8753867}
+  m_LocalPosition: {x: 4395.7915, y: -5249.835, z: -2801.5378}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -3198,7 +3198,7 @@ MonoBehaviour:
     HeightmapSpeed: 0
     slowHeightmap: 1
     PreLoadChunks: 1
-  loadDist: 2000
+  loadDist: 1500
   roughness: 0.4
   PerlinRoughness: 0.1
   PerlinHeight: 1

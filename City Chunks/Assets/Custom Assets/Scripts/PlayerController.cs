@@ -87,7 +87,7 @@ class PlayerController : NetworkBehaviour {
   Sounds sounds;
   [Header("Misc.")]
  public
-  float sendFreqency = 0.1f;
+  float sendFrequency = 0.01f;
  public
   float GameTime = 10f;
  public
@@ -221,7 +221,7 @@ class PlayerController : NetworkBehaviour {
     if (GameData.username.ToLower() == "username" || GameData.username == "") {
       GameData.username = NameList.GetName();
     }
-    Debug.Log("Send Freqency: " + sendFreqency);
+    Debug.Log("Send Freqency: " + sendFrequency);
     CmdChangeName(GameData.username);
     CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
                     transform.position, transform.rotation);
@@ -339,9 +339,7 @@ class PlayerController : NetworkBehaviour {
     if(Input.GetButtonDown("GodMode")) godMode = !godMode;
     RaycastHit hitinfo;
     isGrounded =
-        Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.1f);
-    //     Physics.SphereCast(transform.position + Vector3.up * (-0.49f + 1.2f),
-    //                        0.0f, Vector3.down, out hitinfo, 0.8f);
+        Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.2f);
     isCrouched = Input.GetAxis("Crouch") > 0.5;
     bool jump = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched &&
                 lastJumpTime >= jumpFrequency;
@@ -387,7 +385,6 @@ class PlayerController : NetworkBehaviour {
       Camera.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
       cameraSpawnRotation = Camera.transform.rotation;
       spawnLocation = transform.position;
-      Camera.GetComponent<Camera>().useOcclusionCulling = false;
     } else if (cinematicsFinished && !spawned) {
       levelStartTime = Time.time;
       cameraSpawnRotation = Camera.transform.rotation;
@@ -395,7 +392,6 @@ class PlayerController : NetworkBehaviour {
       spawned = true;
     } else {
       spawned = true;
-      Camera.GetComponent<Camera>().useOcclusionCulling = true;
     }
 
     // Vehicles
@@ -861,7 +857,7 @@ class PlayerController : NetworkBehaviour {
     }
 
     if (isGrounded) lastGroundedTime = Time.time;
-    if (Time.realtimeSinceStartup - lastSendTime > sendFreqency) {
+    if (Time.realtimeSinceStartup - lastSendTime > sendFrequency) {
       lastSendTime = Time.realtimeSinceStartup;
       CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
                       transform.position, transform.rotation);
