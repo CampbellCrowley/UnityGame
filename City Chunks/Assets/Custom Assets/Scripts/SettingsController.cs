@@ -1,26 +1,15 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
+#pragma warning disable 0168
 
 public
-class MenuController : MonoBehaviour {
+class SettingsController : MonoBehaviour {
  private
   bool overrideToggle = false;
 
  public
-  void Start() { GameData.showCursor = true; }
-
- public
-  void MainMenu() { GameData.MainMenu(); }
- public
-  void PlayGame() {
-    GameData.showCursor = true;
-    GameData.nextLevel();
-  }
- public
-  void OpenSettings() {
+  void Start() {
     overrideToggle = true;
     Toggle temp = GameObject.Find("Toggle Vignette").GetComponent<Toggle>();
     if (temp != null) temp.isOn = GameData.vignette;
@@ -39,16 +28,7 @@ class MenuController : MonoBehaviour {
     temp = GameObject.Find("Toggle Camera Damping").GetComponent<Toggle>();
     if (temp != null) temp.isOn = GameData.cameraDamping;
     overrideToggle = false;
-
-    GameData.showCursor = true;
   }
- public
-  void CloseSettings() {
-    GameData.showCursor = true;
-    GameData.SaveSettings();
-  }
- public
-  void quitGame() { GameData.quit(); }
 
  public
   void ToggleVignette() {
@@ -91,4 +71,15 @@ class MenuController : MonoBehaviour {
     if (overrideToggle) return;
     GameData.cameraDamping = !GameData.cameraDamping;
   }
+ public void Quit() {
+    GameData.quit();
+ }
+ public
+  void Exit() {
+    GameData.isPaused = false;
+    GameData.showCursor = false;
+    Destroy(gameObject);
+  }
+  void OnDestroy() { GameData.SaveSettings(); }
 }
+

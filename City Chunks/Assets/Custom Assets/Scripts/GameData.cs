@@ -152,7 +152,7 @@ class GameData : MonoBehaviour {
       GameData.showCursor = isPaused;
       if(GameData.isPaused) {
         PauseMenu_ = Instantiate(PauseMenu);
-        PauseMenu_.GetComponent<Canvas>().worldCamera = Camera.main;
+        // PauseMenu_.GetComponent<Canvas>().worldCamera = Camera.main;
       } else {
         Destroy(PauseMenu_);
       }

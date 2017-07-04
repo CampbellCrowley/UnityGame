@@ -479,7 +479,7 @@ class PlayerController : NetworkBehaviour {
         Camera.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
         cameraSpawnRotation = Camera.transform.rotation;
       }
-      if (!isDead) {
+      if (!isDead && !GameData.isPaused) {
         Camera.transform.rotation =
             Quaternion.Lerp(cameraSpawnRotation, startCameraRotation,
                             (Time.time - levelStartTime) / flyDownTime);
@@ -667,7 +667,8 @@ class PlayerController : NetworkBehaviour {
 
       movement =
           Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0) * movement;
-      Vector3 acceleration = Vector3.zero;
+      // Vector3 acceleration = Vector3.zero;
+      if (movement.magnitude <= 0.02) movement = Vector3.zero;
       rbody.velocity = movement;
       // rbody.velocity =
       //     Vector3.SmoothDamp(rbody.velocity, movement, ref acceleration,

@@ -46,16 +46,6 @@ class SaveLoad : MonoBehaviour {
     bool readyToSerialize = false;
    public
     virtual void Serialize() {}
-   public
-    float Sum() {
-      float sum = 0.0f;
-      if(DividePoints == null) {
-        foreach (float num in terrain.terrPoints) { sum += num; }
-      } else {
-        foreach (float num in DividePoints) { sum += num; }
-      }
-      return sum;
-    }
   }
 
   public class TerrainWriteBuffer : TerrainBuffer {
@@ -127,8 +117,6 @@ class SaveLoad : MonoBehaviour {
       terrain.loadedFromDisk = true;
       terrain.justLoadedFromDisk = true;
       terrain.loadingFromDisk = false;
-      Debug.Log("Serialized Chunk(" + terrain.x + ", " + terrain.z + ") = " +
-                Sum());
     }
   }
 
@@ -189,8 +177,7 @@ class SaveLoad : MonoBehaviour {
                            string seed) {
     Buffer.Add(new TerrainWriteBuffer(X, Z, DividePoints, PerlinPoints,
                                       terrData, seed));
-    Debug.Log("Writing Terrain Chunk(" + X + ", " + Z + ") = " +
-              Buffer[Buffer.Count - 1].Sum());
+    Debug.Log("Writing Terrain Chunk(" + X + ", " + Z + ") (" + seed + ")");
     if (!threadIsRunning) {
       Thread thread = new Thread(BeginProcessing);
       thread.Start();
@@ -240,7 +227,8 @@ class SaveLoad : MonoBehaviour {
   static void ReadTerrain(Terrains terrain, string seed) {
     terrain.loadingFromDisk = true;
     Buffer.Add(new TerrainReadBuffer(terrain, seed));
-    Debug.Log("Reading Terrain Chunk(" + terrain.x + ", " + terrain.z + ")");
+    Debug.Log("Reading Terrain Chunk(" + terrain.x + ", " + terrain.z + ") (" +
+              seed + ")");
     if (!threadIsRunning) {
       Thread thread = new Thread(BeginProcessing);
       thread.Start();
