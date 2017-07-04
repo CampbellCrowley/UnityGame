@@ -11,7 +11,7 @@ Unity Version: 5.6.2f2
 Unity Version: 5.6.2f2
 
 ## Installation / Setup
-Windows x64 executable of v0.0.3m_1 available [here](https://dev.campbellcrowley.com/game/CityChunks.zip).
+Windows x64 executable of v0.0.5m_2 available [here](https://dev.campbellcrowley.com/game/CityChunksv0.0.5m_2.zip).
 
 Unity can be downloaded from its website at [unity3d.com](https://store.unity.com) (Free version is sufficient).
 
