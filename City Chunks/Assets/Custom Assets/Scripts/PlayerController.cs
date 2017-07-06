@@ -1,191 +1,158 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityStandardAssets.ImageEffects;
+using UnityEngine.PostProcessing.Utilities;
 using UnityEngine.Networking;
-#pragma warning disable 0168
+#pragma warning disable 0414 // Private field is assigned but never used
 
 [NetworkSettings(sendInterval=0.01f)]
 public
 class PlayerController : NetworkBehaviour {
   [System.Serializable] public class Sounds {
-   public
-    AudioPlayer Player;
-   public
-    AudioClip JumpSound;
-   public
-    AudioClip LandSound;
-   public
-    AudioClip CollectibleSound;
-   public
-    AudioClip Pain;
-   public
-    AudioClip LevelFail;
-   public
-    AudioClip[] FootSteps;
+    public AudioPlayer Player;
+    public AudioClip JumpSound;
+    public AudioClip LandSound;
+    public AudioClip CollectibleSound;
+    public AudioClip Pain;
+    public AudioClip LevelFail;
+    public AudioClip[] FootSteps;
   }
 
-  [Header("Movement")]
- public
-  float moveSpeed = 5f;
- public
-  float jumpMultiplier = 5f;
- public
-  float jumpFrequency = 0.25f;
- public
-  float staminaDepletionRate = 0.1f;  // Percent per second
- public
-  float staminaRechargeDelay = 3.0f;  // Seconds
- public
-  float staminaRechargeMultiplier = 1.5f;
-  [Header("Camera")]
- public
-  GameObject Camera;
- public
-  bool CameraObjectAvoidance = true;
- public
-  bool rotateWithCamera = false;
- public
-  float MaxCameraDistance = 3f;
- public
-  float playerHeight = 1.5f;
- public
-  float crouchedHeight = 1.0f;
-  [Header("OSDs/HUD")]
- public
-  GUIText collectedCounter;
-  [Tooltip("LifeOSD")] public GUIText lifeCounter;
- public
-  GUIText timer;
- public
-  GUIText stamina;
- [Tooltip("LevelOSD")]
- public
-  GUIText levelDisplay;
- [Tooltip("UsernameOSD")]
- public
-  GUIText usernameOSD;
- public
-  float staminaCountBars = 20f;
- public
-  GUIText debug;
-  [Header("MiniMap")]
- public
-  Camera MiniMapCamera;
- public
-  Vector3 miniMapRelativePosition;
-  [Header("Look and Sound")]
- public
-  bool useRenderSettingsFog = true;
- public
-  float footstepSize = 0.5f;
- public
-  float footstepSizeCrouched = 0.7f;
- public
-  float footstepSizeSprinting = 0.3f;
- public
-  Sounds sounds;
-  [Header("Misc.")]
- public
-  float sendFrequency = 0.01f;
- public
-  float GameTime = 10f;
- public
-  GameObject RagdollTemplate;
- private
-  GameObject Ragdoll;
- public
-  bool isDead = false;
- public
-  bool spawned = false;
- public
-  float flyDownTime = 6.0f;
- public
-  float flyDownEndTime = 1.5f;
+ [Header("Movement")]
+  public float moveSpeed = 5f;
+  public float jumpMultiplier = 5f;
+  public float jumpFrequency = 0.25f;
+  [Tooltip("Percent per second")]
+  public float staminaDepletionRate = 0.1f;
+  [Tooltip("Seconds")]
+  public float staminaRechargeDelay = 3.0f;
+  public float staminaRechargeMultiplier = 1.5f;
+ [Header("Camera")]
+  public GameObject Camera;
+  public bool CameraObjectAvoidance = true;
+  public bool rotateWithCamera = false;
+  public float MaxCameraDistance = 3f;
+  public float playerHeight = 1.5f;
+  public float crouchedHeight = 1.0f;
+ [Header("OSDs/HUD")]
+  public GUIText collectedCounter;
+  [Tooltip("LifeOSD")]
+  public GUIText lifeCounter;
+  public GUIText timer;
+  public GUIText stamina;
+  [Tooltip("LevelOSD")]
+  public GUIText levelDisplay;
+  [Tooltip("UsernameOSD")]
+  public GUIText usernameOSD;
+  public float staminaCountBars = 20f;
+  public GUIText debug;
+ [Header("MiniMap")]
+  public Camera MiniMapCamera;
+  public Vector3 miniMapRelativePosition;
+ [Header("Look and Sound")]
+  public bool useRenderSettingsFog = true;
+  public float footstepSize = 0.5f;
+  public float footstepSizeCrouched = 0.7f;
+  public float footstepSizeSprinting = 0.3f;
+  public Sounds sounds;
+ [Header("Misc.")]
+  public float sendFrequency = 0.01f;
+  public float GameTime = 10f;
+  public GameObject RagdollTemplate;
+  public bool isDead = false;
+  public bool spawned = false;
+  public float flyDownTime = 6.0f;
+  public float flyDownEndTime = 1.5f;
 
- private
-  Cinematic cinematic;
- private
-  Rigidbody rbody;
- private
   Animator anim;
- private
-  TextMesh nameplate;
- private
+  Cinematic cinematic;
   Color startColor;
- private
+  GameObject Ragdoll;
+  PostProcessingController PPC;
   Quaternion startCameraRotation, cameraSpawnRotation;
- private
-  float spawnCameraDistance = 1500f;
- private
-  float intendedCameraDistance;
- private
-  float turn = 0f;
- private
-  float forward = 0f;
- private
-  float moveAngle = 0f;
- private
-  float CurrentCameraDistance = 3f;
- private
-  bool isGrounded = true;
- private
-  bool isCrouched = false;
- private
-  bool isSprinting = false;
- private
-  bool isUnderwater = false;
- private
-  bool godMode = false;
- private
-  float endTime = 0f;
- private
-  Vector3 spawnLocation;
- private
-  float staminaRemaining = 1.0f;
- private
-  float levelStartTime = 0f;
- private
-  float lastGroundedTime = 0f;
- private
-  float lastSprintTime = 0f;
- private
-  float lastJumpSoundTimejump = 0.0f;
- private
-  float lastJumpTime = 0.0f;
- private
-  float lastFootstepTime = 0.0f;
- private
-  float lastSendTime = 0.0f;
- private
-  float lastVignetteAmount = 0.0f;
- private
-  float lastSprintInput = 0.0f;
- private
-  float timeInVehicle = 0.0f;
- private
-  float deathTime = 0.0f;
- private
+  Rigidbody rbody;
+  TextMesh nameplate;
   Transform lastFloorTransform;
- private
+  Vector3 spawnLocation;
   Vector3 lastFloorTransformPosition;
- private
+  bool isGrounded = true;
+  bool isCrouched = false;
+  bool isSprinting = false;
+  bool isUnderwater = false;
+  bool isJumping = false;
+  bool godMode = false;
   bool cinematicsFinished = false;
+  float moveHorizontal = 0f;
+  float moveVertical = 0f;
+  float lookHorizontal = 0f;
+  float lookVertical = 0f;
+  float spawnCameraDistance = 1500f;
+  float intendedCameraDistance;
+  float turn = 0f;
+  float forward = 0f;
+  float moveAngle = 0f;
+  float CurrentCameraDistance = 3f;
+  float endTime = 0f;
+  float staminaRemaining = 1.0f;
+  float levelStartTime = 0f;
+  float lastGroundedTime = 0f;
+  float lastSprintTime = 0f;
+  float lastJumpSoundTimejump = 0.0f;
+  float lastJumpTime = 0.0f;
+  float lastFootstepTime = 0.0f;
+  float lastSendTime = 0.0f;
+  float lastSprintInput = 0.0f;
+  float timeInVehicle = 0.0f;
+  float deathTime = 0.0f;
 
   [SyncVar] public string username = "Username";
-  [SyncVar] private Vector3 rbodyPosition, rbodyVelocity, transformPosition;
-  [SyncVar] private Quaternion rbodyRotation, transformRotation;
+  // [SyncVar(hook = "UpdateRPos")] private Vector3 rbodyPosition;
+  [SyncVar(hook = "UpdateRVel")] private Vector3 rbodyVelocity;
+  [SyncVar(hook = "UpdateRRot")] private Quaternion rbodyRotation;
+  // [SyncVar(hook = "UpdateTPos")] private Vector3 transformPosition;
+  [SyncVar(hook = "UpdateTRot")] private Quaternion transformRotation;
+  [SyncVar(hook = "UpdateMH")] private float mH;
+  [SyncVar(hook = "UpdateMV")] private float mV;
+  [SyncVar(hook = "UpdateLH")] private float lH;
+  [SyncVar(hook = "UpdateLV")] private float lV;
+  [SyncVar(hook = "UpdateJump")] private bool jump;
+  [SyncVar(hook = "UpdateSprint")] private bool sprint;
+  [SyncVar(hook = "UpdateSwim")] private bool swim;
+  [SyncVar(hook = "UpdateCrouch")] private bool crouched;
+  [SyncVar(hook = "UpdateDead")] private bool dead;
+  [SyncVar(hook = "UpdateGround")] private bool ground;
+
   [Command] public void CmdChangeName(string name) { username = name; }
-  [Command] public void CmdUpdatePlayer(Vector3 rposition, Vector3 rvelocity,
-                                        Quaternion rrotation, Vector3 tposition,
-                                        Quaternion trotation) {
-    rbodyPosition = rposition;
-    rbodyVelocity = rvelocity;
-    rbodyRotation = rrotation;
-    transformPosition = tposition;
-    transformRotation = trotation;
+  [Command] private void CmdUpdatePlayer(/*Vector3 rP,*/ Vector3 rV, Quaternion rR,/*
+                                         Vector3 tP,*/ Quaternion tR, float mH_,
+                                         float mV_, float lH_, float lV_,
+                                         bool j, bool s, bool w, bool c, bool d,
+                                         bool g) {
+    // rbodyPosition = rP;
+    rbodyVelocity = rV;
+    rbodyRotation = rR;
+    // transformPosition = tP;
+    transformRotation = tR;
+    mH = mH_;
+    mV = mV_;
+    lH = lH_;
+    lV = lV_;
+    jump = j;
+    sprint = s;
+    swim = w;
+    crouched = c;
+    dead = d;
+    ground = g;
   }
 
+  void UpdatePlayer() {
+    if (isLocalPlayer)
+      CmdUpdatePlayer(/*rbody.position,*/ rbody.velocity, rbody.rotation,/*
+                      transform.position,*/ transform.rotation, moveHorizontal,
+                      moveVertical, lookHorizontal, lookVertical, isJumping,
+                      isSprinting, isUnderwater, isCrouched, isDead,
+                      isGrounded);
+  }
 
  public
   override void OnStartLocalPlayer() {
@@ -213,6 +180,7 @@ class PlayerController : NetworkBehaviour {
     }
     startCameraRotation = Camera.transform.rotation;
     intendedCameraDistance = MaxCameraDistance;
+    PPC = GameObject.FindObjectOfType<PostProcessingController>();
 
     if (MiniMapCamera != null) MiniMapCamera = Instantiate(MiniMapCamera);
 
@@ -223,8 +191,7 @@ class PlayerController : NetworkBehaviour {
     }
     Debug.Log("Send Freqency: " + sendFrequency);
     CmdChangeName(GameData.username);
-    CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
-                    transform.position, transform.rotation);
+    UpdatePlayer();
 
     GameObject temp;
     if (lifeCounter != null) {
@@ -254,42 +221,20 @@ class PlayerController : NetworkBehaviour {
     lastJumpTime = jumpFrequency;
     lastFootstepTime = Time.time;
     lastSendTime = Time.realtimeSinceStartup;
-
-    TerrainGenerator.AddPlayer(GetComponent<InitPlayer>());
   }
 
   void Update() {
     if (!GameData.loading && !Camera.activeSelf) Camera.SetActive(true);
     else if (GameData.loading && Camera.activeSelf) Camera.SetActive(false);
     rbody = GetComponent<Rigidbody>();
-    if (!GameData.loading) {
+    if (!GameData.loading && UnityEngine.Camera.main != null) {
       nameplate = GetComponentInChildren<TextMesh>();
       nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
       nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
-      if (username != "Username") {
-        nameplate.text = username;
-      } else {
-        nameplate.text = "Player " + (int.Parse(netId.ToString()) - 1);
-      }
+      nameplate.text = username;
     }
-    if (!isLocalPlayer) {
-      if (!GameData.loading)
-        nameplate.GetComponent<MeshRenderer>().enabled = true;
-      if (rbodyRotation.x * rbodyRotation.x +
-              rbodyRotation.y * rbodyRotation.y +
-              rbodyRotation.z * rbodyRotation.z +
-              rbodyRotation.w * rbodyRotation.w !=
-          0) {
-        rbody.position = rbodyPosition;
-        rbody.velocity = rbodyVelocity;
-        rbody.rotation = rbodyRotation;
-        transform.position = transformPosition;
-        transform.rotation = transformRotation;
-        forward = rbody.velocity.magnitude / moveSpeed;
-      }
-      return;
-    } else if (intendedCameraDistance == 0 &&
-               Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
+    if (isLocalPlayer && intendedCameraDistance == 0 &&
+        Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
       if (!GameData.loading)
         nameplate.GetComponent<MeshRenderer>().enabled = false;
     }
@@ -304,6 +249,7 @@ class PlayerController : NetworkBehaviour {
       cinematicsFinished = true;
     }
 
+    // Death
     if (Input.GetKeyDown("k")) {
       GameData.health = 0;
       GameData.tries = 0;
@@ -313,11 +259,9 @@ class PlayerController : NetworkBehaviour {
       if (Time.realtimeSinceStartup - deathTime >= 8f) {
         if (GameData.health > 0) {
           UnDead();
-          // GameData.restartLevel();
         } else {
           if (GameData.tries > 0) {
             UnDead();
-            // GameData.restartLevel();
           } else {
             GameData.MainMenu();
           }
@@ -331,42 +275,49 @@ class PlayerController : NetworkBehaviour {
     }
 
     // Inputs and Player Controls
-    float moveHorizontal = Input.GetAxis("Horizontal");
-    float moveVertical = Input.GetAxis("Vertical");
-    float lookHorizontal = Input.GetAxis("Mouse X");
-    float lookVertical = Input.GetAxis("Mouse Y");
-    float interact = Input.GetAxis("Interact");
-    if(Input.GetButtonDown("GodMode")) godMode = !godMode;
-    RaycastHit hitinfo;
-    isGrounded =
-        Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.2f);
-    isCrouched = Input.GetAxis("Crouch") > 0.5;
-    bool jump = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched &&
-                lastJumpTime >= jumpFrequency;
-    float sprintInput = Input.GetAxis("Sprint");
-    isSprinting =
-        (sprintInput > 0.5 && !isCrouched) || (isSprinting && !isGrounded);
-    bool wasUnderwater = isUnderwater;
-    isUnderwater = transform.position.y < TerrainGenerator.waterHeight;
+    float interact = 0f;
+    float sprintInput = 0f;
+    bool wasUnderwater = false;
+    RaycastHit hitinfo = new RaycastHit();
+    if (isLocalPlayer) {
+      moveHorizontal = Input.GetAxis("Horizontal");
+      moveVertical = Input.GetAxis("Vertical");
+      lookHorizontal =
+          Input.GetAxis("Mouse X") + Input.GetAxis("Joystick X") * 3f;
+      lookVertical =
+          Input.GetAxis("Mouse Y") + Input.GetAxis("Joystick Y") * 3f;
+      interact = Input.GetAxis("Interact");
+      if (Input.GetButtonDown("GodMode")) godMode = !godMode;
+      isGrounded =
+          Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.2f);
+      isCrouched = Input.GetAxis("Crouch") > 0.5;
+      isJumping = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched &&
+                  lastJumpTime >= jumpFrequency;
+      sprintInput = Input.GetAxis("Sprint");
+      isSprinting =
+          (sprintInput > 0.5 && !isCrouched) || (isSprinting && !isGrounded);
+      wasUnderwater = isUnderwater;
+      isUnderwater = transform.position.y < TerrainGenerator.waterHeight;
+    }
 
     if (wasUnderwater && !isUnderwater) lastGroundedTime = Time.time;
     if (isUnderwater) isGrounded = false;
     lastJumpTime += Time.deltaTime;
-    if (jump) lastJumpTime = 0.0f;
+    if (isJumping) lastJumpTime = 0.0f;
 
     // Standing on platform
     // This is necessary to ensure the player moves with the platform they are
     // standing on. The position obtained from this is used to offset the
     // player's position.
     if (lastFloorTransform == null ||
-        hitinfo.transform != null &&
-            hitinfo.transform.name != lastFloorTransform.name) {
+        (hitinfo.transform != null &&
+         hitinfo.transform.name != lastFloorTransform.name)) {
       lastFloorTransform = hitinfo.transform;
       if (lastFloorTransform != null) {
         lastFloorTransformPosition = lastFloorTransform.position;
       }
     }
-    if (isGrounded) {
+    if (isGrounded && hitinfo.transform != null) {
       transform.position +=
           hitinfo.transform.position - lastFloorTransformPosition;
       lastFloorTransform = hitinfo.transform;
@@ -425,7 +376,7 @@ class PlayerController : NetworkBehaviour {
       rbody.velocity = Vector3.zero;
       isCrouched = true;
       isGrounded = true;
-      jump = false;
+      isJumping = false;
       if (timeInVehicle < 1.0f) {
         GameData.Vehicle.UpdateInputs(moveVertical, moveHorizontal,
                                       lookHorizontal, lookVertical, sprintInput,
@@ -498,23 +449,28 @@ class PlayerController : NetworkBehaviour {
       lookVertical = 0;
       rbody.velocity = Vector3.zero;
       isCrouched = false;
-      jump = false;
+      isJumping = false;
     } else {
       if (Time.time - levelStartTime <
               flyDownTime + flyDownEndTime + Time.deltaTime &&
           Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
         moveVertical = 1.0f;
-        if (intendedCameraDistance == 0) {
+        if (intendedCameraDistance == 0 && isLocalPlayer) {
           SkinnedMeshRenderer[] renderers =
               GetComponentsInChildren<SkinnedMeshRenderer>();
           foreach (SkinnedMeshRenderer r in renderers) {
             r.shadowCastingMode =
                 UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
           }
+        } else if (!isLocalPlayer) {
+          SkinnedMeshRenderer[] renderers =
+              GetComponentsInChildren<SkinnedMeshRenderer>();
+          foreach (SkinnedMeshRenderer r in renderers) {
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+          }
         }
       }
       MaxCameraDistance = intendedCameraDistance;
-
     }
 
     // Collider
@@ -542,7 +498,7 @@ class PlayerController : NetworkBehaviour {
     lastSprintInput = sprintInput;
 
     // Start countdown once player moves.
-    if (!(moveHorizontal == 0 && moveVertical == 0 && !jump) && endTime == 0f) {
+    if (!(moveHorizontal == 0 && moveVertical == 0 && !isJumping) && endTime == 0f) {
       endTime = Time.time + GameTime;
     }
 
@@ -656,8 +612,8 @@ class PlayerController : NetworkBehaviour {
         } else {
           rbody.velocity = new Vector3(
               rbody.velocity.x,
-              ((jump ? (moveSpeed * jumpMultiplier) : 0.0f) +
-               ((/*isGrounded ||*/ jump)
+              ((isJumping ? (moveSpeed * jumpMultiplier) : 0.0f) +
+               ((/*isGrounded ||*/ isJumping)
                     ? rbody.velocity.y
                     : (rbody.velocity.y - 9.81f * 4f * Time.deltaTime))),
               rbody.velocity.z);
@@ -667,166 +623,163 @@ class PlayerController : NetworkBehaviour {
 
       movement =
           Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0) * movement;
-      // Vector3 acceleration = Vector3.zero;
       if (movement.magnitude <= 0.02) movement = Vector3.zero;
       rbody.velocity = movement;
-      // rbody.velocity =
-      //     Vector3.SmoothDamp(rbody.velocity, movement, ref acceleration,
-      //     0.01f);
-
-      // Rotation
-      if (rotateWithCamera) {
-        transform.rotation = Quaternion.Euler(
-            transform.eulerAngles.x, transform.eulerAngles.y + lookHorizontal,
-            transform.eulerAngles.z);
-      } else {
-        moveAngle = Mathf.Atan(moveHorizontal / moveVertical) * 180f / Mathf.PI;
-        if (!(moveAngle >= 0 || moveAngle < 0)) {
-          moveAngle = 0f;
-        }
-        if (moveVertical < 0) moveAngle += 180f;
-        if (Mathf.Abs(rbody.velocity.x) > 0.01f ||
-            Mathf.Abs(rbody.velocity.z) > 0.01f) {
-          moveAngle += Camera.transform.eulerAngles.y;
-          Quaternion rotation = Quaternion.Euler(
-              0f,
-              Mathf.LerpAngle(rbody.transform.eulerAngles.y, moveAngle, 0.07f),
-              0f);
-
-          rbody.transform.rotation = Quaternion.identity;
-          transform.rotation = rotation;
-        }
-      }
 
       // Camera
-      if (MiniMapCamera != null) {
-        MiniMapCamera.transform.position =
-            transform.position + miniMapRelativePosition;
-      }
-      Camera.transform.rotation =
-          Quaternion.Euler(Camera.transform.eulerAngles.x - lookVertical,
-                           Camera.transform.eulerAngles.y + lookHorizontal, 0);
-      if (CameraObjectAvoidance && spawned) {
-        RaycastHit hit;
-        Physics.Linecast(
-            transform.position +
-                Vector3.up * (isCrouched ? crouchedHeight : playerHeight),
-            Camera.transform.position, out hit, LayerMask.GetMask("Ground"));
-        if (hit.transform != Camera.transform && hit.transform != transform &&
-            hit.transform != null) {
-          CurrentCameraDistance = hit.distance;
+      if (isLocalPlayer) {
+        if (MiniMapCamera != null) {
+          MiniMapCamera.transform.position =
+              transform.position + miniMapRelativePosition;
+        }
+        Camera.transform.rotation = Quaternion.Euler(
+            Camera.transform.eulerAngles.x - lookVertical,
+            Camera.transform.eulerAngles.y + lookHorizontal, 0);
+        if (CameraObjectAvoidance && spawned) {
+          RaycastHit hit;
+          Physics.Linecast(
+              transform.position +
+                  Vector3.up * (isCrouched ? crouchedHeight : playerHeight),
+              Camera.transform.position, out hit, LayerMask.GetMask("Ground"));
+          if (hit.transform != Camera.transform && hit.transform != transform &&
+              hit.transform != null) {
+            CurrentCameraDistance = hit.distance;
+          } else {
+            CurrentCameraDistance += 1.0f * Time.deltaTime;
+            if (CurrentCameraDistance > MaxCameraDistance) {
+              CurrentCameraDistance = MaxCameraDistance;
+            }
+          }
+        }
+        if (!spawned || isDead) CurrentCameraDistance = MaxCameraDistance;
+        Vector3 newCameraPos =
+            Vector3.up * (isCrouched ? crouchedHeight : playerHeight) +
+            Vector3.ClampMagnitude(
+                (Vector3.left *
+                     (Mathf.Sin(Camera.transform.eulerAngles.y / 180f *
+                                Mathf.PI) -
+                      Mathf.Sin(Camera.transform.eulerAngles.y / 180f *
+                                Mathf.PI) *
+                          Mathf.Sin((-45f + Camera.transform.eulerAngles.x) /
+                                    90f * Mathf.PI)) +
+                 Vector3.back *
+                     (Mathf.Cos(Camera.transform.eulerAngles.y / 180f *
+                                Mathf.PI) -
+                      Mathf.Cos(Camera.transform.eulerAngles.y / 180f *
+                                Mathf.PI) *
+                          Mathf.Sin((-45f + Camera.transform.eulerAngles.x) /
+                                    90f * Mathf.PI)) +
+                 Vector3.up *
+                     Mathf.Sin(Camera.transform.eulerAngles.x / 180f *
+                               Mathf.PI)),
+                1.0f) *
+                CurrentCameraDistance;
+        if (!isDead || Ragdoll == null) {
+          newCameraPos += transform.position;
         } else {
-          CurrentCameraDistance += 1.0f * Time.deltaTime;
-          if (CurrentCameraDistance > MaxCameraDistance) {
-            CurrentCameraDistance = MaxCameraDistance;
+          newCameraPos += Ragdoll.transform.position;
+        }
+        if (isDead) {
+          Vector3 velocity = Vector3.zero;
+          newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
+                                            newCameraPos, ref velocity, 0.05f);
+        } else if (GameData.cameraDamping && spawned &&
+                   (MaxCameraDistance != 0 ||
+                    Time.time - levelStartTime <
+                        flyDownTime + flyDownEndTime)) {
+          Vector3 velocity = Vector3.zero;
+          newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
+                                            newCameraPos, ref velocity, 0.05f);
+        }
+        if (newCameraPos.y <= TerrainGenerator.waterHeight + 0.4f) {
+          newCameraPos += Vector3.down * 0.8f;
+        }
+
+        Camera.transform.position = newCameraPos;
+
+        if (Camera.transform.eulerAngles.x > 75.0f &&
+            Camera.transform.eulerAngles.x < 90.0f) {
+          Camera.transform.rotation =
+              Quaternion.Euler(75.0f, Camera.transform.eulerAngles.y, 0f);
+        } else if (Camera.transform.eulerAngles.x < 360f - 75.0f &&
+                   Camera.transform.eulerAngles.x > 90.0f) {
+          Camera.transform.rotation =
+              Quaternion.Euler(-75.0f, Camera.transform.eulerAngles.y, 0f);
+        }
+        if (isDead && Ragdoll != null) {
+          Transform[] children = Ragdoll.GetComponentsInChildren<Transform>();
+          Transform target = transform;
+          target.position += Vector3.up * 1.2f;
+          foreach (Transform target_ in children) {
+            if (target_.name.Contains("Head_M")) {
+              target = target_;
+              break;
+            }
+          }
+          Quaternion startRot = Camera.transform.rotation;
+          Camera.transform.LookAt(target.position + Vector3.up * 0.2f);
+          Camera.transform.rotation =
+              Quaternion.Lerp(startRot, Camera.transform.rotation, 0.1f);
+        }
+
+        // Rotation
+        if (rotateWithCamera) {
+          rbody.transform.rotation = Quaternion.identity;
+          transform.rotation =
+              Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0);
+        } else {
+          moveAngle =
+              Mathf.Atan(moveHorizontal / moveVertical) * 180f / Mathf.PI;
+          if (!(moveAngle >= 0 || moveAngle < 0)) {
+            moveAngle = 0f;
+          }
+          if (moveVertical < 0) moveAngle += 180f;
+          if (Mathf.Abs(rbody.velocity.x) > 0.01f ||
+              Mathf.Abs(rbody.velocity.z) > 0.01f) {
+            moveAngle += Camera.transform.eulerAngles.y;
+            Quaternion rotation = Quaternion.Euler(
+                0f, Mathf.LerpAngle(rbody.transform.eulerAngles.y, moveAngle,
+                                    0.07f),
+                0f);
+
+            rbody.transform.rotation = Quaternion.identity;
+            transform.rotation = rotation;
           }
         }
-      }
-      if (!spawned || isDead) CurrentCameraDistance = MaxCameraDistance;
-      Vector3 newCameraPos =
-          Vector3.up * (isCrouched ? crouchedHeight : playerHeight) +
-          Vector3.ClampMagnitude(
-              (Vector3.left *
-                   (Mathf.Sin(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) -
-                    Mathf.Sin(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) *
-                        Mathf.Sin((-45f + Camera.transform.eulerAngles.x) /
-                                  90f * Mathf.PI)) +
-               Vector3.back *
-                   (Mathf.Cos(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) -
-                    Mathf.Cos(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) *
-                        Mathf.Sin((-45f + Camera.transform.eulerAngles.x) /
-                                  90f * Mathf.PI)) +
-               Vector3.up *
-                   Mathf.Sin(Camera.transform.eulerAngles.x / 180f * Mathf.PI)),
-              1.0f) *
-              CurrentCameraDistance;
-      if (!isDead || Ragdoll == null) {
-        newCameraPos += transform.position;
-      } else {
-        newCameraPos += Ragdoll.transform.position;
-      }
-      if (isDead) {
-        Vector3 velocity = Vector3.zero;
-        newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
-                                          newCameraPos, ref velocity, 0.05f);
-      } else if (GameData.cameraDamping && spawned &&
-                 (MaxCameraDistance != 0 ||
-                  Time.time - levelStartTime < flyDownTime + flyDownEndTime)) {
-        Vector3 velocity = Vector3.zero;
-        newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
-                                          newCameraPos, ref velocity, 0.05f);
-      }
-      if (newCameraPos.y <= TerrainGenerator.waterHeight + 0.4f) {
-        newCameraPos += Vector3.down * 0.8f;
-      }
 
-      Camera.transform.position = newCameraPos;
-
-      if (Camera.transform.eulerAngles.x > 75.0f &&
-          Camera.transform.eulerAngles.x < 90.0f) {
-        Camera.transform.rotation =
-            Quaternion.Euler(75.0f, Camera.transform.eulerAngles.y, 0f);
-      } else if (Camera.transform.eulerAngles.x < 360f - 75.0f &&
-                 Camera.transform.eulerAngles.x > 90.0f) {
-        Camera.transform.rotation =
-            Quaternion.Euler(-75.0f, Camera.transform.eulerAngles.y, 0f);
-      }
-      if (isDead && Ragdoll != null) {
-        Transform[] children = Ragdoll.GetComponentsInChildren<Transform>();
-        Transform target = transform;
-        target.position += Vector3.up * 1.2f;
-        foreach (Transform target_ in children) {
-          if (target_.name.Contains("Head_M")) {
-            target = target_;
-            break;
+        // VFX
+        float vignette = 0.0f;
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+        float enemydistance = 150f;
+        for (int i = 0; i < enemies.Length; i++) {
+          float tempdist =
+              (enemies[i].transform.position - transform.position).magnitude;
+          if (tempdist < enemydistance) {
+            enemydistance = tempdist;
           }
         }
-        Quaternion startRot = Camera.transform.rotation;
-        Camera.transform.LookAt(target.position + Vector3.up * 0.2f);
-        Camera.transform.rotation =
-            Quaternion.Lerp(startRot, Camera.transform.rotation, 0.1f);
-      }
+        vignette = Mathf.Lerp(0.4f, .267f, enemydistance / 150f);
 
-      // VFX
-      float vignette = 0.0f;
-      GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
-      float enemydistance = 100f;
-      for (int i = 0; i < enemies.Length; i++) {
-        float tempdist =
-            (enemies[i].transform.position - transform.position).magnitude;
-        if (tempdist < enemydistance) {
-          enemydistance = tempdist;
+        if (PPC == null) {
+          PPC = GameObject.FindObjectOfType<PostProcessingController>();
         }
-      }
-      vignette = 0.45f - (enemydistance / 150f);
-      vignette =
-          Mathf.Lerp(lastVignetteAmount, vignette, 2.0f * Time.deltaTime);
-      lastVignetteAmount = vignette;
+        if (PPC != null) {
+          PPC.vignette.intensity = vignette;
+        }
 
-      // TODO: Standard Assets VignetteAndChromaticAberration is deprecated.
-      // Should try to interface with post processing instead.
-      /*try {
-        Camera.GetComponent<VignetteAndChromaticAberration>().intensity =
-            vignette;
-      } catch (System.NullReferenceException e) {
-      }*/
-
-      if(useRenderSettingsFog) {
-        if (Camera.transform.position.y > TerrainGenerator.waterHeight) {
-          RenderSettings.fogStartDistance = 300 * (1 - (vignette / 0.45f));
-          RenderSettings.fogEndDistance = 500 * (1 - (vignette / 0.45f));
-          RenderSettings.fogColor =
-              Color.Lerp(startColor, Color.red, (vignette / 0.45f));
-        } else {  // Underwater
-          RenderSettings.fogStartDistance =
-              Mathf.Lerp(RenderSettings.fogStartDistance, 0f, 0.5f);
-          RenderSettings.fogEndDistance =
-              Mathf.Lerp(RenderSettings.fogEndDistance, 30f, 0.5f);
-          RenderSettings.fogColor = (Color.blue + Color.white) / 2;
+        if (useRenderSettingsFog) {
+          if (Camera.transform.position.y > TerrainGenerator.waterHeight) {
+            RenderSettings.fogStartDistance = 2000 * (1 - (vignette / 0.45f));
+            RenderSettings.fogEndDistance = 2000 * (1 - (vignette / 0.45f));
+            RenderSettings.fogColor =
+                Color.Lerp(startColor, Color.red, (vignette / 0.45f));
+          } else {  // Underwater
+            RenderSettings.fogStartDistance =
+                Mathf.Lerp(RenderSettings.fogStartDistance, 0f, 0.5f);
+            RenderSettings.fogEndDistance =
+                Mathf.Lerp(RenderSettings.fogEndDistance, 30f, 0.5f);
+            RenderSettings.fogColor = (Color.blue + Color.white) / 2;
+          }
         }
       }
 
@@ -835,7 +788,7 @@ class PlayerController : NetworkBehaviour {
           sounds.Player != null) {
         PlaySound(sounds.LandSound);
       }
-      if (jump && Time.time - lastJumpSoundTimejump >= 0.5f &&
+      if (isJumping && Time.time - lastJumpSoundTimejump >= 0.5f &&
           sounds.Player != null) {
         PlaySound(sounds.JumpSound);
         lastJumpSoundTimejump = Time.time;
@@ -860,8 +813,7 @@ class PlayerController : NetworkBehaviour {
     if (isGrounded) lastGroundedTime = Time.time;
     if (Time.realtimeSinceStartup - lastSendTime > sendFrequency) {
       lastSendTime = Time.realtimeSinceStartup;
-      CmdUpdatePlayer(rbody.position, rbody.velocity, rbody.rotation,
-                      transform.position, transform.rotation);
+      UpdatePlayer();
     }
   }
 
@@ -923,10 +875,12 @@ class PlayerController : NetworkBehaviour {
      GameData.Vehicle = vehicle;
      timeInVehicle = 0.0f;
      GetComponent<Collider>().enabled = false;
-     SkinnedMeshRenderer[] renderers =
-         GetComponentsInChildren<SkinnedMeshRenderer>();
-     foreach (SkinnedMeshRenderer r in renderers) {
-       r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+     if (isLocalPlayer) {
+       SkinnedMeshRenderer[] renderers =
+           GetComponentsInChildren<SkinnedMeshRenderer>();
+       foreach (SkinnedMeshRenderer r in renderers) {
+         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+       }
      }
    }
  public
@@ -952,7 +906,12 @@ class PlayerController : NetworkBehaviour {
   }
 
   void OnAnimatorIK() {
-    if (!isLocalPlayer) return;
+    // if (!isLocalPlayer) return;
+    if (anim == null) anim = GetComponent<Animator>();
+    if (anim == null) return;
+    if (rbody == null) rbody = GetComponent<Rigidbody>();
+    if (rbody == null) return;
+
     if (Mathf.Abs(rbody.velocity.x) > 0.02f ||
         Mathf.Abs(rbody.velocity.z) > 0.02f) {
       turn = (moveAngle - anim.bodyRotation.eulerAngles.y) / 180f;
@@ -1008,6 +967,52 @@ class PlayerController : NetworkBehaviour {
   }
   void onDestroy() {
     GameData.showCursor = true;
-    TerrainGenerator.RemovePlayer(GetComponent<InitPlayer>());
+  }
+
+  // Multiplayer Helpers
+  // void UpdateRPos(Vector3 input) {
+  //   if (!isLocalPlayer) rbodyPosition = rbody.position = input;
+  // }
+  void UpdateRVel(Vector3 input) {
+    if (!isLocalPlayer) rbodyVelocity = rbody.velocity = input;
+  }
+  void UpdateRRot(Quaternion input) {
+    if (!isLocalPlayer) rbodyRotation = rbody.rotation = input;
+  }
+  // void UpdateTPos(Vector3 input) {
+  //   if (!isLocalPlayer) transformPosition = transform.position = input;
+  // }
+  void UpdateTRot(Quaternion input) {
+    if (!isLocalPlayer) transformRotation = transform.rotation = input;
+  }
+  void UpdateMH(float input) {
+    if (!isLocalPlayer) mH = moveHorizontal = input;
+  }
+  void UpdateMV(float input) {
+    if (!isLocalPlayer) mV = moveVertical = input;
+  }
+  void UpdateLH(float input) {
+    if (!isLocalPlayer) lH = lookHorizontal = input;
+  }
+  void UpdateLV(float input) {
+    if (!isLocalPlayer) lV = lookVertical = input;
+  }
+  void UpdateJump(bool input) {
+    if (!isLocalPlayer) jump = isJumping = input;
+  }
+  void UpdateSprint(bool input) {
+    if (!isLocalPlayer) sprint = isSprinting = input;
+  }
+  void UpdateSwim(bool input) {
+    if (!isLocalPlayer) swim = isUnderwater = input;
+  }
+  void UpdateCrouch(bool input) {
+    if (!isLocalPlayer) crouched = isCrouched = input;
+  }
+  void UpdateDead(bool input) {
+    if (!isLocalPlayer) dead = isDead = input;
+  }
+  void UpdateGround(bool input) {
+    if (!isLocalPlayer) ground = isGrounded = input;
   }
 }

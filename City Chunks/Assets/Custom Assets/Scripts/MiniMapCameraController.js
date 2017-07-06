@@ -9,10 +9,12 @@ function Update() {
   var height = .25f;
   var width = height / aspect;
   var rect = new Rect(1 - width - 0.01, 1 - height - 0.01, width, height);
+#if UNITY_STANDALONE
   if(myCamera.rect != rect) {
     myCamera.rect = rect;
     Debug.Log("MiniMap Camera Controller Updated!");
   }
+#endif
 }
 
 function OnPreRender() {

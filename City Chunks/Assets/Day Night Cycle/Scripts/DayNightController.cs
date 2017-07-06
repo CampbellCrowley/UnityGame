@@ -1,7 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
+using UnityEngine.Networking;
 [System.Serializable]
-public class DayNightController : MonoBehaviour {
+public class DayNightController : NetworkBehaviour {
 	//Speed of the cycle (if you set this to 1 the one hour in the cycle will pass in 1 real life second)
 	public float daySpeedMultiplier = 0.1f;
 	//main directional light
@@ -11,7 +12,7 @@ public class DayNightController : MonoBehaviour {
 	//what time this cycle should start
 	public float startTime = 12.0f;
 	//what's the current time
-	float currentTime = 0.0f;
+  [SyncVar] float currentTime = 0.0f;
 	public string timeString = "00:00 AM";
 	//x rotation value of the light
 	private float xValueOfSun = 90.0f;
@@ -40,11 +41,14 @@ public class DayNightController : MonoBehaviour {
 	void LateUpdate () {
 		//increment time
     if (!GameData.loading) {
-		currentTime += Time.deltaTime*daySpeedMultiplier
+      currentTime += Time.deltaTime * daySpeedMultiplier;
 #if true
-      + Input.GetAxis("Mouse ScrollWheel") / 5f
+      float input = Input.GetAxis("Mouse ScrollWheel");
+      currentTime += input / 5f;
+      if (input != 0f) {
+        CmdUpdateTime(currentTime);
+      }
 #endif
-     ;
     }
 		//reset time
 		if (currentTime >= 24.0f) {
@@ -150,4 +154,5 @@ public class DayNightController : MonoBehaviour {
 
 	}
 
+  [Command] void CmdUpdateTime(float newtime) { currentTime = newtime; }
 }

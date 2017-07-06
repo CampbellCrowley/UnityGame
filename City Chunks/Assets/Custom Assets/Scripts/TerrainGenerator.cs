@@ -682,6 +682,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   void UpdateAllLoadedChunks(ref bool done, ref float iTime) {
+    players = new List<InitPlayer>(GameObject.FindObjectsOfType<InitPlayer>());
     for (int num = 0; num < players.Count; num++) {
       player = players[num].gameObject;
       // Make sure the player stays above the terrain
@@ -2710,7 +2711,8 @@ public class TerrainGenerator : MonoBehaviour {
       if (!terrains[i].terrReady || !terrains[i].hasDivided ||
           terrains[i].terrQueue || terrains[i].texQueue ||
           terrains[i].treeQueue || terrains[i].detailQueue ||
-          terrains[i].LODQueue || terrains[i].waterQueue) {
+          terrains[i].LODQueue || terrains[i].waterQueue ||
+          terrains[i].splatQueue) {
         TerrainGenerator.doneLoadingSpawn = false;
         return;
       }

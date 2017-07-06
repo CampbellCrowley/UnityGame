@@ -646,6 +646,7 @@ GameObject:
   - component: {fileID: 114867443291124790}
   - component: {fileID: 114376765685764830}
   - component: {fileID: 114846074906235302}
+  - component: {fileID: 114634415216008618}
   m_Layer: 5
   m_Name: SettingsCanvas
   m_TagString: Untagged
@@ -1699,6 +1700,38 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Quit Game
+--- !u!114 &114634415216008618
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1981259207433428}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 372142912, guid: dc443db3e92b4983b9738c1131f555cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SceneId:
+    m_Value: 0
+  m_AssetId:
+    i0: 228
+    i1: 171
+    i2: 133
+    i3: 106
+    i4: 166
+    i5: 246
+    i6: 198
+    i7: 20
+    i8: 56
+    i9: 250
+    i10: 127
+    i11: 161
+    i12: 92
+    i13: 114
+    i14: 128
+    i15: 79
+  m_ServerOnly: 0
+  m_LocalPlayerAuthority: 1
 --- !u!114 &114671697808469982
 MonoBehaviour:
   m_ObjectHideFlags: 1

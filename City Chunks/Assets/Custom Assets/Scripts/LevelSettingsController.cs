@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.PostProcessing.Utilities;
-#pragma warning disable 0168
 
 public class LevelSettingsController : MonoBehaviour {
 
