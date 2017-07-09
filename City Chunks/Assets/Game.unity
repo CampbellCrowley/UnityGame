@@ -1131,8 +1131,8 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1490833130}
-  m_LocalRotation: {x: -0.19911233, y: 0.6867868, z: 0.20457095, w: 0.66845274}
-  m_LocalPosition: {x: -93.370476, y: 146.99402, z: 115.77304}
+  m_LocalRotation: {x: -0.12616286, y: 0.5765109, z: 0.09067608, w: 0.802182}
+  m_LocalPosition: {x: -304.23682, y: -29.516418, z: -288.71524}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -3252,20 +3252,32 @@ MonoBehaviour:
   yShift: 0
   TerrainTextures:
     Length: 6
-    Grass: {fileID: 2800000, guid: f3c7e12938d22604eb51dc02b394dd80, type: 3}
-    Sand: {fileID: 2800000, guid: cd4f831376722b54bbadd59ef7c6c744, type: 3}
-    Rock: {fileID: 2800000, guid: 1d1ca9b1ff6a5ce4bbac09d301d51462, type: 3}
+    Grass:
+    - {fileID: 2800000, guid: e939889a01ba73f4c9f41bb8d6d79d5f, type: 3}
+    - {fileID: 2800000, guid: f3c7e12938d22604eb51dc02b394dd80, type: 3}
+    - {fileID: 2800000, guid: f0a8168310b10da4faedc474bb26c20f, type: 3}
+    Sand:
+    - {fileID: 2800000, guid: cd4f831376722b54bbadd59ef7c6c744, type: 3}
+    Rock:
+    - {fileID: 2800000, guid: 1d1ca9b1ff6a5ce4bbac09d301d51462, type: 3}
+    - {fileID: 2800000, guid: 62bf058d0f2f5df4da1f61da15013f34, type: 3}
     Snow: {fileID: 2800000, guid: 3ea4cf41e7da8854b8f60cf297168edc, type: 3}
     White: {fileID: 2800000, guid: 3ea4cf41e7da8854b8f60cf297168edc, type: 3}
     Black: {fileID: 2800000, guid: 6ee3fa1dbbe44d84bbc1729d681fd503, type: 3}
   TerrainTextureNormals:
     Length: 6
-    Grass: {fileID: 2800000, guid: d06c19850ee13bf4086860fd02cf417d, type: 3}
-    Sand: {fileID: 2800000, guid: bf5346a62bd7d0b43a30d8188cf4163e, type: 3}
-    Rock: {fileID: 2800000, guid: 7d7d59aaca791d54c9726e6b4e1feb61, type: 3}
-    Snow: {fileID: 0}
-    White: {fileID: 0}
-    Black: {fileID: 0}
+    Grass:
+    - {fileID: 2800000, guid: 764d3e4236eef804e831508161d4411f, type: 3}
+    - {fileID: 2800000, guid: d06c19850ee13bf4086860fd02cf417d, type: 3}
+    - {fileID: 2800000, guid: f0ec40764219f3f4787df1c70bacf45b, type: 3}
+    Sand:
+    - {fileID: 2800000, guid: bf5346a62bd7d0b43a30d8188cf4163e, type: 3}
+    Rock:
+    - {fileID: 2800000, guid: 7d7d59aaca791d54c9726e6b4e1feb61, type: 3}
+    - {fileID: 2800000, guid: aaf8aa487d001f44f9726eb6ee77d298, type: 3}
+    Snow: {fileID: 2800000, guid: d9327a0e08e4ab54284a5f31a7e7db5a, type: 3}
+    White: {fileID: 2800000, guid: 3ea4cf41e7da8854b8f60cf297168edc, type: 3}
+    Black: {fileID: 2800000, guid: 6ee3fa1dbbe44d84bbc1729d681fd503, type: 3}
   TerrainTrees:
   - {fileID: 114418, guid: be878d9ea17907f4a8068678a5ce7908, type: 2}
   - {fileID: 114418, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 2}

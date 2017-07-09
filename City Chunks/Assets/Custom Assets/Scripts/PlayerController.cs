@@ -540,7 +540,7 @@ public
         movement *= 30f;
       } else {
         if (isUnderwater) {
-          if (transform.position.y < TerrainGenerator.waterHeight - 1f) {
+          if (transform.position.y < TerrainGenerator.waterHeight - 0.9f) {
             movement +=
                 Mathf.Clamp(
                     rbody.velocity.y +

@@ -159,11 +159,11 @@ using System.Threading;
 [Serializable] public class Textures {
   public int Length = 6;
   [Tooltip("Common/Backup Texture.")]
-  public Texture2D Grass;
+  public Texture2D[] Grass;
   [Tooltip("For beaches.")]
-  public Texture2D Sand;
+  public Texture2D[] Sand;
   [Tooltip("For steep slopes")]
-  public Texture2D Rock;
+  public Texture2D[] Rock;
   [Tooltip("For high altitudes")]
   public Texture2D Snow;
   [Tooltip("For Debugging")]
@@ -174,11 +174,11 @@ using System.Threading;
 [Serializable] public class TextureNormals {
   public int Length = 6;
   [Tooltip("Common/Backup Texture.")]
-  public Texture2D Grass;
+  public Texture2D[] Grass;
   [Tooltip("For beaches.")]
-  public Texture2D Sand;
+  public Texture2D[] Sand;
   [Tooltip("For steep slopes")]
-  public Texture2D Rock;
+  public Texture2D[] Rock;
   [Tooltip("For high altitudes")]
   public Texture2D Snow;
   [Tooltip("For Debugging")]
@@ -188,7 +188,6 @@ using System.Threading;
 }
 public class TerrainGenerator : MonoBehaviour {
   public static float EmptyPoint = -100f;
-  public static string Version = "v0.0.5";
   public static string worldID = "ERROR";
 
   [Header("Terrains (Auto-populated)")]
@@ -330,8 +329,8 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
     if (Seed == 0) Seed = 1;
-    worldID =
-        (Seed * PerlinSeedModifier).ToString() + TerrainGenerator.Version + "-";
+    worldID = (Seed * PerlinSeedModifier).ToString() +
+              GameData.TerrainGeneratorVersion + "-";
     if (GenMode.Perlin) {
       Debug.Log("Seed(" + Seed + ")*PerlinSeedModifier(" + PerlinSeedModifier +
                 ")=" + Seed * PerlinSeedModifier);
@@ -348,6 +347,14 @@ public class TerrainGenerator : MonoBehaviour {
     bool slowHeightmap = GenMode.slowHeightmap;
     GenMode.slowHeightmap = false;
 
+    TerrainTextures.Length += TerrainTextures.Grass.Length +
+                              TerrainTextures.Rock.Length +
+                              TerrainTextures.Sand.Length - 3;
+    if (TerrainTextures.Grass.Length != TerrainTextureNormals.Grass.Length) {
+      Debug.LogWarning(
+          "Terrain textures and terrain texture normals should have the same " +
+          "number of items.");
+    }
     UpdateSplat(GetComponent<Terrain>().terrainData);
 
 
@@ -1554,7 +1561,6 @@ public class TerrainGenerator : MonoBehaviour {
       // Set all borders to the middle of valid points to cause the spawn chunk
       // to be around the middle of the possible heights and has a lower chance
       // of clipping extreme heights.
-      // if (changeX == 0 && changeZ == 0 && !terrains[0].loadedFromDisk) {
       if (!terrains[0].loadedFromDisk) {
         points[ 0, 0 ] = 0.5f;
         points[ (int)iWidth - 1, 0 ] = 0.5f;
@@ -1596,43 +1602,6 @@ public class TerrainGenerator : MonoBehaviour {
           points[ (int)iWidth - 1, halfZ ] = offsets[ 1, 1 ];
         }
       }
-      // if (!terrains[0].loadedFromDisk) {
-      //   for (int r = 0; r < 4; r++) {
-      //     for (int c = 0; c < iHeight; c++) {
-      //       int i, j;
-      //       switch (r) {
-      //         case 0:
-      //           i = 0;
-      //           j = c;
-      //           break;
-      //         case 1:
-      //           i = c;
-      //           j = (int)iHeight - 1;
-      //           break;
-      //         case 2:
-      //           i = (int)iWidth - 1;
-      //           j = c;
-      //           break;
-      //         case 3:
-      //           i = c;
-      //           j = 0;
-      //           break;
-      //         default:
-      //           i = 0;
-      //           j = 0;
-      //           break;
-      //       }
-      //       points[ i, j ] = 0.5f + yShift;
-      //     }
-      //   }
-      // }
-      // } else {
-      //   // Make sure each chunk aligns with the one next to it before we
-      //   // generate the heightmap so we don't get any gaps and it meshes
-      //   // smoother.
-      //   if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref points))
-      //     return;
-      // }
     }
 
     float iTime2 = Time.realtimeSinceStartup;
@@ -2305,40 +2274,58 @@ public class TerrainGenerator : MonoBehaviour {
       tex[i] = new SplatPrototype();
     }
 
-    if (TerrainTextures.Grass != null) {
-      tex[0].texture = TerrainTextures.Grass;
-      tex[0].normalMap = TerrainTextureNormals.Grass;
+    if (TerrainTextures.Grass != null && TerrainTextures.Grass.Length > 0) {
+      for (int i=0; i< TerrainTextures.Grass.Length; i++) {
+        tex[i].texture = TerrainTextures.Grass[i];
+      }
+      for (int i=0; i< TerrainTextureNormals.Grass.Length; i++) {
+        tex[i].normalMap = TerrainTextureNormals.Grass[i];
+      }
     } else {
       Debug.LogError("Grass Texture must be defined!");
       return;
     }
 
-    for (int i = 1; i < tex.Length; i++) {
-      tex[i].texture = TerrainTextures.Grass;
-      //tex[i].normalMap = TerrainTextureNormals.Grass;
+    int startPoint = TerrainTextures.Grass.Length;
+
+    // Fill all expected values to grass as a default.
+    for (int i = startPoint; i < tex.Length; i++) {
+      tex[i].texture = TerrainTextures.Grass[0];
     }
 
-    if (TerrainTextures.Sand != null) {
-      tex[1].texture = TerrainTextures.Sand;
-      tex[1].normalMap = TerrainTextureNormals.Sand;
+    if (TerrainTextures.Sand != null && TerrainTextures.Sand.Length > 0) {
+      for (int i = 0; i < TerrainTextures.Sand.Length; i++) {
+        tex[i + startPoint].texture = TerrainTextures.Sand[i];
+      }
+      for (int i = 0; i < TerrainTextureNormals.Sand.Length; i++) {
+        tex[i + startPoint].normalMap = TerrainTextureNormals.Sand[i];
+      }
     }
-    if (TerrainTextures.Rock != null) {
-      tex[2].texture = TerrainTextures.Rock;
-      tex[2].normalMap = TerrainTextureNormals.Rock;
+    startPoint += TerrainTextures.Sand.Length;
+    if (TerrainTextures.Rock != null && TerrainTextures.Rock.Length > 0) {
+      for (int i = 0; i < TerrainTextures.Rock.Length; i++) {
+        tex[i + startPoint].texture = TerrainTextures.Rock[i];
+      }
+      for (int i = 0; i < TerrainTextureNormals.Rock.Length; i++) {
+        tex[i + startPoint].normalMap = TerrainTextureNormals.Rock[i];
+      }
     }
+    startPoint += TerrainTextures.Rock.Length;
     if (TerrainTextures.Snow != null) {
-      tex[3].texture = TerrainTextures.Snow;
-      tex[3].normalMap = TerrainTextureNormals.Snow;
-      tex[3].metallic = 0.5f;
-      tex[3].smoothness = 0.3f;
+      tex[startPoint].texture = TerrainTextures.Snow;
+      tex[startPoint].normalMap = TerrainTextureNormals.Snow;
+      tex[startPoint].metallic = 0.5f;
+      tex[startPoint].smoothness = 0.3f;
     }
+    startPoint++;
     if (TerrainTextures.White != null) {
-      tex[4].texture = TerrainTextures.White;
-      tex[4].normalMap = TerrainTextureNormals.White;
+      tex[startPoint].texture = TerrainTextures.White;
+      tex[startPoint].normalMap = TerrainTextureNormals.White;
     }
+    startPoint++;
     if (TerrainTextures.Black != null) {
-      tex[5].texture = TerrainTextures.Black;
-      tex[5].normalMap = TerrainTextureNormals.Black;
+      tex[startPoint].texture = TerrainTextures.Black;
+      tex[startPoint].normalMap = TerrainTextureNormals.Black;
     }
 
     for (int i = 0; i < tex.Length; i++) {
@@ -2424,15 +2411,33 @@ public class TerrainGenerator : MonoBehaviour {
         // Calculate relative amounts of each texture based off the terrain
         // height and slope.
         float[] values = new float[TerrainTextures.Length];
-        values[0] = ((height <= TerrainGenerator.snowHeight) ? 1.0f - frac : 0f);
-        values[1] =
+
+        // Grass
+        int startPoint = TerrainTextures.Grass.Length;
+        values[UnityEngine.Random.Range(0, startPoint - 1)] =
+            ((height <= TerrainGenerator.snowHeight) ? 1.0f - frac : 0f);
+
+        // Sand
+        values[UnityEngine.Random.Range(
+            startPoint, startPoint + TerrainTextures.Sand.Length - 1)] =
             ((height <= TerrainGenerator.waterHeight + 2f)
                  ? ((height <= TerrainGenerator.waterHeight + 1f) ? 100f : 2f)
                  : 0f);
-        values[2] = frac;
-        values[3] = ((height >= TerrainGenerator.snowHeight) ? 1f - frac : 0f);
-        values[4] = 0f;
-        values[5] = 0f;
+
+        // Rock
+        startPoint += TerrainTextures.Sand.Length;
+        values[UnityEngine.Random.Range(
+            startPoint, startPoint + TerrainTextures.Rock.Length - 1)] =
+            frac;
+
+        // Snow
+        startPoint += TerrainTextures.Rock.Length;
+        values[startPoint] =
+            ((height >= TerrainGenerator.snowHeight) ? 1f - frac : 0f);
+
+        // B/W Debug
+        values[++startPoint] = 0f;
+        values[++startPoint] = 0f;
 
         // Normalize values
         float total = 0f;
@@ -2445,12 +2450,9 @@ public class TerrainGenerator : MonoBehaviour {
           }
         }
 
-        map[ x, y, 0 ] = values[0];
-        map[ x, y, 1 ] = values[1];
-        map[ x, y, 2 ] = values[2];
-        map[ x, y, 3 ] = values[3];
-        map[ x, y, 4 ] = values[4];
-        map[ x, y, 5 ] = values[5];
+        for (int i = 0; i < values.Length; i++) {
+          map[ x, y, i ] = values[i];
+        }
       }
     }
 
