@@ -2,12 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.PostProcessing.Utilities;
-using UnityEngine.Networking;
 #pragma warning disable 0414 // Private field is assigned but never used
 
-[NetworkSettings(sendInterval=0.01f)]
 public
-class PlayerController : NetworkBehaviour {
+ class PlayerController : Photon.MonoBehaviour {
   [System.Serializable] public class Sounds {
     public AudioPlayer Player;
     public AudioClip JumpSound;
@@ -56,13 +54,14 @@ class PlayerController : NetworkBehaviour {
   public float footstepSizeSprinting = 0.3f;
   public Sounds sounds;
  [Header("Misc.")]
-  public float sendFrequency = 0.01f;
   public float GameTime = 10f;
   public GameObject RagdollTemplate;
   public bool isDead = false;
   public bool spawned = false;
   public float flyDownTime = 6.0f;
   public float flyDownEndTime = 1.5f;
+  public float deltaSendTime = 0.0f;
+  public float deltaReceiveTime = 0.0f;
 
   Animator anim;
   Cinematic cinematic;
@@ -100,62 +99,19 @@ class PlayerController : NetworkBehaviour {
   float lastJumpSoundTimejump = 0.0f;
   float lastJumpTime = 0.0f;
   float lastFootstepTime = 0.0f;
-  float lastSendTime = 0.0f;
   float lastSprintInput = 0.0f;
   float timeInVehicle = 0.0f;
   float deathTime = 0.0f;
+  bool isLocalPlayer = true;
 
-  [SyncVar] public string username = "Username";
-  // [SyncVar(hook = "UpdateRPos")] private Vector3 rbodyPosition;
-  [SyncVar(hook = "UpdateRVel")] private Vector3 rbodyVelocity;
-  [SyncVar(hook = "UpdateRRot")] private Quaternion rbodyRotation;
-  // [SyncVar(hook = "UpdateTPos")] private Vector3 transformPosition;
-  [SyncVar(hook = "UpdateTRot")] private Quaternion transformRotation;
-  [SyncVar(hook = "UpdateMH")] private float mH;
-  [SyncVar(hook = "UpdateMV")] private float mV;
-  [SyncVar(hook = "UpdateLH")] private float lH;
-  [SyncVar(hook = "UpdateLV")] private float lV;
-  [SyncVar(hook = "UpdateJump")] private bool jump;
-  [SyncVar(hook = "UpdateSprint")] private bool sprint;
-  [SyncVar(hook = "UpdateSwim")] private bool swim;
-  [SyncVar(hook = "UpdateCrouch")] private bool crouched;
-  [SyncVar(hook = "UpdateDead")] private bool dead;
-  [SyncVar(hook = "UpdateGround")] private bool ground;
-
-  [Command] public void CmdChangeName(string name) { username = name; }
-  [Command] private void CmdUpdatePlayer(/*Vector3 rP,*/ Vector3 rV, Quaternion rR,/*
-                                         Vector3 tP,*/ Quaternion tR, float mH_,
-                                         float mV_, float lH_, float lV_,
-                                         bool j, bool s, bool w, bool c, bool d,
-                                         bool g) {
-    // rbodyPosition = rP;
-    rbodyVelocity = rV;
-    rbodyRotation = rR;
-    // transformPosition = tP;
-    transformRotation = tR;
-    mH = mH_;
-    mV = mV_;
-    lH = lH_;
-    lV = lV_;
-    jump = j;
-    sprint = s;
-    swim = w;
-    crouched = c;
-    dead = d;
-    ground = g;
+  void Awake() {
+    if (photonView.isMine) {LevelController.LocalPlayerInstance = gameObject;
+      PhotonNetwork.playerName = GameData.username;
+    }
   }
 
-  void UpdatePlayer() {
-    if (isLocalPlayer)
-      CmdUpdatePlayer(/*rbody.position,*/ rbody.velocity, rbody.rotation,/*
-                      transform.position,*/ transform.rotation, moveHorizontal,
-                      moveVertical, lookHorizontal, lookVertical, isJumping,
-                      isSprinting, isUnderwater, isCrouched, isDead,
-                      isGrounded);
-  }
-
- public
-  override void OnStartLocalPlayer() {
+  void Start() {
+    if (!photonView.isMine && PhotonNetwork.connected) return;
     spawned = false;
     if (sounds.LandSound != null) sounds.LandSound.LoadAudioData();
     if (sounds.JumpSound != null) sounds.JumpSound.LoadAudioData();
@@ -174,7 +130,7 @@ class PlayerController : NetworkBehaviour {
     Camera.transform.parent = null;
     Camera.GetComponent<Camera>().enabled = true;
     Camera.GetComponent<AudioListener>().enabled = true;
-    Camera.name = "CameraFor" + netId;
+    Camera.name = "CameraFor" + GameData.username;
     foreach (Camera cam in UnityEngine.Camera.allCameras) {
       cam.layerCullSpherical = true;
     }
@@ -183,15 +139,6 @@ class PlayerController : NetworkBehaviour {
     PPC = GameObject.FindObjectOfType<PostProcessingController>();
 
     if (MiniMapCamera != null) MiniMapCamera = Instantiate(MiniMapCamera);
-
-    GetComponent<MeshRenderer>().material.color = Color.blue;
-
-    if (GameData.username.ToLower() == "username" || GameData.username == "") {
-      GameData.username = NameList.GetName();
-    }
-    Debug.Log("Send Freqency: " + sendFrequency);
-    CmdChangeName(GameData.username);
-    UpdatePlayer();
 
     GameObject temp;
     if (lifeCounter != null) {
@@ -220,10 +167,11 @@ class PlayerController : NetworkBehaviour {
     lastJumpSoundTimejump = Time.time;
     lastJumpTime = jumpFrequency;
     lastFootstepTime = Time.time;
-    lastSendTime = Time.realtimeSinceStartup;
   }
 
   void Update() {
+    if (!PhotonNetwork.connected) return;
+    isLocalPlayer = photonView.isMine;
     if (!GameData.loading && !Camera.activeSelf) Camera.SetActive(true);
     else if (GameData.loading && Camera.activeSelf) Camera.SetActive(false);
     rbody = GetComponent<Rigidbody>();
@@ -231,7 +179,7 @@ class PlayerController : NetworkBehaviour {
       nameplate = GetComponentInChildren<TextMesh>();
       nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
       nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
-      nameplate.text = username;
+      nameplate.text = photonView.owner.NickName;
     }
     if (isLocalPlayer && intendedCameraDistance == 0 &&
         Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
@@ -811,10 +759,6 @@ class PlayerController : NetworkBehaviour {
     }
 
     if (isGrounded) lastGroundedTime = Time.time;
-    if (Time.realtimeSinceStartup - lastSendTime > sendFrequency) {
-      lastSendTime = Time.realtimeSinceStartup;
-      UpdatePlayer();
-    }
   }
 
   void Dead() {
@@ -906,7 +850,7 @@ class PlayerController : NetworkBehaviour {
   }
 
   void OnAnimatorIK() {
-    // if (!isLocalPlayer) return;
+    if (!photonView.isMine && PhotonNetwork.connected) return;
     if (anim == null) anim = GetComponent<Animator>();
     if (anim == null) return;
     if (rbody == null) rbody = GetComponent<Rigidbody>();
@@ -930,7 +874,8 @@ class PlayerController : NetworkBehaviour {
       anim.SetFloat("JumpLeg",
                     Mathf.Abs((Time.time * 200f % 400f - 200) / 400f));
     }
-    anim.SetBool("OnGround", godMode || (Time.time - lastGroundedTime <= 0.1f));
+    anim.SetBool("OnGround", isCrouched || godMode ||
+                                 (Time.time - lastGroundedTime <= 0.1f));
     anim.SetBool("Crouch", isCrouched);
   }
 
@@ -967,52 +912,5 @@ class PlayerController : NetworkBehaviour {
   }
   void onDestroy() {
     GameData.showCursor = true;
-  }
-
-  // Multiplayer Helpers
-  // void UpdateRPos(Vector3 input) {
-  //   if (!isLocalPlayer) rbodyPosition = rbody.position = input;
-  // }
-  void UpdateRVel(Vector3 input) {
-    if (!isLocalPlayer) rbodyVelocity = rbody.velocity = input;
-  }
-  void UpdateRRot(Quaternion input) {
-    if (!isLocalPlayer) rbodyRotation = rbody.rotation = input;
-  }
-  // void UpdateTPos(Vector3 input) {
-  //   if (!isLocalPlayer) transformPosition = transform.position = input;
-  // }
-  void UpdateTRot(Quaternion input) {
-    if (!isLocalPlayer) transformRotation = transform.rotation = input;
-  }
-  void UpdateMH(float input) {
-    if (!isLocalPlayer) mH = moveHorizontal = input;
-  }
-  void UpdateMV(float input) {
-    if (!isLocalPlayer) mV = moveVertical = input;
-  }
-  void UpdateLH(float input) {
-    if (!isLocalPlayer) lH = lookHorizontal = input;
-  }
-  void UpdateLV(float input) {
-    if (!isLocalPlayer) lV = lookVertical = input;
-  }
-  void UpdateJump(bool input) {
-    if (!isLocalPlayer) jump = isJumping = input;
-  }
-  void UpdateSprint(bool input) {
-    if (!isLocalPlayer) sprint = isSprinting = input;
-  }
-  void UpdateSwim(bool input) {
-    if (!isLocalPlayer) swim = isUnderwater = input;
-  }
-  void UpdateCrouch(bool input) {
-    if (!isLocalPlayer) crouched = isCrouched = input;
-  }
-  void UpdateDead(bool input) {
-    if (!isLocalPlayer) dead = isDead = input;
-  }
-  void UpdateGround(bool input) {
-    if (!isLocalPlayer) ground = isGrounded = input;
   }
 }

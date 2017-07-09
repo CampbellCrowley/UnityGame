@@ -1,8 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
-using UnityEngine.Networking;
 [System.Serializable]
-public class DayNightController : NetworkBehaviour {
+public class DayNightController : Photon.MonoBehaviour {
 	//Speed of the cycle (if you set this to 1 the one hour in the cycle will pass in 1 real life second)
 	public float daySpeedMultiplier = 0.1f;
 	//main directional light
@@ -12,7 +11,7 @@ public class DayNightController : NetworkBehaviour {
 	//what time this cycle should start
 	public float startTime = 12.0f;
 	//what's the current time
-  [SyncVar] float currentTime = 0.0f;
+  float currentTime = 0.0f;
 	public string timeString = "00:00 AM";
 	//x rotation value of the light
 	private float xValueOfSun = 90.0f;
@@ -44,9 +43,9 @@ public class DayNightController : NetworkBehaviour {
       currentTime += Time.deltaTime * daySpeedMultiplier;
 #if true
       float input = Input.GetAxis("Mouse ScrollWheel");
-      currentTime += input / 5f;
-      if (input != 0f) {
-        CmdUpdateTime(currentTime);
+      if (input != 0f && PhotonNetwork.isMasterClient) {
+        currentTime += input / 5f;
+        photonView.RPC("UpdateTime", PhotonTargets.All, currentTime);
       }
 #endif
     }
@@ -153,6 +152,8 @@ public class DayNightController : NetworkBehaviour {
 		timeString = Mathf.Floor(currentTime).ToString() + " : " + minutes.ToString("F0") + " "+AMPM ;
 
 	}
-
-  [Command] void CmdUpdateTime(float newtime) { currentTime = newtime; }
+  [PunRPC]
+  void UpdateTime(float currentTime) {
+    this.currentTime = currentTime;
+  }
 }

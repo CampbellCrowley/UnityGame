@@ -32,7 +32,9 @@ using System.Threading;
 [Serializable] public class GeneratorModes {
   [Header("Displace Divide")]
   [Tooltip("Enables generator mode that displaces points randomly within ranges that vary by the distance to the center of the chunk and averages surrounding points.")]
-  public bool DisplaceDivide = false;
+  public bool DisplaceDivide = true;
+  [Tooltip("Offset middle of the sides of each chunk with perlin noise")]
+  public bool midOffset = true;
 
   [Header("Perlin Noise")]
   [Tooltip("Uses Perlin noise to generate terrain.")]
@@ -224,6 +226,8 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public int loadDist = 50;
   [Tooltip("Roughness of terrain is modified by this value.")]
   [SerializeField] public float roughness = 1.0f;
+  [Tooltip("Multiplier to exaggerate the peaks.")]
+  [SerializeField] public float PeakMultiplier = 2.0f;
   [Tooltip("Roughness of terrain is modified by this value.")]
   [SerializeField] public float PerlinRoughness = 0.2f;
   [Tooltip("Maximum height of Perlin Generator in percentage.")]
@@ -333,7 +337,7 @@ public class TerrainGenerator : MonoBehaviour {
                 ")=" + Seed * PerlinSeedModifier);
     }
     if (GenMode.Perlin && GenMode.DisplaceDivide) {
-      Debug.Log("Doubling Roughness");
+      Debug.Log("Doubling Roughness because both engines enabled");
       roughness *= 2f;
     }
 
@@ -417,16 +421,10 @@ public class TerrainGenerator : MonoBehaviour {
       playerY = TerrainGenerator.waterHeight;
 
     if (players.Count == 0) {
-      if (GetComponent<UnityEngine.Networking.NetworkIdentity>() == null) {
-        Debug.LogError(
-            "Could not find player with InitPlayer script attatched to it. " +
-            "Make sure there is exactly one GameObject with this script per " +
-            "scene");
-      } else {
-        Debug.Log(
-            "No player found, but multiplayer support detected. Possibly " +
-            "spawning later");
-      }
+      Debug.Log(
+          "No player found. Assuming multiplayer situation. If this is not " +
+          "multiplayer, then please ensure there is at least one GameObject " +
+          "with the InitPlayer component.");
     } else if (players.Count > 1) {
       Debug.Log("Multiplayer detected!");
       numIdentifiedPlayers = players.Count;
@@ -1289,7 +1287,8 @@ public class TerrainGenerator : MonoBehaviour {
                 heightmapWidth + ", heightmapHeight: " + heightmapHeight);
 
       // Adjust heightmap by it's resolution so it appears the same no matter
-      // how high resolution it is.
+      // how high resolution it is. Doesn't work but whatever, I'm leaving it
+      // in.
       roughness *= 65f / heightmapWidth;
 
       terrains.Add(new Terrains());
@@ -1532,6 +1531,15 @@ public class TerrainGenerator : MonoBehaviour {
     // Generate heightmap of points by averaging all surrounding points then
     // displacing.
     if (GenMode.DisplaceDivide) {
+      if (useSeed) {
+        UnityEngine.Random.InitState(
+            (int)(Seed + PerfectlyHashThem((short)(changeX * 3 - 3),
+                                           (short)(changeZ * 3 - 3))));
+      }
+      float[, ] modifier = new float[ 2, 2 ];
+      PerlinDivide(ref modifier, changeX, changeZ, 2, 2,
+                   PerlinSeedModifier * 2f, BiomeRoughness);
+      PeakModifier = modifier[ 0, 0 ] * PeakMultiplier;
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
       Debug.Log(terrains[terrIndex].gameObject.GetComponent<Terrain>().name +
                 ",(0,0): " + points[ 0, 0 ]);
@@ -1546,42 +1554,85 @@ public class TerrainGenerator : MonoBehaviour {
       // Set all borders to the middle of valid points to cause the spawn chunk
       // to be around the middle of the possible heights and has a lower chance
       // of clipping extreme heights.
-      if (changeX == 0 && changeZ == 0 && !terrains[0].loadedFromDisk) {
-        for (int r = 0; r < 4; r++) {
-          for (int c = 0; c < iHeight; c++) {
-            int i, j;
-            switch (r) {
-              case 0:
-                i = 0;
-                j = c;
-                break;
-              case 1:
-                i = c;
-                j = (int)iHeight - 1;
-                break;
-              case 2:
-                i = (int)iWidth - 1;
-                j = c;
-                break;
-              case 3:
-                i = c;
-                j = 0;
-                break;
-              default:
-                i = 0;
-                j = 0;
-                break;
+      // if (changeX == 0 && changeZ == 0 && !terrains[0].loadedFromDisk) {
+      if (!terrains[0].loadedFromDisk) {
+        points[ 0, 0 ] = 0.5f;
+        points[ (int)iWidth - 1, 0 ] = 0.5f;
+        points[ 0, (int)iHeight - 1 ] = 0.5f;
+        points[ (int)iWidth - 1, (int)iHeight - 1 ] = 0.5f;
+        if (GenMode.midOffset) {
+          int halfX = Mathf.RoundToInt(iWidth / 2);
+          int halfZ = Mathf.RoundToInt(iHeight / 2);
+          float[, ] offset = new float[ 2, 2 ];
+          float[, ] offsets = new float[ 2, 2 ];
+
+          PerlinDivide(ref offset, changeX, changeZ, 2, 2, PerlinSeedModifier,
+                       10f);
+          offsets[ 0, 0 ] = offset[ 0, 0 ];
+          offsets[ 0, 1 ] = offset[ 0, 1 ];
+
+          // halfX
+          PerlinDivide(ref offset, changeX + 1, changeZ, 2, 2,
+                       PerlinSeedModifier, 10f);
+          offsets[ 1, 0 ] = offset[ 0, 0 ];
+
+          // halfZ
+          PerlinDivide(ref offset, changeX, changeZ + 1, 2, 2,
+                       PerlinSeedModifier, 10f);
+          offsets[ 1, 1 ] = offset[ 0, 1 ];
+
+          // Limit range.
+          for (int i = 0; i < offsets.GetLength(0); i++) {
+            for (int j = 0; j < offsets.GetLength(1); j++) {
+              offsets[ i, j ] =
+                  ((offsets[ i, j ] - 0.5f) * (PeakModifier * 0.5f)) + 0.5f;
             }
-            points[ i, j ] = 0.5f + yShift;
           }
+
+          points[ halfX, 0 ] = offsets[ 0, 0 ];
+          points[ halfX, (int)iHeight - 1 ] = offsets[ 1, 0 ];
+
+          points[ 0, halfZ ] = offsets[ 0, 1 ];
+          points[ (int)iWidth - 1, halfZ ] = offsets[ 1, 1 ];
         }
-      } else {
-        // Make sure each chunk aligns with the one next to it before we
-        // generate the heightmap so we don't get any gaps and it meshes
-        // smoother.
-        if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref points))
-          return;
       }
+      // if (!terrains[0].loadedFromDisk) {
+      //   for (int r = 0; r < 4; r++) {
+      //     for (int c = 0; c < iHeight; c++) {
+      //       int i, j;
+      //       switch (r) {
+      //         case 0:
+      //           i = 0;
+      //           j = c;
+      //           break;
+      //         case 1:
+      //           i = c;
+      //           j = (int)iHeight - 1;
+      //           break;
+      //         case 2:
+      //           i = (int)iWidth - 1;
+      //           j = c;
+      //           break;
+      //         case 3:
+      //           i = c;
+      //           j = 0;
+      //           break;
+      //         default:
+      //           i = 0;
+      //           j = 0;
+      //           break;
+      //       }
+      //       points[ i, j ] = 0.5f + yShift;
+      //     }
+      //   }
+      // }
+      // } else {
+      //   // Make sure each chunk aligns with the one next to it before we
+      //   // generate the heightmap so we don't get any gaps and it meshes
+      //   // smoother.
+      //   if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref points))
+      //     return;
+      // }
     }
 
     float iTime2 = Time.realtimeSinceStartup;
@@ -1591,15 +1642,6 @@ public class TerrainGenerator : MonoBehaviour {
     if (GenMode.DisplaceDivide) {
       // Divide chunk into 4 sections and displace the center thus creating 4
       // more sections per section until every pixel is defined.
-      if (useSeed) {
-        UnityEngine.Random.InitState(
-            (int)(Seed + PerfectlyHashThem((short)(changeX * 3 - 3),
-                                           (short)(changeZ * 3 - 3))));
-      }
-      float[, ] modifier = new float[ 2, 2 ];
-      PerlinDivide(ref modifier, changeX, changeZ, 2, 2,
-                   PerlinSeedModifier * 2f, BiomeRoughness);
-      PeakModifier = modifier[ 0, 0 ];
       if (terrIndex == -1) {
         Debug.LogError("Chunk was not generated before fractaling!\nIndex: " +
                        terrIndex + ", Coord(" + changeX + ", " + changeZ + ")");
@@ -2249,6 +2291,7 @@ public class TerrainGenerator : MonoBehaviour {
   // Randomly choose a value in a range that becomes smaller as the section
   // being defined becomes smaller.
   float Displace(float SmallSize) {
+    if (rand.NextDouble() > 0.98) SmallSize *= 2f;
     float Max = SmallSize / gBigSize * gRoughness;
     return (float)(rand.NextDouble() - 0.5) * Max;
   }
@@ -2369,7 +2412,7 @@ public class TerrainGenerator : MonoBehaviour {
 
         // Steepness is given as an angle, 0..90 degrees. Divide
         // by 90 to get an alpha blending value in the range 0..1.
-        float maxAngle = 75f;
+        float maxAngle = 30f;
         float unmodifiedFrac = angle / maxAngle;
         float frac = 1f;
         if (angle < maxAngle) {

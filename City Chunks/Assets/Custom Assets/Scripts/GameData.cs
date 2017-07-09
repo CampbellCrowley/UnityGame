@@ -5,6 +5,10 @@ using UnityEngine.SceneManagement;
 
 public
 class GameData : MonoBehaviour {
+
+  public const string TerrainGeneratorVersion = "v0.0.6";
+  public const string MultiplayerVersion = "m_4";
+
  public
   static GameData Instance;
  public
@@ -65,6 +69,8 @@ class GameData : MonoBehaviour {
   static string loadingMessage = "Readying the pigeons.";
  private
   static float loadEndTime = -1;
+ private
+  static bool LoadingScreenExists = false;
 
  public
   static bool levelComplete() {
@@ -86,16 +92,19 @@ class GameData : MonoBehaviour {
   }
  public
   static void AddLoadingScreen() {
+    if (LoadingScreenExists) return;
     Debug.Log("Additively loading loading screen scene.");
     loading = true;
     SceneManager.LoadScene("Loading", LoadSceneMode.Additive);
+    LoadingScreenExists = true;
  }
  public
   static void RemoveLoadingScreen() {
     Debug.Log("Unloading loading screen scene.");
     GameObject[] toUnload = GameObject.FindGameObjectsWithTag("LoadingScene");
     loadEndTime = Time.time;
-    foreach (GameObject g in toUnload) { Destroy(g, 1f); }
+    foreach (GameObject g in toUnload) { Destroy(g); }
+    LoadingScreenExists = false;
  }
  public
   static void nextLevel() {
@@ -121,10 +130,13 @@ class GameData : MonoBehaviour {
     Debug.Log("Menu!");
     GameData.Vehicle = null;
     GameData.isPaused = false;
-    FindObjectOfType<TerrainGenerator>().SaveAllChunks();
-    FindObjectOfType<UnityEngine.Networking.NetworkManager>().StopHost();
+    if (FindObjectOfType<TerrainGenerator>() != null)
+      FindObjectOfType<TerrainGenerator>().SaveAllChunks();
+    if (PhotonNetwork.room != null) NetworkManager.LeaveRoom();
+    else SceneManager.LoadScene("Menu");
     GameData.health = 5;
     GameData.tries = 3;
+    RemoveLoadingScreen();
   }
  public
   static void quit() {
