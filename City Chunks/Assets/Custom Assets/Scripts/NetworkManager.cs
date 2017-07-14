@@ -35,6 +35,14 @@ public class NetworkManager : Photon.MonoBehaviour {
       GUI.contentColor = Color.black;
       GUI.Label(new Rect(xposCentered, yposCentered, 250, 30),
                 PhotonNetwork.connectionStateDetailed.ToString());
+
+      GUI.contentColor = Color.black;
+      if (!PhotonNetwork.offlineMode &&
+          GUI.Button(new Rect(xpos, ypos, 250, 150), "Offline Mode"))
+        PhotonNetwork.offlineMode = true;
+      if (PhotonNetwork.offlineMode &&
+          GUI.Button(new Rect(xpos, ypos, 250, 150), "Go back Online"))
+        PhotonNetwork.offlineMode = false;
     } else if (PhotonNetwork.room == null) {
       GameData.username =
           GUI.TextField(new Rect(xposCentered + 25, yposCentered, 200, 30),
@@ -80,6 +88,13 @@ public class NetworkManager : Photon.MonoBehaviour {
                    "No rooms available");
         GUI.enabled = true;
       }
+
+      if (!PhotonNetwork.offlineMode &&
+          GUI.Button(new Rect(xpos, ypos, 250, 150), "Offline Mode"))
+        PhotonNetwork.offlineMode = true;
+      if (PhotonNetwork.offlineMode &&
+          GUI.Button(new Rect(xpos, ypos, 250, 150), "Go back Online"))
+        PhotonNetwork.offlineMode = false;
     } else {
       GUI.contentColor = GameData.isPaused ? Color.white : Color.black;
       if (GameData.isPaused &&
