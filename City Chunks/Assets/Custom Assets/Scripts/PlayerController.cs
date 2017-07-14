@@ -105,7 +105,8 @@ public
   bool isLocalPlayer = true;
 
   void Awake() {
-    if (photonView.isMine) {LevelController.LocalPlayerInstance = gameObject;
+    if (photonView.isMine) {
+      LevelController.LocalPlayerInstance = gameObject;
       PhotonNetwork.playerName = GameData.username;
     }
   }
@@ -170,8 +171,7 @@ public
   }
 
   void Update() {
-    if (!PhotonNetwork.connected) return;
-    isLocalPlayer = photonView.isMine;
+    isLocalPlayer = photonView.isMine || !PhotonNetwork.connected;
     if (!GameData.loading && !Camera.activeSelf) Camera.SetActive(true);
     else if (GameData.loading && Camera.activeSelf) Camera.SetActive(false);
     rbody = GetComponent<Rigidbody>();
@@ -179,7 +179,9 @@ public
       nameplate = GetComponentInChildren<TextMesh>();
       nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
       nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
-      nameplate.text = photonView.owner.NickName;
+      if (photonView.owner != null) {
+        nameplate.text = photonView.owner.NickName;
+      }
     }
     if (isLocalPlayer && intendedCameraDistance == 0 &&
         Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
@@ -198,11 +200,6 @@ public
     }
 
     // Death
-    if (Input.GetKeyDown("k")) {
-      GameData.health = 0;
-      GameData.tries = 0;
-      Dead();
-    }
     if (isDead) {
       if (Time.realtimeSinceStartup - deathTime >= 8f) {
         if (GameData.health > 0) {
@@ -227,7 +224,7 @@ public
     float sprintInput = 0f;
     bool wasUnderwater = false;
     RaycastHit hitinfo = new RaycastHit();
-    if (isLocalPlayer) {
+    if (isLocalPlayer && !GameData.isPaused && !GameData.isChatOpen) {
       moveHorizontal = Input.GetAxis("Horizontal");
       moveVertical = Input.GetAxis("Vertical");
       lookHorizontal =
@@ -279,7 +276,8 @@ public
                    "\nMouseY: " + lookVertical + "\nTime: " + Time.time;
     }
 
-    if (!TerrainGenerator.doneLoadingSpawn && !spawned) {
+    if (!TerrainGenerator.doneLoadingSpawn && !spawned &&
+        TerrainGenerator.Enabled) {
       levelStartTime = Time.time;
       Camera.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
       cameraSpawnRotation = Camera.transform.rotation;
@@ -295,7 +293,7 @@ public
 
     // Vehicles
     timeInVehicle += Time.deltaTime;
-    if(GameData.Vehicle!= null && GameData.Vehicle.fuelRemaining < 0) {
+    if (GameData.Vehicle != null && GameData.Vehicle.fuelRemaining < 0) {
       ExitVehicle();
     }
     if (GameData.Vehicle != null) {
@@ -365,9 +363,9 @@ public
     }
 
     // Prevent movement in first few seconds of the level or if dead, or if
-    // paused.
+    // paused, or if chat is open.
     if (Time.time - levelStartTime < flyDownTime || isDead ||
-        GameData.isPaused) {
+        GameData.isPaused || GameData.isChatOpen) {
       if (Input.GetKeyDown("enter")) {
         levelStartTime = Time.time - flyDownTime;
       }
@@ -378,7 +376,7 @@ public
         Camera.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
         cameraSpawnRotation = Camera.transform.rotation;
       }
-      if (!isDead && !GameData.isPaused) {
+      if (!GameData.isPaused && Time.time - levelStartTime < flyDownTime) {
         Camera.transform.rotation =
             Quaternion.Lerp(cameraSpawnRotation, startCameraRotation,
                             (Time.time - levelStartTime) / flyDownTime);
@@ -894,10 +892,6 @@ public
       Destroy(other.gameObject);
       GameData.health--;
       Dead();
-    } else if (other.gameObject.CompareTag("Portal")) {
-      if (GameData.levelComplete()) {
-        GameData.nextLevel();
-      }
     }
   }
   void PlaySound(AudioClip clip, float volume = -1f) {

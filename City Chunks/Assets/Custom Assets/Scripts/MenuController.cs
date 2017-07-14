@@ -17,7 +17,7 @@ class MenuController : MonoBehaviour {
  public
   void PlayGame() {
     GameData.showCursor = true;
-    GameData.nextLevel();
+    GameData.PlayGame();
   }
  public
   void OpenSettings() {

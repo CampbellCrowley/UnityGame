@@ -47,6 +47,7 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Custom Assets\Scripts\AudioPlayer.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\ChatManager.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Cinematic.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\CustomDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
@@ -326,9 +327,6 @@
      <None Include="Assets\Photon Unity Networking\Demos\DemoRockPaperScissors\Assets\OpenSans\Apache License.txt" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
      <None Include="Assets\Photon Unity Networking\changelog.txt" />
- <Reference Include="UnityEngine.Advertisements">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
- </Reference>
  <Reference Include="UnityEngine.UI">
  <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>

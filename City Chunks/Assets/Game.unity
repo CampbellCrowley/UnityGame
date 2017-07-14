@@ -1131,8 +1131,8 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1490833130}
-  m_LocalRotation: {x: -0.12616286, y: 0.5765109, z: 0.09067608, w: 0.802182}
-  m_LocalPosition: {x: -304.23682, y: -29.516418, z: -288.71524}
+  m_LocalRotation: {x: -0.24037859, y: 0.18705265, z: 0.04726379, w: 0.95131254}
+  m_LocalPosition: {x: 139.68353, y: 212.82751, z: 74.11674}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -3452,7 +3452,7 @@ Prefab:
       objectReference: {fileID: 0}
     - target: {fileID: 11442714, guid: 55c4dc591640dea4691b79d07c77188e, type: 2}
       propertyPath: daySpeedMultiplier
-      value: 0.025
+      value: 0.01
       objectReference: {fileID: 0}
     - target: {fileID: 11442714, guid: 55c4dc591640dea4691b79d07c77188e, type: 2}
       propertyPath: starRotationSpeed
@@ -3460,7 +3460,7 @@ Prefab:
       objectReference: {fileID: 0}
     - target: {fileID: 11442714, guid: 55c4dc591640dea4691b79d07c77188e, type: 2}
       propertyPath: startTime
-      value: 5
+      value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 407104, guid: 55c4dc591640dea4691b79d07c77188e, type: 2}
       propertyPath: m_LocalRotation.x

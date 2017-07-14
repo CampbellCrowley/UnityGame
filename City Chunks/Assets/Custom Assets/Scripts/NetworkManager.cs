@@ -6,7 +6,7 @@ using System;
 public class NetworkManager : Photon.MonoBehaviour {
   string _gameVersion =
        GameData.TerrainGeneratorVersion + GameData.MultiplayerVersion;
-  string playerNamePrefKey = "Username";
+  const string playerNamePrefKey = "Username";
 
   const string roomName = "Game";
   RoomInfo[] roomsList;
@@ -57,13 +57,7 @@ public class NetworkManager : Photon.MonoBehaviour {
 
       if (GUI.Button(new Rect(xposCentered, yposCentered, 250, 30),
                      "Create Room")) {
-        if (GameData.username.ToLower() == "username" ||
-            GameData.username == "") {
-          GameData.username = NameList.GetName();
-        }
-        SetPlayerName(GameData.username);
-        PhotonNetwork.CreateRoom(GameData.username + " " + roomName +
-                                 Guid.NewGuid().ToString("N"));
+        CreateRoom(roomName);
       }
 
       yposCentered += spacing * 2;
@@ -74,12 +68,7 @@ public class NetworkManager : Photon.MonoBehaviour {
           if (GUI.Button(
                   new Rect(xposCentered - 125, yposCentered + (30 * i), 500, 27),
                   "Join " + roomsList[i].Name)) {
-            if (GameData.username.ToLower() == "username" ||
-                GameData.username == "") {
-              GameData.username = NameList.GetName();
-            }
-            SetPlayerName(GameData.username);
-            PhotonNetwork.JoinRoom(roomsList[i].Name);
+            JoinRoom(roomsList[i].Name);
           }
         }
       } else {
@@ -89,16 +78,15 @@ public class NetworkManager : Photon.MonoBehaviour {
         GUI.enabled = true;
       }
 
-      if (!PhotonNetwork.offlineMode &&
-          GUI.Button(new Rect(xpos, ypos, 250, 150), "Offline Mode"))
-        PhotonNetwork.offlineMode = true;
+      GUI.contentColor = Color.black;
       if (PhotonNetwork.offlineMode &&
           GUI.Button(new Rect(xpos, ypos, 250, 150), "Go back Online"))
         PhotonNetwork.offlineMode = false;
     } else {
       GUI.contentColor = GameData.isPaused ? Color.white : Color.black;
       if (GameData.isPaused &&
-          GUI.Button(new Rect(xpos, ypos, 200, 20), "Return to Main Menu")) {
+          GUI.Button(new Rect(xposCentered + 25, Screen.height - ypos - 150, 200, 40),
+                     "Return to Main Menu")) {
         GameData.isPaused = false;
         FindObjectOfType<TerrainGenerator>().SaveAllChunks();
         LeaveRoom();
@@ -112,12 +100,12 @@ public class NetworkManager : Photon.MonoBehaviour {
       }
     }
   }
-  void SetPlayerName(string name) {
+  private static void SetPlayerName(string name) {
     PhotonNetwork.playerName = name;
     PlayerPrefs.SetString(playerNamePrefKey, name);
   }
   void OnReceivedRoomListUpdate() { roomsList = PhotonNetwork.GetRoomList(); }
-  void OnJoinedRoom() { 
+  void OnJoinedRoom() {
     Debug.Log("Connected to Room");
     if (PhotonNetwork.isMasterClient) PhotonNetwork.LoadLevel("Game");
   }
@@ -128,5 +116,27 @@ public class NetworkManager : Photon.MonoBehaviour {
 
   public static void LeaveRoom() {
     PhotonNetwork.LeaveRoom();
+  }
+  public static void CreateRoom(string name) {
+    if (GameData.username.ToLower() == "username" || GameData.username == "") {
+      GameData.username = NameList.GetName();
+    }
+    SetPlayerName(GameData.username);
+    PhotonNetwork.CreateRoom(GameData.username + " " + name +
+                             Guid.NewGuid().ToString("N"));
+  }
+  public static void JoinRoom(string name) {
+    if (GameData.username.ToLower() == "username" || GameData.username == "") {
+      GameData.username = NameList.GetName();
+    }
+    SetPlayerName(GameData.username);
+    PhotonNetwork.JoinRoom(name);
+  }
+  public static void JoinRandomRoom() {
+    if (GameData.username.ToLower() == "username" || GameData.username == "") {
+      GameData.username = NameList.GetName();
+    }
+    SetPlayerName(GameData.username);
+    PhotonNetwork.JoinRandomRoom();
   }
 }

@@ -18,7 +18,7 @@
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
 // #define DEBUG_WATER
-// #define DEBUG_HUD_POS
+#define DEBUG_HUD_POS
 // #define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
 // #define DEBUG_HUD_LOADING
@@ -112,6 +112,7 @@ using System.Threading;
 [Serializable] public class Terrains {
   public int x = 0;
   public int z = 0;
+  public float biome = 1.0f;
   [Tooltip("List of terrain data for setting heights. Equivalent to gameObject.GetComponent<Terrain>().terrainData.")]
   public TerrainData terrData;
   [Tooltip("Terrain GameObject.")]
@@ -187,7 +188,7 @@ using System.Threading;
   public Texture2D Black;
 }
 public class TerrainGenerator : MonoBehaviour {
-  public static float EmptyPoint = -100f;
+  public const float EmptyPoint = -100f;
   public static string worldID = "ERROR";
 
   [Header("Terrains (Auto-populated)")]
@@ -249,6 +250,8 @@ public class TerrainGenerator : MonoBehaviour {
   public static bool wasDoneLoadingSpawn = false;
   public static float waterHeight = 0f;
   public static float snowHeight = 960f;
+  public static bool Enabled = false;
+  public static TerrainGenerator TGInstance;
 
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
@@ -271,7 +274,6 @@ public class TerrainGenerator : MonoBehaviour {
   // since there are fewer lines to look at.
   int logCount = 1;
   float lastUpdate;
-  float PeakModifier = 1;
   // Previous terrain index whose heightmap was being applied.
   int lastTerrUpdateLoc = 0;
   // Chunk whose heightmap is being applied.
@@ -306,12 +308,24 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
 
   void Awake() {
-    players = new List<InitPlayer>(FindObjectsOfType<InitPlayer>());
+    if (TGInstance == null) {
+      TGInstance = this;
+      players = new List<InitPlayer>(FindObjectsOfType<InitPlayer>());
+    } else if (TGInstance != this) {
+      Destroy(gameObject);
+    }
   }
+
+  // Helpers for figuring out whether the generator exists in the scene.
+  void OnEnabled() { Enabled = true; }
+  void OnDisable() { Enabled = false; }
 
   void Start() {
     Debug.Log("Terrain Generator Start!");
     GameData.AddLoadingScreen();
+
+    wasDoneLoadingSpawn = false;
+    doneLoadingSpawn = false;
 
     terrains.Clear();
     if (waterTile != null)
@@ -453,6 +467,8 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   void Update() {
+    checkDoneLoadingSpawn();
+
     if(GenMode.PreLoadChunks && !preLoadingDone && !preLoadingChunks) {
       preLoadingChunks = true;
       StartCoroutine(PreLoadChunks());
@@ -501,8 +517,6 @@ public class TerrainGenerator : MonoBehaviour {
     UpdateAllLoadedChunks(ref done, ref iTime);
 
     UpdateAllNeighbors();
-
-    checkDoneLoadingSpawn();
 
     UnloadAllChunks(ref done, ref iTime);
 
@@ -711,9 +725,12 @@ public class TerrainGenerator : MonoBehaviour {
             Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") +
             ", " + Input.GetAxis("Vertical") + ")(" + Input.GetAxis("Sprint") +
             ")\n" + "Player" + player.transform.position + "\n" + "Coord(" +
-            xCenter + ", " + yCenter + ")(" + terrLoc + ")\n" +
-            "TerrainHeight: " + TerrainHeight + "\nHighest Point: " + highest +
-            "\nLowest Point: " + lowest;
+            xCenter + ", " + yCenter + ")(" + terrLoc + ")\n" + "Coord(" +
+            Mathf.RoundToInt(xCenter) + ", " + Mathf.RoundToInt(yCenter) +
+            ")\nTerrainHeight: " + TerrainHeight + "\nHighest Point: " +
+            (highest * terrHeight) + "\nLowest Point: " +
+            (lowest * terrHeight) + "\nPeakMultiplier: " +
+            terrains[terrLoc].biome;
 #else
         if (positionInfo != null) positionInfo.text = "";
 #endif
@@ -1537,7 +1554,7 @@ public class TerrainGenerator : MonoBehaviour {
 
     // Generate heightmap of points by averaging all surrounding points then
     // displacing.
-    if (GenMode.DisplaceDivide) {
+    if (GenMode.DisplaceDivide && !anyChunksDividing()) {
       if (useSeed) {
         UnityEngine.Random.InitState(
             (int)(Seed + PerfectlyHashThem((short)(changeX * 3 - 3),
@@ -1546,7 +1563,7 @@ public class TerrainGenerator : MonoBehaviour {
       float[, ] modifier = new float[ 2, 2 ];
       PerlinDivide(ref modifier, changeX, changeZ, 2, 2,
                    PerlinSeedModifier * 2f, BiomeRoughness);
-      PeakModifier = modifier[ 0, 0 ] * PeakMultiplier;
+      terrains[terrIndex].biome = modifier[ 0, 0 ] * PeakMultiplier;
 #if DEBUG_HEIGHTS || DEBUG_ARRAY
       Debug.Log(terrains[terrIndex].gameObject.GetComponent<Terrain>().name +
                 ",(0,0): " + points[ 0, 0 ]);
@@ -1590,8 +1607,9 @@ public class TerrainGenerator : MonoBehaviour {
           // Limit range.
           for (int i = 0; i < offsets.GetLength(0); i++) {
             for (int j = 0; j < offsets.GetLength(1); j++) {
-              offsets[ i, j ] =
-                  ((offsets[ i, j ] - 0.5f) * (PeakModifier * 0.5f)) + 0.5f;
+              offsets[i, j] = ((offsets[i, j] - 0.5f) *
+                               (terrains[terrIndex].biome * 0.5f)) +
+                              0.5f;
             }
           }
 
@@ -1980,9 +1998,10 @@ public class TerrainGenerator : MonoBehaviour {
                       // returned
       }
       if (Middle < 0) {
-        Middle = ((c1 + c2 + c3 + c4) / 4) +
-                 Displace((dwidth + dheight) *
-                          PeakModifier);  // Randomly displace the midpoint!
+        Middle =
+            ((c1 + c2 + c3 + c4) / 4) +
+            Displace((dwidth + dheight) *
+                     terrains[index].biome);  // Randomly displace the midpoint!
       } else {
         Displace(0);  // In order to maintain consistency with the random values
                       // returned
@@ -2239,9 +2258,6 @@ public class TerrainGenerator : MonoBehaviour {
 
           points[ r, c ] = noise * PerlinHeight;
         }
-        // Save highest and lowest values for debugging.
-        if (points[ r, c ] < lowest) lowest = points[ r, c ];
-        if (points[ r, c ] > highest) highest = points[ r, c ];
       }
     }
   }
@@ -2522,10 +2538,9 @@ public class TerrainGenerator : MonoBehaviour {
     int terrID = GetTerrainWithData(terrainData);
     if (terrID < 0) return;
 
-    float[, ] numberModifier = new float[ 2, 2 ];
-    PerlinDivide(ref numberModifier, terrains[terrID].x, terrains[terrID].z, 2,
-                 2, PerlinSeedModifier * 2f, 0.1f);
-    int numberOfTrees = (int)(numberModifier[ 0, 0 ] * maxNumTrees);
+    int numberOfTrees =
+        (int)((PeakMultiplier - terrains[terrID].biome) /
+              (PeakMultiplier == 0 ? 1f : PeakMultiplier) * maxNumTrees);
     terrains[terrID].TreeInstances.Clear();
     List<TreeInstance> newTrees =
         new List<TreeInstance>(terrainData.treeInstances);
@@ -2694,6 +2709,9 @@ public class TerrainGenerator : MonoBehaviour {
         output[ x, z ] = Mathf.Lerp(terrains[terrLoc].terrPoints[ x, z ],
                                     terrains[terrLoc].terrPerlinPoints[ x, z ],
                                     GenMode.mixtureAmount);
+        // Save highest and lowest values for debugging.
+        if (output[x, z] < lowest && output[x, z] >= 0) lowest = output[x, z];
+        if (output[ x, z ] > highest) highest = output[ x, z ];
       }
       return output;
     }

@@ -3,23 +3,18 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public
-class GameData : MonoBehaviour {
+public class GameData : MonoBehaviour {
 
   public const string TerrainGeneratorVersion = "v0.0.6";
   public const string MultiplayerVersion = "m_4";
+ 
+  public static GameData Instance;
 
- public
-  static GameData Instance;
- public
-  AudioSource MusicPlayer;
- public
-  AudioClip QueuedMusic;
- public
-  GameObject PauseMenu;
- private
-  GameObject PauseMenu_;
- public
+  public AudioSource MusicPlayer;
+  public AudioClip QueuedMusic;
+  public GameObject PauseMenu;
+  private GameObject PauseMenu_;
+ 
   void Awake() {
     if (Instance == null) {
       MusicPlayer = GetComponent<AudioSource>();
@@ -34,148 +29,109 @@ class GameData : MonoBehaviour {
       Destroy(gameObject);
     }
   }
- public
   void Start() {
     LoadSettings();
     if (MusicPlayer != null && !music) {
       MusicPlayer.volume = 0.0f;
     }
   }
- public
-  static int health = 5;
- public
-  static int tries = 3;
- public
-  static int collectedCollectibles = 10000;
- public
-  static bool showCursor = true;
- public
-  static bool isPaused = false;
- public
-  static VehicleController Vehicle;
- public
-  static string username = "Username";
- public
-  static int numEnemies = 0;
- public
-  static int numVehicles = 0;
- public
-  static bool loading = false;
- public
-  static float loadingPercent = 1f;
- public
-  static string previousLoadingMessage = "Readying the pigeons.";
- public
-  static string loadingMessage = "Readying the pigeons.";
- private
-  static float loadEndTime = -1;
- private
-  static bool LoadingScreenExists = false;
-
- public
-  static bool levelComplete() {
-    return true;
-  }
- public
-  static int getLevel() {
+  public static int health = 100;
+  public static int tries = 3;
+  public static int collectedCollectibles = 10000;
+  public static bool showCursor = true;
+  public static bool isChatOpen = false;
+  public static bool isPaused = false;
+  public static VehicleController Vehicle;
+  public static string username = "Username";
+  public static int numEnemies = 0;
+  public static int numVehicles = 0;
+  public static bool loading = false;
+  public static float loadingPercent = 1f;
+  public static string previousLoadingMessage = "Readying the pigeons.";
+  public static string loadingMessage = "Readying the pigeons.";
+  public static bool LoadingScreenExists = false;
+ 
+  private static float loadEndTime = -1;
+ 
+  public static int getLevel() {
     return SceneManager.GetActiveScene().buildIndex;
   }
- public
-  static void gotoLevel(int level) {
-    int nextIndex = level;
-    Debug.Log("Goto Level! (" + nextIndex + ")");
-    GameData.Vehicle = null;
-    GameData.isPaused = false;
-    SceneManager.LoadScene(nextIndex);
-    FindObjectOfType<UnityEngine.Networking.NetworkManager>()
-        .ServerChangeScene(SceneManager.GetSceneByBuildIndex(nextIndex).name);
-  }
- public
-  static void AddLoadingScreen() {
+
+  public static void AddLoadingScreen() {
     if (LoadingScreenExists) return;
     Debug.Log("Additively loading loading screen scene.");
     loading = true;
     SceneManager.LoadScene("Loading", LoadSceneMode.Additive);
     LoadingScreenExists = true;
- }
- public
-  static void RemoveLoadingScreen() {
+  }
+
+  public static void RemoveLoadingScreen() {
     Debug.Log("Unloading loading screen scene.");
     GameObject[] toUnload = GameObject.FindGameObjectsWithTag("LoadingScene");
     loadEndTime = Time.time;
-    foreach (GameObject g in toUnload) { Destroy(g); }
+    foreach (GameObject g in toUnload) { Destroy(g, 0.1f); }
     LoadingScreenExists = false;
- }
- public
-  static void nextLevel() {
-    int nextIndex = getLevel() + 1;
-    Debug.Log("Next Level! (" + nextIndex + ")");
-    GameData.Vehicle = null;
-    GameData.isPaused = false;
-    SceneManager.LoadScene(nextIndex);
-    FindObjectOfType<UnityEngine.Networking.NetworkManager>()
-        .ServerChangeScene(SceneManager.GetSceneByBuildIndex(nextIndex).name);
   }
- public
-  static void restartLevel() {
-    Debug.Log("Restarting Level!");
-    GameData.Vehicle = null;
-    GameData.isPaused = false;
-    GameData.health = 5;
-    FindObjectOfType<UnityEngine.Networking.NetworkManager>()
-        .ServerChangeScene(SceneManager.GetSceneByBuildIndex(getLevel()).name);
+
+  public static void PlayGame() {
+    Debug.Log("Play Game!");
   }
- public
-  static void MainMenu() {
+  public static void MainMenu() {
     Debug.Log("Menu!");
     GameData.Vehicle = null;
     GameData.isPaused = false;
+    GameData.isChatOpen = false;
     if (FindObjectOfType<TerrainGenerator>() != null)
       FindObjectOfType<TerrainGenerator>().SaveAllChunks();
     if (PhotonNetwork.room != null) NetworkManager.LeaveRoom();
     else SceneManager.LoadScene("Menu");
-    GameData.health = 5;
-    GameData.tries = 3;
+    GameData.health = 100;
     RemoveLoadingScreen();
   }
- public
-  static void quit() {
+
+  public static void quit() {
     Debug.Log("Exiting Game");
     Application.Quit();
   }
-
- public
+ 
   void Update() {
-#if UNITY_EDITOR || UNITY_STANDALONE
+ #if UNITY_EDITOR || UNITY_STANDALONE
     if (getLevel() == 0 || isPaused) {
       Application.targetFrameRate = 30;
     } else {
       Application.targetFrameRate = -1;
     }
-#endif
+ #endif
     if (Time.time - loadEndTime > 1 &&
         Time.time - loadEndTime - Time.deltaTime < 1 && loading &&
         loadEndTime != -1) {
       loading = false;
     }
     if (Input.GetButtonDown("Pause") && getLevel() != 0 &&
-        TerrainGenerator.doneLoadingSpawn) {
-      GameData.isPaused = !GameData.isPaused;
-      GameData.showCursor = isPaused;
-      if(GameData.isPaused) {
-        PauseMenu_ = Instantiate(PauseMenu);
-        // PauseMenu_.GetComponent<Canvas>().worldCamera = Camera.main;
+        (TerrainGenerator.doneLoadingSpawn || !TerrainGenerator.Enabled)) {
+      if (isChatOpen) {
+        isChatOpen = false;
+        GameData.showCursor = false;
       } else {
-        Destroy(PauseMenu_);
+        GameData.isPaused = !GameData.isPaused;
+        GameData.showCursor = isPaused;
+        if (GameData.isPaused) {
+          PauseMenu_ = Instantiate(PauseMenu);
+          // PauseMenu_.GetComponent<Canvas>().worldCamera = Camera.main;
+        } else {
+          Destroy(PauseMenu_);
+        }
       }
+    } else if (Input.GetButtonDown("OpenChat") && getLevel() != 0 &&
+               !isPaused) {
+      isChatOpen = true;
+      GameData.showCursor = true;
     } else if (Input.GetButtonDown("Menu") && getLevel() != 0) {
       MainMenu();
     }
     Cursor.visible = showCursor;
     Cursor.lockState = showCursor ? CursorLockMode.None : CursorLockMode.Locked;
-    /*if (Input.GetAxis("Skip") > 0.5f) {
-      nextLevel();
-    }*/
+
     if (MusicPlayer != null) {
       float goalVol = music ? 0.5f : 0.0f;
       if(QueuedMusic != null && QueuedMusic != MusicPlayer.clip) {
@@ -189,59 +145,57 @@ class GameData : MonoBehaviour {
       MusicPlayer.volume = Mathf.Lerp(MusicPlayer.volume, goalVol, 0.1f);
     }
   }
-
- public
-  static void LoadSettings() {
+ 
+  public static void LoadSettings() {
     string debug = "Settings Loaded: [\n";
     if (PlayerPrefs.HasKey("Vignette")) {
-      vignette = PlayerPrefs.GetInt("Vignette") == 1 ? true : false;
+      vignette = PlayerPrefs.GetInt("Vignette") == 1;
       debug += "Vignette: " + vignette + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("DOF")) {
-      dof = PlayerPrefs.GetInt("DOF") == 1 ? true : false;
+      dof = PlayerPrefs.GetInt("DOF") == 1;
       debug += "DOF: " + dof + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("Motion Blur")) {
-      motionBlur = PlayerPrefs.GetInt("Motion Blur") == 1 ? true : false;
+      motionBlur = PlayerPrefs.GetInt("Motion Blur") == 1;
       debug += "Motion Blur: " + motionBlur + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("Bloom and Flare")) {
       bloomAndFlares =
-          PlayerPrefs.GetInt("Bloom and Flare") == 1 ? true : false;
+          PlayerPrefs.GetInt("Bloom and Flare") == 1;
       debug += "Bloom and Flare: " + bloomAndFlares + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("Fullscreen")) {
-      fullscreen = PlayerPrefs.GetInt("Fullscreen") == 1 ? true : false;
+      fullscreen = PlayerPrefs.GetInt("Fullscreen") == 1;
       debug += "Fullscreen: " + fullscreen + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("Sound Effects")) {
-      soundEffects = PlayerPrefs.GetInt("Sound Effects") == 1 ? true : false;
+      soundEffects = PlayerPrefs.GetInt("Sound Effects") == 1;
       debug += "Sound Effects: " + soundEffects + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("Music")) {
-      music = PlayerPrefs.GetInt("Music") == 1 ? true : false;
+      music = PlayerPrefs.GetInt("Music") == 1;
       debug += "Music: " + music + ",\n";
     }
-
+ 
     if (PlayerPrefs.HasKey("Camera Damping")) {
-      cameraDamping = PlayerPrefs.GetInt("Camera Damping") == 1 ? true : false;
+      cameraDamping = PlayerPrefs.GetInt("Camera Damping") == 1;
       debug += "Camera Damping: " + cameraDamping + ",\n";
     }
-
+ 
     debug += "]";
     Debug.Log(debug);
-
+ 
     Screen.fullScreen = fullscreen;
   }
-
- public
-  static void SaveSettings() {
+ 
+  public static void SaveSettings() {
     PlayerPrefs.SetInt("Vignette", vignette ? 1 : 0);
     PlayerPrefs.SetInt("DOF", dof ? 1 : 0);
     PlayerPrefs.SetInt("Motion Blur", motionBlur ? 1 : 0);
@@ -250,24 +204,16 @@ class GameData : MonoBehaviour {
     PlayerPrefs.SetInt("Sound Effects", soundEffects ? 1 : 0);
     PlayerPrefs.SetInt("Music", music ? 1 : 0);
     PlayerPrefs.SetInt("Camera Damping", cameraDamping ? 1 : 0);
-
+ 
     PlayerPrefs.Save();
   }
-
- public
-  static bool vignette = true;
- public
-  static bool dof = true;
- public
-  static bool motionBlur = true;
- public
-  static bool bloomAndFlares = false;
- public
-  static bool fullscreen = true;
- public
-  static bool soundEffects = true;
- public
-  static bool music = true;
- public
-  static bool cameraDamping = true;
+ 
+  public static bool vignette = true;
+  public static bool dof = true;
+  public static bool motionBlur = true;
+  public static bool bloomAndFlares = false;
+  public static bool fullscreen = true;
+  public static bool soundEffects = true;
+  public static bool music = true;
+  public static bool cameraDamping = true;
 }
