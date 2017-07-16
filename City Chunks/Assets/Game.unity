@@ -286,7 +286,8 @@ Prefab:
       propertyPath: m_RootOrder
       value: 3
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 0}
   m_ParentPrefab: {fileID: 100100000, guid: 52c2b66939554564ebeddbac48b5d118, type: 2}
   m_IsPrefabParent: 0
 --- !u!4 &275570489 stripped
@@ -3241,7 +3242,7 @@ MonoBehaviour:
     Distort: 0
     mixtureAmount: 0.5
     HeightmapSpeed: 0
-    slowHeightmap: 1
+    multiThreading: 1
     PreLoadChunks: 1
   loadDist: 1500
   roughness: 0.3

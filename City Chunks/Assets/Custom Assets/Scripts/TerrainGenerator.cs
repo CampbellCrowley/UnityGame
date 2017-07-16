@@ -14,13 +14,14 @@
 // #define DEBUG_HEIGHTS
 // #define DEBUG_MISC
 // #define DEBUG_POSITION
+// #define DEBUG_START
 // #define DEBUG_STEEPNESS
 // #define DEBUG_UPDATES
 // #define DEBUG_WATER
-#define DEBUG_HUD_POS
+// #define DEBUG_HUD_POS
 // #define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
-#define DEBUG_HUD_LOADING
+// #define DEBUG_HUD_LOADING
 
 using UnityEngine;
 using System;
@@ -44,12 +45,12 @@ using System.Threading;
   [Header("Settings")]
   [Tooltip("Used in a Lerp function between DisplaceDivide and Perlin. (0: Divide, 1: Perlin)")]
   [Range(0.0f, 1.0f)]public float mixtureAmount = 0.5f;
-  [Tooltip("Number of pixels to update per chunk per frame.")]
-  [Range(0, 257*257)] public int HeightmapSpeed = 1000;
-  [Tooltip("Splits calculating the heightmap among 4^slowAmount frames instead of doing it all in 1.")]
-  public bool slowHeightmap = true;
-  [Tooltip("Allows most of the hard work of generating chunks to happen in Start() rather than multiple frames. Only applies for spawn chunks.")]
-  public bool PreLoadChunks = false;
+  [Tooltip("Number of pixels to update per chunk per frame. (0 is all at once)")]
+  [Range(0, 257*257)] public int HeightmapSpeed = 0;
+  [Tooltip("Allows the heightmap generation to take place in a seprate thread.")]
+  public bool multiThreading = true;
+  [Tooltip("Allows most of the hard work of generating chunks to happen in during a loading screen rather than while the player has spawned. Only applies for spawn chunks.")]
+  public bool PreLoadChunks = true;
 }
 [Serializable] public class Times {
   [Tooltip("Shows a countdown until neighbors get updated again.")]
@@ -206,9 +207,9 @@ public class TerrainGenerator : MonoBehaviour {
   [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
   [SerializeField] public bool useSeed = true;
   [Tooltip("The predetermined seed to use if Use Seed is false.")]
-  [SerializeField] public int Seed = 4;
+  [SerializeField] public int Seed = 971;
   [Tooltip("Modifier to shift the perlin noise map in order to reduce chance of finding the same patch of terrain again. The perlin noise map loops at every integer. This value is multiplied by the seed.")]
-  [SerializeField] public float PerlinSeedModifier = 0.1213546f;
+  [SerializeField] public float PerlinSeedModifier = 0.2541868f;
   [Header("HUD Text for Debug")]
   [Tooltip("The GUIText object that is used to display the position of the player.")]
   [SerializeField] public GUIText positionInfo;
@@ -222,23 +223,23 @@ public class TerrainGenerator : MonoBehaviour {
   [Tooltip("List of available terrain generators.")]
   [SerializeField] public GeneratorModes GenMode;
   [Tooltip("Distance the player must be from a chunk for it to be loaded.")]
-  [SerializeField] public int loadDist = 50;
+  [SerializeField] public int loadDist = 1500;
   [Tooltip("Roughness of terrain is modified by this value.")]
-  [SerializeField] public float roughness = 1.0f;
+  [SerializeField] public float roughness = 0.3f;
   [Tooltip("Multiplier to exaggerate the peaks.")]
-  [SerializeField] public float PeakMultiplier = 2.0f;
+  [SerializeField] public float PeakMultiplier = 1.0f;
   [Tooltip("Roughness of terrain is modified by this value.")]
-  [SerializeField] public float PerlinRoughness = 0.2f;
+  [SerializeField] public float PerlinRoughness = 0.1f;
   [Tooltip("Maximum height of Perlin Generator in percentage.")]
-  [SerializeField] public float PerlinHeight = 0.8f;
+  [SerializeField] public float PerlinHeight = 1.0f;
   [Tooltip("How quickly biomes/terrain roughness changes.")]
-  [SerializeField] public float BiomeRoughness = 0.1f;
+  [SerializeField] public float BiomeRoughness = 0.05f;
   [Tooltip("Vertical shift of values pre-rectification.")]
   [SerializeField] public float yShift = 0.0f;
   [Header("Visuals")]
   [Tooltip("Array of textures to apply to the terrain.")]
   [SerializeField] public Textures TerrainTextures;
-  [Tooltip("The normals that corespond to the terrain textures.")]
+  [Tooltip("The normals that correspond to the terrain textures.")]
   [SerializeField] public TextureNormals TerrainTextureNormals;
   [Tooltip("Tree prefabs to place on the terrain.")]
   [SerializeField] public GameObject[] TerrainTrees;
@@ -335,12 +336,16 @@ public class TerrainGenerator : MonoBehaviour {
     if (Seed == 0) Seed = 1;
     worldID = (Seed * PerlinSeedModifier).ToString() +
               GameData.TerrainGeneratorVersion + "-";
+#if DEBUG_START
     if (GenMode.Perlin) {
       Debug.Log("Seed(" + Seed + ")*PerlinSeedModifier(" + PerlinSeedModifier +
                 ")=" + Seed * PerlinSeedModifier);
     }
+#endif
     if (GenMode.Perlin && GenMode.DisplaceDivide) {
+#if DEBUG_START
       Debug.Log("Doubling Roughness because both engines enabled");
+#endif
       roughness *= 2f;
     }
 
@@ -348,8 +353,8 @@ public class TerrainGenerator : MonoBehaviour {
     // Generate height map. Disable slowing the generation because we want
     // everything do be done in this frame, but then return the feature to its
     // initial state later as the user may want it.
-    bool slowHeightmap = GenMode.slowHeightmap;
-    GenMode.slowHeightmap = false;
+    bool multiThreading = GenMode.multiThreading;
+    GenMode.multiThreading = false;
 
     TerrainTextures.Length += TerrainTextures.Grass.Length +
                               TerrainTextures.Rock.Length +
@@ -362,24 +367,38 @@ public class TerrainGenerator : MonoBehaviour {
     UpdateSplat(GetComponent<Terrain>().terrainData);
 
 
+#if DEBUG_START
     Debug.Log("Generating spawn chunk");
+#endif
     // Initialize variables based off of values defining the terrain and add
     // the spawn chunk to arrays for later reference.
     GenerateTerrainChunk(0, 0);
 
+#if DEBUG_START
     Debug.Log("Creating spawn chunk fractal");
+#endif
     FractalNewTerrains(0, 0);
+#if DEBUG_START
     Debug.Log("Clearing trees");
+#endif
     ClearTreeInstances(terrains[0]);
+#if DEBUG_START
     Debug.Log("Applying spawn chunk height map");
+#endif
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
+#if DEBUG_START
     Debug.Log("Adding Trees to spawn chunk");
+#endif
     UpdateTreePrototypes(terrains[0].terrData);
     UpdateTrees(terrains[0].terrData);
+#if DEBUG_START
     Debug.Log("Adding Grass to spawn chunk");
+#endif
     UpdateDetailPrototypes(terrains[0].terrData);
     UpdateGrassDetail(terrains[0].terrData);
+#if DEBUG_START
     Debug.Log("Texturing spawn chunk");
+#endif
     UpdateTexture(terrains[0]);
     terrains[0].terrQueue = false;
     terrains[0].splatQueue = false;
@@ -387,9 +406,11 @@ public class TerrainGenerator : MonoBehaviour {
     terrains[0].treeQueue = false;
     terrains[0].detailQueue = false;
     terrains[0].terrReady = true;
+#if DEBUG_START
     Debug.Log("Attempting to save spawn chunk to disk");
+#endif
     // SaveChunk(0, 0);
-    GenMode.slowHeightmap = slowHeightmap;
+    GenMode.multiThreading = multiThreading;
     radius = loadDist / ((terrWidth + terrLength) / 2.0f);
 
 #if DEBUG_HUD_LOADED || DEBUG_HUD_LOADING
@@ -1641,7 +1662,7 @@ public class TerrainGenerator : MonoBehaviour {
         divideAmount_ = divideAmount;
 #endif
         divideAmount = 0;
-        // If we are using GenMode.slowHeightmap, then the terrain has not
+        // If we are using GenMode.multiThreading, then the terrain has not
         // been finished being divided. Otherwise, the whole process could
         // happen before the function returns.
         IEnumerator enumerator =
@@ -1649,7 +1670,7 @@ public class TerrainGenerator : MonoBehaviour {
                           points[ 0, 0 ], points[ 0, (int)iHeight - 1 ],
                           points[ (int)iWidth - 1, (int)iHeight - 1 ],
                           points[ (int)iWidth - 1, 0 ]);
-        if(GenMode.slowHeightmap) {
+        if(GenMode.multiThreading) {
           threadStart = Time.realtimeSinceStartup;
           divideEnumerator = enumerator;
           thread = new Thread(DivideHelper);

@@ -11,7 +11,17 @@ public class NetworkManager : Photon.MonoBehaviour {
   const string roomName = "Game";
   RoomInfo[] roomsList;
 
+  public static NetworkManager NMInstance;
+
   void Awake() {
+    if (NMInstance == null) {
+      DontDestroyOnLoad(gameObject);
+      NMInstance = this;
+    } else if (NMInstance != this) {
+      Destroy(gameObject);
+      return;
+    }
+
     if (PhotonNetwork.connected) return;
     if (GameData.getLevel() != 0) GameData.MainMenu();
     PhotonNetwork.autoJoinLobby = true;
@@ -101,7 +111,9 @@ public class NetworkManager : Photon.MonoBehaviour {
     }
   }
   private static void SetPlayerName(string name) {
+    name = name.Replace('`', '\'');
     PhotonNetwork.playerName = name;
+    ChatManager.AuthVal.UserId = name;
     PlayerPrefs.SetString(playerNamePrefKey, name);
   }
   void OnReceivedRoomListUpdate() { roomsList = PhotonNetwork.GetRoomList(); }
@@ -118,7 +130,7 @@ public class NetworkManager : Photon.MonoBehaviour {
     PhotonNetwork.LeaveRoom();
   }
   public static void CreateRoom(string name) {
-    if (GameData.username.ToLower() == "username" || GameData.username == "") {
+    if (GameData.isUsernameDefault()) {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
@@ -126,14 +138,14 @@ public class NetworkManager : Photon.MonoBehaviour {
                              Guid.NewGuid().ToString("N"));
   }
   public static void JoinRoom(string name) {
-    if (GameData.username.ToLower() == "username" || GameData.username == "") {
+    if (GameData.isUsernameDefault()) {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
     PhotonNetwork.JoinRoom(name);
   }
   public static void JoinRandomRoom() {
-    if (GameData.username.ToLower() == "username" || GameData.username == "") {
+    if (GameData.isUsernameDefault()) {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);

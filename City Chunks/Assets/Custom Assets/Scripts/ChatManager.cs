@@ -14,6 +14,8 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
   public Vector3 offScreenRelativePos = new Vector3(-100f, 0, 0);
   public string[] chatsToSubscribeTo = {"General"};
 
+  public static ExitGames.Client.Photon.Chat.AuthenticationValues AuthVal;
+
   UiLinesData[] uiLinesData;
   public class UiLinesData {
     public UiLinesData(Vector3 startingPos) { this.startingPos = startingPos; }
@@ -25,6 +27,19 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
   string[] history = new string[50];
   int lastIndex = -1;
   int firstIndex = -1;
+
+  class User {
+   public
+    User(string userId, string username) {
+      this.userId = userId;
+      this.username = username;
+    }
+   public
+    string userId = "";
+   public
+    string username = "";
+  }
+  List<User> knownUsers = new List<User>();
 
   float lastScrollTime = 0f;
   int currentIndex = 0;
@@ -39,13 +54,11 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
     }
   }
 
-  void Start() { Connect(); }
-
   void Update() {
     if (chatClient != null) {
       chatClient.Service();
     } else {
-      Start();
+      Connect();
     }
 
     if (!GameData.isPaused) {
@@ -90,49 +103,61 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
     }
   }
 
-  public
    void OpenChat() { input.ActivateInputField(); }
 
-  public
    void CloseChat() {
      input.DeactivateInputField();
      PushLinesUpAllTheWay();
    }
 
    void Connect() {
+     if (AuthVal == null) return;
+
      chatClient = new ChatClient(this);
 #if !UNITY_WEBGL
-    chatClient.UseBackgroundWorkerForSending = true;
+     chatClient.UseBackgroundWorkerForSending = true;
 #endif
-    chatClient.Connect(PhotonNetwork.PhotonServerSettings.ChatAppID, "0.1",
-                       new ExitGames.Client.Photon.Chat.AuthenticationValues(
-                           GameData.username));
+     if (!chatClient.Connect(PhotonNetwork.PhotonServerSettings.ChatAppID,
+                             "0.1", AuthVal)) {
+       Debug.LogWarning("Connecting to chat returned false!");
+     } else {
+       Debug.Log("Chat Connecting as: " + GameData.username);
+     }
+   }
 
-    Debug.Log("Connecting as: " + GameData.username);
-  }
+   void Subscribe() { chatClient.Subscribe(chatsToSubscribeTo); }
 
-  void Subscribe() { chatClient.Subscribe(chatsToSubscribeTo); }
+  public
+   void SendPublicMessage(string message) {
+     input.text = "";
+     if (string.IsNullOrEmpty(message)) return;
+     GameData.CloseChat();
+     AddUsername(GameData.username, ref message);
+     chatClient.PublishMessage("General", message);
+   }
+  public
+   bool SendPrivateMessage(string target, string message) {
+     Debug.LogError(
+         "Sending private messages is not implemented and will not work unless " +
+         "you know the specific userId of the person you are trying to send a " +
+         "message to.");
+     input.text = "";
+     if (string.IsNullOrEmpty(message) || string.IsNullOrEmpty(target))
+       return false;
+     GameData.CloseChat();
+     return chatClient.SendPrivateMessage(target, message);
+   }
 
- public
-  void SendPublicMessage(string message) {
-    if(string.IsNullOrEmpty(message)) return;
-    chatClient.PublishMessage("General", message);
-    input.text = "";
-    GameData.CloseChat();
-  }
- public
-  bool SendPrivateMessage(string target, string message) {
-    return chatClient.SendPrivateMessage(target, message);
- }
-
-  void OnDestroy() {
-    if (chatClient != null) {
-      chatClient.Disconnect();
-    }
-  }
-	public void OnConnected() {
-    Subscribe();
-  }
+   void OnDestroy() {
+     if (chatClient != null) {
+       chatClient.Disconnect();
+     }
+   }
+  public
+   void OnConnected() {
+     Debug.Log("Chat Connected!");
+     Subscribe();
+   }
 
   public void OnSubscribed(string[] channels, bool[] results) {
     string[] outputs = new string[channels.Length];
@@ -141,6 +166,9 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
       sender[i] = "Server";
       outputs[i] = string.Format("Connecting to {0} {1}.", channels[i],
                                  results[i] ? "succeeded" : "failed");
+      AddUsername("Server", ref outputs[i]);
+      Debug.Log("Chat subscribed to " + channels[i] + " " +
+                (results[i] ? "successfully" : "failed"));
     }
     OnGetMessages("Info", sender, outputs);
   }
@@ -157,8 +185,10 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
   public void OnGetMessages(string channelName, string[] senders,
                             object[] messages) {
     for (int i = 0; i < senders.Length; i++) {
-      PutInHistory(string.Format("[{0}]<{1}>: {2}", channelName, senders[i],
-                                 messages[i]));
+      string[] messageParts = messages[i].ToString().Split('`');
+      PutInHistory(string.Format("[{0}]<{1}>: {2}", channelName,
+                                 messageParts[0], messageParts[1]));
+      checkUser(senders[i], messageParts[0]);
     }
     PushLinesUp(false);
   }
@@ -233,6 +263,27 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
     else return history.Length;
   }
 
+  void AddUsername(string username, ref string message) {
+    message = message.Replace('`', '\'');
+    message = username + "`" + message;
+  }
+
+  void checkUser(string userId, string username) {
+    bool knownUser = false;
+    for (int i = 0; i < knownUsers.Count; i++) {
+      if (knownUsers[i].userId == userId) {
+        knownUser = true;
+        if (knownUsers[i].username != username) {
+          Debug.Log("User: " + userId + ", Changed username from " +
+                    knownUsers[i].username + " to " + username);
+          knownUsers[i].username = username;
+        }
+      }
+    }
+    if (!knownUser) {
+      knownUsers.Add(new User(userId, username));
+    }
+  }
 
   // Overrides
   public void DebugReturn(ExitGames.Client.Photon.DebugLevel level, string text) {}

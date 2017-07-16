@@ -29,6 +29,7 @@ public
   public GameObject Camera;
   public bool CameraObjectAvoidance = true;
   public bool rotateWithCamera = false;
+  public bool firstPerson = true;
   public float MaxCameraDistance = 3f;
   public float playerHeight = 1.5f;
   public float crouchedHeight = 1.0f;
@@ -226,6 +227,8 @@ public
     float sprintInput = 0f;
     bool wasUnderwater = false;
     RaycastHit hitinfo = new RaycastHit();
+    isGrounded =
+        Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.2f);
     if (isLocalPlayer && !GameData.isPaused && !GameData.isChatOpen) {
       moveHorizontal = Input.GetAxis("Horizontal");
       moveVertical = Input.GetAxis("Vertical");
@@ -235,8 +238,6 @@ public
           Input.GetAxis("Mouse Y") + Input.GetAxis("Joystick Y") * 3f;
       interact = Input.GetAxis("Interact");
       if (Input.GetButtonDown("GodMode")) godMode = !godMode;
-      isGrounded =
-          Physics.Raycast(transform.position, Vector3.down, out hitinfo, 0.2f);
       isCrouched = Input.GetAxis("Crouch") > 0.5;
       isJumping = Input.GetAxis("Jump") > 0.5 && isGrounded && !isCrouched &&
                   lastJumpTime >= jumpFrequency;
@@ -245,6 +246,7 @@ public
           (sprintInput > 0.5 && !isCrouched) || (isSprinting && !isGrounded);
       wasUnderwater = isUnderwater;
       isUnderwater = transform.position.y < TerrainGenerator.waterHeight;
+      if (Input.GetButtonDown("Toggle Third Person")) ToggleThirdPerson();
     }
 
     if (wasUnderwater && !isUnderwater) lastGroundedTime = Time.time;
@@ -381,8 +383,8 @@ public
         Camera.transform.rotation =
             Quaternion.Lerp(cameraSpawnRotation, startCameraRotation,
                             (Time.time - levelStartTime) / flyDownTime);
-        MaxCameraDistance =
-            Mathf.Lerp(spawnCameraDistance, intendedCameraDistance,
+        intendedCameraDistance =
+            Mathf.Lerp(spawnCameraDistance, MaxCameraDistance,
                        (Time.time - levelStartTime) / flyDownTime);
       }
       if(GameData.Vehicle != null) {
@@ -402,6 +404,13 @@ public
               flyDownTime + flyDownEndTime + Time.deltaTime &&
           Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
         moveVertical = 1.0f;
+        if(firstPerson) {
+          intendedCameraDistance = 0f;
+          rotateWithCamera = true;
+        } else {
+          intendedCameraDistance = MaxCameraDistance;
+          rotateWithCamera = false;
+        }
         if (intendedCameraDistance == 0 && isLocalPlayer) {
           SkinnedMeshRenderer[] renderers =
               GetComponentsInChildren<SkinnedMeshRenderer>();
@@ -417,7 +426,6 @@ public
           }
         }
       }
-      MaxCameraDistance = intendedCameraDistance;
     }
 
     // Collider
@@ -592,13 +600,13 @@ public
               hit.transform != null) {
             CurrentCameraDistance = hit.distance;
           } else {
-            CurrentCameraDistance += 1.0f * Time.deltaTime;
-            if (CurrentCameraDistance > MaxCameraDistance) {
-              CurrentCameraDistance = MaxCameraDistance;
+            CurrentCameraDistance += 5.0f * Time.deltaTime;
+            if (CurrentCameraDistance > intendedCameraDistance ) {
+              CurrentCameraDistance = intendedCameraDistance ;
             }
           }
         }
-        if (!spawned || isDead) CurrentCameraDistance = MaxCameraDistance;
+        if (!spawned || isDead) CurrentCameraDistance = intendedCameraDistance ;
         Vector3 newCameraPos =
             Vector3.up * (isCrouched ? crouchedHeight : playerHeight) +
             Vector3.ClampMagnitude(
@@ -631,7 +639,7 @@ public
           newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
                                             newCameraPos, ref velocity, 0.05f);
         } else if (GameData.cameraDamping && spawned &&
-                   (MaxCameraDistance != 0 ||
+                   (intendedCameraDistance != 0 ||
                     Time.time - levelStartTime <
                         flyDownTime + flyDownEndTime)) {
           Vector3 velocity = Vector3.zero;
@@ -760,6 +768,28 @@ public
     if (isGrounded) lastGroundedTime = Time.time;
   }
 
+  void ToggleThirdPerson() {
+    firstPerson = !firstPerson;
+    if (firstPerson) {
+      intendedCameraDistance = 0f;
+      rotateWithCamera = true;
+      SkinnedMeshRenderer[] renderers =
+          GetComponentsInChildren<SkinnedMeshRenderer>();
+      foreach (SkinnedMeshRenderer r in renderers) {
+        r.shadowCastingMode =
+            UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+      }
+    } else {
+      intendedCameraDistance = MaxCameraDistance;
+      rotateWithCamera = false;
+      SkinnedMeshRenderer[] renderers =
+          GetComponentsInChildren<SkinnedMeshRenderer>();
+      foreach (SkinnedMeshRenderer r in renderers) {
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+      }
+    }
+  }
+
   void Dead() {
     if (isDead) return;
     isDead = true;
@@ -770,7 +800,7 @@ public
     } else {
       PlaySound(sounds.Pain, 1.0f);
     }
-    MaxCameraDistance += 10f;
+    intendedCameraDistance += 10f;
     deathTime = Time.realtimeSinceStartup;
     GetComponent<Rigidbody>().isKinematic = true;
     if (RagdollTemplate != null) {
@@ -806,7 +836,7 @@ public
     GameData.health = 5;
     Time.timeScale = 1.0f;
     Time.fixedDeltaTime = 0.02f * Time.timeScale;
-    MaxCameraDistance -= 10;
+    intendedCameraDistance -= 10;
     GetComponent<Rigidbody>().isKinematic = false;
     Destroy(Ragdoll);
     GetComponent<CapsuleCollider>().enabled = true;

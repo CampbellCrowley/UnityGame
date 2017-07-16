@@ -101,6 +101,11 @@ public class GameData : MonoBehaviour {
     RemoveLoadingScreen();
   }
 
+  public static bool isUsernameDefault() {
+     return GameData.username.ToLower() == "username" ||
+            GameData.username == "";
+  }
+
   public static void quit() {
     Debug.Log("Exiting Game");
     Application.Quit();
@@ -119,16 +124,14 @@ public class GameData : MonoBehaviour {
         loadEndTime != -1) {
       loading = false;
     }
-    if (Input.GetButtonDown("Pause") && getLevel() != 0 &&
-        TerrainGenerator.doneLoadingSpawn) {
+    if (Input.GetButtonDown("Pause") && getLevel() != 0) {
       if (isChatOpen) {
         CloseChat();
-      } else {
+      } else if (TerrainGenerator.doneLoadingSpawn) {
         GameData.isPaused = !GameData.isPaused;
         GameData.showCursor = isPaused;
         if (GameData.isPaused) {
           PauseMenu_ = Instantiate(PauseMenu);
-          // PauseMenu_.GetComponent<Canvas>().worldCamera = Camera.main;
         } else {
           Destroy(PauseMenu_);
         }
@@ -136,7 +139,7 @@ public class GameData : MonoBehaviour {
     } else if (Input.GetButtonDown("OpenChat") && getLevel() != 0 &&
                !isPaused) {
       OpenChat();
-    } else if (!isChatOpen && Input.GetButtonDown("Menu") && getLevel() != 0) {
+    } else if (isPaused && Input.GetButtonDown("Menu") && getLevel() != 0) {
       MainMenu();
     }
     Cursor.visible = showCursor;
@@ -221,9 +224,9 @@ public class GameData : MonoBehaviour {
   public static bool vignette = true;
   public static bool dof = true;
   public static bool motionBlur = true;
-  public static bool bloomAndFlares = false;
+  public static bool bloomAndFlares = true;
   public static bool fullscreen = true;
   public static bool soundEffects = true;
   public static bool music = true;
-  public static bool cameraDamping = true;
+  public static bool cameraDamping = false;
 }

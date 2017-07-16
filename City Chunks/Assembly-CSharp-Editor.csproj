@@ -47,7 +47,6 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Day Night Cycle\Editor\DayNightControllerEditor.cs" />
-     <Compile Include="Assets\Photon Unity Networking\Demos\DemoHub\Editor\PunStartup.cs" />
      <Compile Include="Assets\Photon Unity Networking\Editor\PhotonNetwork\AccountService.cs" />
      <Compile Include="Assets\Photon Unity Networking\Editor\PhotonNetwork\CullAreaEditor.cs" />
      <Compile Include="Assets\Photon Unity Networking\Editor\PhotonNetwork\PhotonConverter.cs" />
@@ -65,6 +64,34 @@
      <Compile Include="Assets\Photon Unity Networking\Editor\PhotonNetwork\Views\PhotonTransformViewEditor.cs" />
      <Compile Include="Assets\Photon Unity Networking\UtilityScripts\PhotonPlayer\Editor\PlayerRoomIndexingInspector.cs" />
      <Compile Include="Assets\Photon Unity Networking\UtilityScripts\PhotonPlayer\Editor\PunTeamsInspector.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\PlayFabEditor.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Components\ProgressBar.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Components\SubMenuComponent.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Components\TitleDataEditor.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Components\TitleDataViewer.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Components\TitleInternalDataEditor.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Components\TitleInternalDataViewer.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorAuthenticate.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorDataMenu.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorHeader.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorHelpMenu.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorMenu.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorSDKTools.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorSettings.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Panels\PlayFabEditorToolsMenu.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\PlayFabEditorSDK\ISerializer.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\PlayFabEditorSDK\PlayFabEditorApi.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\PlayFabEditorSDK\PlayFabEditorHttp.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\PlayFabEditorSDK\PlayFabEditorModels.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\PlayFabEditorSDK\SimpleJson.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Utils\EditorCoroutine.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Utils\PlayFabEditorDataService.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Utils\PlayFabEditorHelper.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Utils\PlayFabEditorPackageManager.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Utils\PlayFabEditorUtils.cs" />
+     <Compile Include="Assets\PlayFabEditorExtensions\Editor\Scripts\Utils\PlayFabGuiFieldHelper.cs" />
+     <Compile Include="Assets\PlayFabSdk\Shared\Editor\PlayFabHelp.cs" />
+     <Compile Include="Assets\PlayFabSdk\Shared\Models\Editor\MakeSharedSettingsObj.cs" />
      <Compile Include="Assets\PostProcessing\Editor\Attributes\PostProcessingModelEditorAttribute.cs" />
      <Compile Include="Assets\PostProcessing\Editor\Models\AmbientOcclusionModelEditor.cs" />
      <Compile Include="Assets\PostProcessing\Editor\Models\AntialiasingModelEditor.cs" />
@@ -100,12 +127,12 @@
      <Compile Include="Assets\PostProcessing\Editor\Utils\FxStyles.cs" />
      <Compile Include="Assets\PostProcessing\Editor\Utils\ReflectionUtils.cs" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.shader" />
+     <None Include="Assets\PlayFabSdk\link.xml" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\Fog.shader" />
      <None Include="Assets\Standard Assets\Effects\ImageEffects\Shaders\SunShaftsComposite.shader" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\ParadeRender.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\LutGen.shader" />
-     <None Include="Assets\Photon Unity Networking\Demos\MarcoPolo-Tutorial\marcopolo-readme.txt" />
      <None Include="Assets\Photon Unity Networking\link.xml" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\HistogramRender.shader" />
      <None Include="Assets\PostProcessing\Editor Resources\UI\CurveBackground.shader" />
@@ -133,7 +160,6 @@
      <None Include="Assets\Standard Assets\Environment\Water (Basic)\Shaders\FXWaterBasic.shader" />
      <None Include="Assets\PostProcessing\Editor Resources\UI\Trackball.shader" />
      <None Include="Assets\Standard Assets\CrossPlatformInput\CrossPlatformInputGuidelines.txt" />
-     <None Include="Assets\Photon Unity Networking\Demos\DemoBoxes\Resources\eurof_tt.txt" />
      <None Include="Assets\PostProcessing\Resources\Shaders\Bloom.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\TAA.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\EyeHistogram.compute" />
@@ -145,7 +171,6 @@
      <None Include="Assets\PostProcessing\Resources\Shaders\DiskKernels.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\ScreenSpaceRaytrace.cginc" />
-     <None Include="Assets\Photon Unity Networking\Demos\Shared Assets\Skin\3dText.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\Bloom.shader" />
      <None Include="Assets\Photon Unity Networking\readme.txt" />
      <None Include="Assets\Custom Assets\Scripts\Names.txt" />
@@ -158,14 +183,10 @@
      <None Include="Assets\Custom Assets\Scripts\NamesFormatted.txt" />
      <None Include="Assets\Standard Assets\Effects\ImageEffects\Shaders\SimpleClear.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\AmbientOcclusion.cginc" />
-     <None Include="Assets\Photon Unity Networking\Demos\DemoRockPaperScissors\Assets\OpenSans\Apache License.txt" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
      <None Include="Assets\Photon Unity Networking\changelog.txt" />
  <Reference Include="Assembly-UnityScript">
  <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Library/ScriptAssemblies/Assembly-UnityScript.dll</HintPath>
- </Reference>
- <Reference Include="UnityEngine.Advertisements">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
  </Reference>
  <Reference Include="UnityEditor.Advertisements">
  <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/Editor/UnityEditor.Advertisements.dll</HintPath>
