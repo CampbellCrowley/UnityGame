@@ -1,4 +1,3 @@
-// v0.0.5
 ////////////////////////////////////////////////////////////////////
 // WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
 //                      USE WITH CAUTION!                         //
@@ -21,7 +20,7 @@
 #define DEBUG_HUD_POS
 // #define DEBUG_HUD_TIMES
 // #define DEBUG_HUD_LOADED
-// #define DEBUG_HUD_LOADING
+#define DEBUG_HUD_LOADING
 
 using UnityEngine;
 using System;
@@ -246,12 +245,12 @@ public class TerrainGenerator : MonoBehaviour {
 
   private DetailPrototype[] TerrainGrassPrototypes;
 
-  public static bool doneLoadingSpawn = false;
+  // True allows for things to continue even if this does not exists in the
+  // scene. Gets set to false at the beginning of Start().
+  public static bool doneLoadingSpawn = true;
   public static bool wasDoneLoadingSpawn = false;
   public static float waterHeight = 0f;
   public static float snowHeight = 960f;
-  public static bool Enabled = false;
-  public static TerrainGenerator TGInstance;
 
   int terrWidth;  // Used to space the terrains when instantiating.
   int terrLength; // Size of the terrain chunk in normal units.
@@ -308,17 +307,8 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
 
   void Awake() {
-    if (TGInstance == null) {
-      TGInstance = this;
-      players = new List<InitPlayer>(FindObjectsOfType<InitPlayer>());
-    } else if (TGInstance != this) {
-      Destroy(gameObject);
-    }
+    players = new List<InitPlayer>(FindObjectsOfType<InitPlayer>());
   }
-
-  // Helpers for figuring out whether the generator exists in the scene.
-  void OnEnabled() { Enabled = true; }
-  void OnDisable() { Enabled = false; }
 
   void Start() {
     Debug.Log("Terrain Generator Start!");
@@ -503,10 +493,7 @@ public class TerrainGenerator : MonoBehaviour {
 
     ApplyHeightmap(ref done, ref iTime);
 
-    // UpdateAllLOD(ref done, ref iTime);
-
     UpdateAllTrees(ref done, ref iTime);
-
 
     UpdateAllSplats(ref done, ref iTime);
 
@@ -547,7 +534,7 @@ public class TerrainGenerator : MonoBehaviour {
       }
       yield return null;
     } while (keepGoing);
-    Debug.Log("Done Pre-Loading Chunks");
+    Debug.Log("Done Pre-Loading Chunks (" + terrains.Count + ")");
     preLoadingDone = true;
     preLoadingChunks = false;
   }
@@ -630,9 +617,8 @@ public class TerrainGenerator : MonoBehaviour {
       if (!terrains[i].gameObject) {
         terrains.RemoveAt(i);
         i--;
-      }
-      if (!terrains[i].loadingFromDisk && terrains[i].justLoadedFromDisk &&
-          terrains[i].loadedFromDisk) {
+      } else if (!terrains[i].loadingFromDisk &&
+                 terrains[i].justLoadedFromDisk && terrains[i].loadedFromDisk) {
         terrains[i].texQueue = false;
         terrains[i].detailQueue = false;
         terrains[i].treeQueue = false;
@@ -2780,6 +2766,7 @@ public class TerrainGenerator : MonoBehaviour {
         return;
       }
     }
+    Debug.Log("Done loading spawn!");
     TerrainGenerator.doneLoadingSpawn = true;
   }
 

@@ -5,9 +5,7 @@ Project Outline (Private)
 https://goo.gl/4ShZqV
 
 # Welcome to the City Chunks wiki!
-#### Current Release Version: v0.0.5m_2
-Unity Version: 5.6.2f2
-#### Current WIP Version: v0.0.5m_2
+#### This Commit Version: v0.0.6m_4
 Unity Version: 5.6.2f2
 
 ## Installation / Setup

@@ -62,6 +62,7 @@ public
   public float flyDownEndTime = 1.5f;
   public float deltaSendTime = 0.0f;
   public float deltaReceiveTime = 0.0f;
+  public bool waitForSpawnLoading = true;
 
   Animator anim;
   Cinematic cinematic;
@@ -129,6 +130,7 @@ public
 
     Camera = Instantiate(Camera);
     Camera.transform.parent = null;
+    Camera.transform.rotation = Quaternion.identity;
     Camera.GetComponent<Camera>().enabled = true;
     Camera.GetComponent<AudioListener>().enabled = true;
     Camera.name = "CameraFor" + GameData.username;
@@ -276,8 +278,7 @@ public
                    "\nMouseY: " + lookVertical + "\nTime: " + Time.time;
     }
 
-    if (!TerrainGenerator.doneLoadingSpawn && !spawned &&
-        TerrainGenerator.Enabled) {
+    if (!TerrainGenerator.doneLoadingSpawn && !spawned && waitForSpawnLoading) {
       levelStartTime = Time.time;
       Camera.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
       cameraSpawnRotation = Camera.transform.rotation;

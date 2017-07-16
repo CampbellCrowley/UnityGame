@@ -73,6 +73,18 @@ public class GameData : MonoBehaviour {
     LoadingScreenExists = false;
   }
 
+  public static void OpenChat() {
+    if (isChatOpen) return;
+    isChatOpen = true;
+    GameData.showCursor = true;
+  }
+
+  public static void CloseChat() {
+    if (!isChatOpen) return;
+    isChatOpen = false;
+    GameData.showCursor = false;
+  }
+
   public static void PlayGame() {
     Debug.Log("Play Game!");
   }
@@ -95,23 +107,22 @@ public class GameData : MonoBehaviour {
   }
  
   void Update() {
- #if UNITY_EDITOR || UNITY_STANDALONE
+#if UNITY_EDITOR || UNITY_STANDALONE
     if (getLevel() == 0 || isPaused) {
       Application.targetFrameRate = 30;
     } else {
       Application.targetFrameRate = -1;
     }
- #endif
+#endif
     if (Time.time - loadEndTime > 1 &&
         Time.time - loadEndTime - Time.deltaTime < 1 && loading &&
         loadEndTime != -1) {
       loading = false;
     }
     if (Input.GetButtonDown("Pause") && getLevel() != 0 &&
-        (TerrainGenerator.doneLoadingSpawn || !TerrainGenerator.Enabled)) {
+        TerrainGenerator.doneLoadingSpawn) {
       if (isChatOpen) {
-        isChatOpen = false;
-        GameData.showCursor = false;
+        CloseChat();
       } else {
         GameData.isPaused = !GameData.isPaused;
         GameData.showCursor = isPaused;
@@ -124,9 +135,8 @@ public class GameData : MonoBehaviour {
       }
     } else if (Input.GetButtonDown("OpenChat") && getLevel() != 0 &&
                !isPaused) {
-      isChatOpen = true;
-      GameData.showCursor = true;
-    } else if (Input.GetButtonDown("Menu") && getLevel() != 0) {
+      OpenChat();
+    } else if (!isChatOpen && Input.GetButtonDown("Menu") && getLevel() != 0) {
       MainMenu();
     }
     Cursor.visible = showCursor;
