@@ -200,10 +200,6 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public GameObject waterTile;
   [Tooltip("Maximum number of trees per chunk to be generated.")]
   [SerializeField] public int maxNumTrees = 500;
-  // Player for deciding when to load chunks based on position.
-  GameObject player;
-  private static List<InitPlayer> players = new List<InitPlayer>();
-  int numIdentifiedPlayers = 0;
   [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
   [SerializeField] public bool useSeed = true;
   [Tooltip("The predetermined seed to use if Use Seed is false.")]
@@ -260,6 +256,10 @@ public class TerrainGenerator : MonoBehaviour {
   int heightmapHeight;
   int alphamapHeight;
   int alphamapWidth;
+
+  // Player for deciding when to load chunks based on position.
+  InitPlayer player;
+
   // Used to identify the corners of the loaded terrain when not generating in a
   // radius from the player
   int width;  // Total size of heightmaps combined
@@ -306,10 +306,6 @@ public class TerrainGenerator : MonoBehaviour {
   // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
 #endif
-
-  void Awake() {
-    players = new List<InitPlayer>(FindObjectsOfType<InitPlayer>());
-  }
 
   void Start() {
     Debug.Log("Terrain Generator Start!");
@@ -409,7 +405,7 @@ public class TerrainGenerator : MonoBehaviour {
 #if DEBUG_START
     Debug.Log("Attempting to save spawn chunk to disk");
 #endif
-    // SaveChunk(0, 0);
+    SaveChunk(0, 0);
     GenMode.multiThreading = multiThreading;
     radius = loadDist / ((terrWidth + terrLength) / 2.0f);
 
@@ -426,8 +422,6 @@ public class TerrainGenerator : MonoBehaviour {
     // chunks.
     float playerX = terrWidth / 2f;
     float playerZ = terrWidth / 2f;
-    // Get the player spawn height from the heightmap height at the coordinates
-    // where the player will spawn.
     float playerY = GetTerrainHeight(playerX, playerZ);
     // Starts off of edges  because there is a precision issue with generating
     // chunks that will cause chunks not to load if the player's position is
@@ -449,29 +443,7 @@ public class TerrainGenerator : MonoBehaviour {
     }
     playerSpawnX = (int)playerX;
     playerSpawnZ = (int)playerZ;
-    if (playerY < TerrainGenerator.waterHeight)
-      playerY = TerrainGenerator.waterHeight;
 
-    if (players.Count == 0) {
-      Debug.Log(
-          "No player found. Assuming multiplayer situation. If this is not " +
-          "multiplayer, then please ensure there is at least one GameObject " +
-          "with the InitPlayer component.");
-    } else if (players.Count > 1) {
-      Debug.Log("Multiplayer detected!");
-      numIdentifiedPlayers = players.Count;
-      for(int i=0; i<players.Count; i++) {
-        player = players[i].gameObject;
-        Debug.Log("Valid player found: " + player.transform.name);
-        // Tell the player where to spawn.
-        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-      }
-    } else {
-      player = players[0].gameObject;
-      Debug.Log("Valid player found: " + player.transform.name);
-      // Tell the player where to spawn.
-      (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-    }
     TerrUpdatePoints = new float[ heightmapWidth, heightmapHeight ];
     TerrTemplatePoints = new float[ heightmapWidth, heightmapHeight ];
     Debug.Log("Initialization done!");
@@ -668,93 +640,62 @@ public class TerrainGenerator : MonoBehaviour {
     float playerZ = playerSpawnZ;
     // Get the player spawn height from the heightmap height at the
     // coordinates where the player will spawn.
-    //players = GameObject.FindObjectsOfType<InitPlayer>();
     if (player == null) {
-      if (players.Count == 1) {
-        player = players[0].gameObject;
-        Debug.Log("Valid player found: " + player.transform.name);
-        // Tell the player where to spawn.
-        float playerY = GetTerrainHeight(playerX, playerZ);
-        if (playerY < TerrainGenerator.waterHeight) {
-          playerY = TerrainGenerator.waterHeight;
+      InitPlayer[] players = GameObject.FindObjectsOfType<InitPlayer>();
+      for (int i = 0; i < players.Length; i++) {
+        if(players[i].controller.isLocalPlayer) {
+          player = players[i];
+          break;
         }
-        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-      } else if (players.Count == 0 && TerrainGenerator.doneLoadingSpawn) {
-        Debug.Log("Resetting TerrainGenerator");
-        TerrainGenerator.doneLoadingSpawn = false;
-        unloadWaitCount = 100;
-        Start();
-        return;
-      } else {
-        return;
       }
-    }
-    if (players.Count > 1 && numIdentifiedPlayers < players.Count) {
-      Debug.Log("New player connected!");
-      numIdentifiedPlayers = players.Count;
-      for (int i = 0; i < players.Count; i++) {
-        player = players[i].gameObject;
-        // Tell the player where to spawn.
-        float playerY = GetTerrainHeight(playerX, playerZ);
-        if (playerY < TerrainGenerator.waterHeight) {
-          playerY = TerrainGenerator.waterHeight;
-        }
-        (player.GetComponent<InitPlayer>()).go(playerX, playerY, playerZ);
-      }
-    } else if (numIdentifiedPlayers > players.Count) {
-      Debug.Log("Player disconnected.");
-      numIdentifiedPlayers = players.Count;
+      Debug.Log("Valid player found: " + player.transform.name);
+      // Tell the player where to spawn.
+      float playerY = GetTerrainHeight(playerX, playerZ);
+      player.go(playerX, playerY, playerZ);
     }
   }
 
   void UpdateAllLoadedChunks(ref bool done, ref float iTime) {
-    players = new List<InitPlayer>(GameObject.FindObjectsOfType<InitPlayer>());
-    for (int num = 0; num < players.Count; num++) {
-      player = players[num].gameObject;
-      // Make sure the player stays above the terrain
-      float xCenter = (player.transform.position.x - terrWidth / 2) / terrWidth;
-      float yCenter =
-          (player.transform.position.z - terrLength / 2) / terrLength;
-      int terrLoc = GetTerrainWithCoord(Mathf.RoundToInt(xCenter),
-                                        Mathf.RoundToInt(yCenter));
-      if (terrLoc != -1) {
-        float TerrainHeight =
-            terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
-                player.transform.position);
+    // Make sure the player stays above the terrain
+    float xCenter = (player.transform.position.x - terrWidth / 2) / terrWidth;
+    float yCenter = (player.transform.position.z - terrLength / 2) / terrLength;
+    int terrLoc = GetTerrainWithCoord(Mathf.RoundToInt(xCenter),
+                                      Mathf.RoundToInt(yCenter));
+    if (terrLoc != -1) {
+      float TerrainHeight =
+          terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
+              player.transform.position);
 #if DEBUG_HUD_LOADED
-        LoadedChunkList +=
-            "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
+      LoadedChunkList +=
+          "x: " + xCenter + ", y: " + yCenter + ", r: " + radius + "\n";
 #endif
 
 #if DEBUG_HUD_POS
-        positionInfo.text =
-            "Joystick(" + Input.GetAxis("Mouse X") + ", " +
-            Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") +
-            ", " + Input.GetAxis("Vertical") + ")(" + Input.GetAxis("Sprint") +
-            ")\n" + "Player" + player.transform.position + "\n" + "Coord(" +
-            xCenter + ", " + yCenter + ")(" + terrLoc + ")\n" + "Coord(" +
-            Mathf.RoundToInt(xCenter) + ", " + Mathf.RoundToInt(yCenter) +
-            ")\nTerrainHeight: " + TerrainHeight + "\nHighest Point: " +
-            (highest * terrHeight) + "\nLowest Point: " +
-            (lowest * terrHeight) + "\nPeakMultiplier: " +
-            terrains[terrLoc].biome;
+      positionInfo.text =
+          "Joystick(" + Input.GetAxis("Mouse X") + ", " +
+          Input.GetAxis("Mouse Y") + ")(" + Input.GetAxis("Horizontal") + ", " +
+          Input.GetAxis("Vertical") + ")(" + Input.GetAxis("Sprint") + ")\n" +
+          "Player" + player.transform.position + "\n" + "Coord(" + xCenter +
+          ", " + yCenter + ")(" + terrLoc + ")\n" + "Coord(" +
+          Mathf.RoundToInt(xCenter) + ", " + Mathf.RoundToInt(yCenter) +
+          ")\nTerrainHeight: " + TerrainHeight + "\nHighest Point: " +
+          (highest * terrHeight) + "\nLowest Point: " + (lowest * terrHeight) +
+          "\nPeakMultiplier: " + terrains[terrLoc].biome;
 #else
-        if (positionInfo != null) positionInfo.text = "";
+      if (positionInfo != null) positionInfo.text = "";
 #endif
-        if (player.transform.position.y < TerrainHeight - 10.0f) {
+      if (player.transform.position.y < TerrainHeight - 10.0f) {
 #if DEBUG_POSITION
-          Debug.Log("Player at " + player.transform.position + "\nCoord: (" +
-                    xCenter + ", " + yCenter + ")" + "\nPlayer(" +
-                    player.transform.position + ")" + "\nTerrain Height: " +
-                    TerrainHeight + "\n\n");
+        Debug.Log("Player at " + player.transform.position + "\nCoord: (" +
+                  xCenter + ", " + yCenter + ")" + "\nPlayer(" +
+                  player.transform.position + ")" + "\nTerrain Height: " +
+                  TerrainHeight + "\n\n");
 #endif
-          movePlayerToTop(player.GetComponent<InitPlayer>());
-        }
+        movePlayerToTop(player.GetComponent<InitPlayer>());
       }
-
-      UpdateLoadedChunks(xCenter, yCenter, ref done, ref iTime);
-
     }
+
+    UpdateLoadedChunks(xCenter, yCenter, ref done, ref iTime);
   }
 
   void UpdateLoadedChunks(float xCenter, float yCenter, ref bool done,
@@ -2612,6 +2553,8 @@ public class TerrainGenerator : MonoBehaviour {
 
  public
   void SaveAllChunks() {
+    if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
+      return;
     for (int i = 0; i < terrains.Count; i++) {
       SaveChunk(terrains[i].x, terrains[i].z);
     }
@@ -2728,12 +2671,17 @@ public class TerrainGenerator : MonoBehaviour {
  public
   float GetTerrainHeight() { return GetTerrainHeight(player); }
  public
+  float GetTerrainHeight(InitPlayer player) {
+    return GetTerrainHeight(player.gameObject);
+  }
+ public
   float GetTerrainHeight(GameObject player) {
     return GetTerrainHeight(player.transform.position);
   }
- public float GetTerrainHeight(float x, float z) {
+ public
+  float GetTerrainHeight(float x, float z) {
     return GetTerrainHeight(new Vector3(x, 0, z));
- }
+  }
  public
   float GetTerrainHeight(Vector3 position) {
     int xCenter = Mathf.RoundToInt((position.x - terrWidth / 2) / terrWidth);
@@ -2748,7 +2696,7 @@ public class TerrainGenerator : MonoBehaviour {
     return 0;
   }
  public
-  void movePlayerToTop() { movePlayerToTop(player.GetComponent<InitPlayer>()); }
+  void movePlayerToTop() { movePlayerToTop(player); }
  public
   void movePlayerToTop(GameObject player) {
     movePlayerToTop(player.GetComponent<InitPlayer>());
@@ -2757,7 +2705,8 @@ public class TerrainGenerator : MonoBehaviour {
   void movePlayerToTop(InitPlayer player) {
     // Make sure the player stays above the terrain
     if (player != null) {
-      player.updatePosition(player.transform.position.x, GetTerrainHeight(),
+      player.updatePosition(player.transform.position.x,
+                            GetTerrainHeight(player),
                             player.transform.position.z);
     }
   }
@@ -2789,20 +2738,5 @@ public class TerrainGenerator : MonoBehaviour {
     }
     Debug.Log("Done loading spawn!");
     TerrainGenerator.doneLoadingSpawn = true;
-  }
-
- public
-  static void RemovePlayer(InitPlayer player) {
-    for (int i = 0; i < players.Count; i++) {
-      if (players[i] == player) {
-        players.RemoveAt(i);
-        return;
-      }
-    }
-  }
-
- public
-  static void AddPlayer(InitPlayer newPlayer) {
-    players.Add(newPlayer);
   }
 }

@@ -8,6 +8,12 @@ class InitPlayer : MonoBehaviour {
  private
   bool spawned = false;
  public
+  PlayerController controller;
+
+ public
+  void Awake() { controller = GetComponent<PlayerController>(); }
+
+ public
   void go(float x, float y, float z) {
     if (!spawned) {
       transform.position = new Vector3(x, y + spawnHeight, z);

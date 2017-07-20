@@ -4,11 +4,13 @@ using UnityEngine;
 
 public
 class PlayFabAuthenticator : MonoBehaviour {
- private
+  private
   string _playFabPlayerIdCache;
 
- public
-  void Start() { AuthenticateWithPlayFab(); }
+  public
+  void Start() {
+    AuthenticateWithPlayFab();
+  }
 
   /*
    * Step 1
@@ -19,15 +21,12 @@ class PlayFabAuthenticator : MonoBehaviour {
    * We pass RequestPhotonToken as a callback to be our next step, if
    * authentication was successful.
    */
- private
+  private
   void AuthenticateWithPlayFab() {
     LogMessage("PlayFab authenticating using Custom ID...");
-
-    PlayFabClientAPI.LoginWithCustomID(
-        new LoginWithCustomIDRequest(){
-            CreateAccount = true,
-            CustomId = PlayFabSettings.DeviceUniqueIdentifier},
-        RequestPhotonToken, OnPlayFabError);
+    PlayFabClientAPI.LoginWithCustomID(new LoginWithCustomIDRequest() {
+      CreateAccount = true, CustomId = PlayFabSettings.DeviceUniqueIdentifier
+    }, RequestPhotonToken, OnPlayFabError);
   }
 
   /*
@@ -41,22 +40,20 @@ class PlayFabAuthenticator : MonoBehaviour {
   * We pass in AuthenticateWithPhoton as a callback to be our next step, if
   * we have acquired token succesfully
   */
- private
+  private
   void RequestPhotonToken(LoginResult obj) {
     LogMessage("PlayFab authenticated. Requesting photon token...");
-
     // We can player PlayFabId. This will come in handy during next step
     _playFabPlayerIdCache = obj.PlayFabId;
-
     PlayFabClientAPI.GetPhotonAuthenticationToken(
-        new GetPhotonAuthenticationTokenRequest(){
-            PhotonApplicationId = PhotonNetwork.PhotonServerSettings.AppID},
-        AuthenticateWithPhoton, OnPlayFabError);
-
+    new GetPhotonAuthenticationTokenRequest() {
+      PhotonApplicationId = PhotonNetwork.PhotonServerSettings.AppID
+    }, AuthenticateWithPhoton, OnPlayFabError);
     PlayFabClientAPI.GetPhotonAuthenticationToken(
-        new GetPhotonAuthenticationTokenRequest(){
-            PhotonApplicationId = PhotonNetwork.PhotonServerSettings.ChatAppID},
-        AuthenticateChatWithPhoton, OnPlayFabError);
+    new GetPhotonAuthenticationTokenRequest() {
+      PhotonApplicationId = PhotonNetwork.PhotonServerSettings.ChatAppID
+    },
+    AuthenticateChatWithPhoton, OnPlayFabError);
   }
 
   /*
@@ -66,55 +63,49 @@ class PlayFabAuthenticator : MonoBehaviour {
    * This class describes how to authenticate a players inside Photon
    * environment.
    */
- private
+  private
   void AuthenticateWithPhoton(GetPhotonAuthenticationTokenResult obj) {
     LogMessage("Photon token acquired: " + obj.PhotonCustomAuthenticationToken +
                "  Authentication complete.");
-
     // We set AuthType to custom, meaning we bring our own, PlayFab
     // authentication procedure.
     var customAuth =
-        new AuthenticationValues{AuthType = CustomAuthenticationType.Custom};
-
+      new AuthenticationValues {AuthType = CustomAuthenticationType.Custom};
     // We add "username" parameter. Do not let it confuse you: PlayFab is
     // expecting this parameter to contain player PlayFab ID (!) and not
     // username.
     customAuth.AddAuthParameter(
-        "username",
-        _playFabPlayerIdCache);  // expected by PlayFab custom auth service
-
+      "username",
+      _playFabPlayerIdCache);
+    // expected by PlayFab custom auth service
     // We add "token" parameter. PlayFab expects it to contain Photon
     // Authentication Token issues to your during previous step.
     customAuth.AddAuthParameter("token", obj.PhotonCustomAuthenticationToken);
-
     // We finally tell Photon to use this authentication parameters throughout
     // the entire application.
     PhotonNetwork.AuthValues = customAuth;
   }
 
- private
+  private
   void AuthenticateChatWithPhoton(GetPhotonAuthenticationTokenResult obj) {
-    LogMessage("Photon chat token acquired: " +
-               obj.PhotonCustomAuthenticationToken +
-               "  Authentication complete.");
-
-    var customAuth = new ExitGames.Client.Photon.Chat.AuthenticationValues{
-        AuthType =
-            ExitGames.Client.Photon.Chat.CustomAuthenticationType.Custom};
-
+    LogMessage("Photon chat token acquired: " + obj.PhotonCustomAuthenticationToken
+               + "  Authentication complete.");
+    var customAuth = new ExitGames.Client.Photon.Chat.AuthenticationValues {
+      AuthType =
+      ExitGames.Client.Photon.Chat.CustomAuthenticationType.Custom
+    };
     customAuth.AddAuthParameter("username", _playFabPlayerIdCache);
-
     customAuth.AddAuthParameter("token", obj.PhotonCustomAuthenticationToken);
-
     customAuth.UserId = _playFabPlayerIdCache;
-
     ChatManager.AuthVal = customAuth;
   }
 
- private
-  void OnPlayFabError(PlayFabError obj) { LogMessage(obj.ErrorMessage); }
+  private
+  void OnPlayFabError(PlayFabError obj) {
+    LogMessage(obj.ErrorMessage);
+  }
 
- public
+  public
   void LogMessage(string message) {
     Debug.Log("PlayFab + Photon: " + message);
   }
