@@ -83,13 +83,10 @@ public class VehicleController : MonoBehaviour {
          }
        }
      }
-     TerrainGenerator terrain = FindObjectOfType<TerrainGenerator>();
-     if (terrain != null) {
-       float terrainHeight = terrain.GetTerrainHeight(rbody.position);
-       if (rbody.position.y < terrainHeight) {
-         rbody.position =
-             new Vector3(rbody.position.x, terrainHeight, rbody.position.z);
-       }
+     float terrainHeight = TerrainGenerator.GetTerrainHeight(rbody.position);
+     if (rbody.position.y < terrainHeight) {
+       rbody.position =
+           new Vector3(rbody.position.x, terrainHeight, rbody.position.z);
      }
      transform.position = rbody.position;
      transform.rotation = rbody.rotation;

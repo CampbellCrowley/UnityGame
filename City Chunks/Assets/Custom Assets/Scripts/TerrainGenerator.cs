@@ -193,7 +193,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   [Header("Terrains (Auto-populated)")]
   [Tooltip("The list of all currently loaded chunks.")]
-  [SerializeField] public List<Terrains> terrains = new List<Terrains>();
+  [SerializeField] public static List<Terrains> terrains = new List<Terrains>();
 
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
@@ -249,16 +249,16 @@ public class TerrainGenerator : MonoBehaviour {
   public static float waterHeight = 0f;
   public static float snowHeight = 960f;
 
-  int terrWidth;  // Used to space the terrains when instantiating.
-  int terrLength; // Size of the terrain chunk in normal units.
-  int terrHeight; // Maximum height of the terrain chunk in normal units.
+  private static int terrWidth;  // Used to space the terrains when instantiating.
+  private static int terrLength; // Size of the terrain chunk in normal units.
+  private static int terrHeight; // Maximum height of the terrain chunk in normal units.
   int heightmapWidth;  // The size of an individual heightmap of each chunk.
   int heightmapHeight;
   int alphamapHeight;
   int alphamapWidth;
 
   // Player for deciding when to load chunks based on position.
-  InitPlayer player;
+  private static InitPlayer player;
 
   // Used to identify the corners of the loaded terrain when not generating in a
   // radius from the player
@@ -1325,15 +1325,7 @@ public class TerrainGenerator : MonoBehaviour {
       foreach (Component comp in terrains[terrains.Count - 1]
                    .gameObject.GetComponents<Component>()) {
         if (!(comp is Transform) && !(comp is Terrain) &&
-            !(comp is TerrainCollider) &&
-            !(comp is UnityEngine.Networking.NetworkIdentity)) {
-          Destroy(comp);
-        }
-      }
-      foreach (Component comp in terrains[terrains.Count - 1]
-                   .gameObject.GetComponents<Component>()) {
-        if (!(comp is Transform) && !(comp is Terrain) &&
-            !(comp is TerrainCollider)) {
+            !(comp is TerrainCollider) && !(comp is NavMeshSourceTag)) {
           Destroy(comp);
         }
       }
@@ -2581,7 +2573,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   // Give array index from coordinates.
-  int GetTerrainWithCoord(int x, int z) {
+  private static int GetTerrainWithCoord(int x, int z) {
     for (int i = 0; i < terrains.Count; i++) {
       if (terrains[i].x == x && terrains[i].z == z) {
         return i;
@@ -2669,21 +2661,21 @@ public class TerrainGenerator : MonoBehaviour {
   // Returns the height of the terrain at the player's current location in
   // global units.
  public
-  float GetTerrainHeight() { return GetTerrainHeight(player); }
+  static float GetTerrainHeight() { return GetTerrainHeight(player); }
  public
-  float GetTerrainHeight(InitPlayer player) {
+  static float GetTerrainHeight(InitPlayer player) {
     return GetTerrainHeight(player.gameObject);
   }
  public
-  float GetTerrainHeight(GameObject player) {
+  static float GetTerrainHeight(GameObject player) {
     return GetTerrainHeight(player.transform.position);
   }
  public
-  float GetTerrainHeight(float x, float z) {
+  static float GetTerrainHeight(float x, float z) {
     return GetTerrainHeight(new Vector3(x, 0, z));
   }
  public
-  float GetTerrainHeight(Vector3 position) {
+  static float GetTerrainHeight(Vector3 position) {
     int xCenter = Mathf.RoundToInt((position.x - terrWidth / 2) / terrWidth);
     int yCenter = Mathf.RoundToInt((position.z - terrLength / 2) / terrLength);
     int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
@@ -2695,6 +2687,10 @@ public class TerrainGenerator : MonoBehaviour {
     }
     return 0;
   }
+ public
+  static Vector3 GetPointOnTerrain(Vector3 position) {
+    return new Vector3(position.x, GetTerrainHeight(position), position.z);
+ }
  public
   void movePlayerToTop() { movePlayerToTop(player); }
  public

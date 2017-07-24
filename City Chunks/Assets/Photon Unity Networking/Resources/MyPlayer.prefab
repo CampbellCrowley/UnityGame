@@ -2689,6 +2689,7 @@ MonoBehaviour:
   deltaSendTime: 0
   deltaReceiveTime: 0
   waitForSpawnLoading: 1
+  isLocalPlayer: 0
 --- !u!114 &114216104685786378
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -2730,7 +2731,7 @@ MonoBehaviour:
   m_PositionModel:
     SynchronizeEnabled: 1
     TeleportEnabled: 1
-    TeleportIfDistanceGreaterThan: 3
+    TeleportIfDistanceGreaterThan: 1.5
     InterpolateOption: 4
     InterpolateMoveTowardsSpeed: 1
     InterpolateLerpSpeed: 5
@@ -2793,6 +2794,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spawnHeight: 2
+  controller: {fileID: 0}
 --- !u!136 &136100998591200266
 CapsuleCollider:
   m_ObjectHideFlags: 1
