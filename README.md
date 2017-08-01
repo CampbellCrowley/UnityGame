@@ -4,9 +4,9 @@ A game I'm making in Unity that currently includes unlimited terrain generation.
 Project Outline (Private)
 https://goo.gl/4ShZqV
 
-# Welcome to the City Chunks wiki!
+# Welcome to the City Chunks readme!
 #### This Commit Version: v0.0.6m_4
-Unity Version: 5.6.2f2
+Unity Version: 5.6.2f1
 
 ## Installation / Setup
 Windows x64 executable of v0.0.5m_2 available [here](https://dev.campbellcrowley.com/game/CityChunksv0.0.5m_2.zip).
@@ -22,7 +22,7 @@ Open the Unity project in the corresponding version of Unity (Newer may work, bu
 ### Starting the game from the Unity editor:
 * Ensure the Menu scene is open before clicking play.
 * Game can also be exited by pressing `ctrl + p`.
-### Playing the game once in the menu:
+### Playing the game once in the menu (Needs updating):
 * Press "H" or click the "Host Game" button to start a game.
 * Type the IP address of a hosted game to connect to an existing game, then click "Connect to host".
   - Default ip and port: dev.campbellcrowley.com:7777
@@ -36,6 +36,7 @@ Open the Unity project in the corresponding version of Unity (Newer may work, bu
 * Left Ctrl to crouch.
 * Space to jump.
 * Mouse movement to move camera.
+* V to switch between first and third person view.
 
 ## Issues
 The project is only regularly tested on Windows 10. Other OS's may be supported, but are not tested. If you have any issues using any OS, please leave a bug report detailing any errors and any information that may help us reproduce the issue. We will try to get to bugs, but there is no guarantee that we will be able to fix all of them.
