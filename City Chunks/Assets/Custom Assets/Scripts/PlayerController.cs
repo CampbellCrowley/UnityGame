@@ -597,7 +597,7 @@ public class PlayerController : Photon.MonoBehaviour {
         movement *= 30f;
       } else {
         if (isUnderwater) {
-          if (transform.position.y < TerrainGenerator.waterHeight - 0.9f) {
+          if (transform.position.y < TerrainGenerator.waterHeight - 0.8f) {
             movement +=
               Mathf.Clamp (
                 rbody.velocity.y +

@@ -33,6 +33,7 @@ GameObject:
   - component: {fileID: 114111702762129126}
   - component: {fileID: 114971885509086764}
   - component: {fileID: 114155125966903428}
+  - component: {fileID: 114127912790660370}
   m_Layer: 0
   m_Name: CameraRig
   m_TagString: MainCamera
@@ -295,13 +296,13 @@ MonoBehaviour:
     colorWheels:
       mode: 0
       log:
-        slope: {r: 0, g: 0, b: 0, a: 0}
-        power: {r: 0, g: 0, b: 0, a: 0}
-        offset: {r: 0, g: 0, b: 0, a: 0}
+        slope: {r: 1, g: 1, b: 1, a: 0}
+        power: {r: 1, g: 1, b: 1, a: 0}
+        offset: {r: 1, g: 1, b: 1, a: 0}
       linear:
-        lift: {r: 0, g: 0, b: 0, a: 0}
-        gamma: {r: 0, g: 0, b: 0, a: 0}
-        gain: {r: 0, g: 0, b: 0, a: 0}
+        lift: {r: 1, g: 1, b: 1, a: 0}
+        gamma: {r: 1, g: 1, b: 1, a: 0}
+        gain: {r: 1, g: 1, b: 1, a: 0}
     curves:
       master:
         curve:
@@ -417,6 +418,17 @@ MonoBehaviour:
     mask: {fileID: 0}
     opacity: 0
     rounded: 0
+--- !u!114 &114127912790660370
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 154246}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 310e16e1cb73ccb459c1391bb79e99ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &114155125966903428
 MonoBehaviour:
   m_ObjectHideFlags: 1

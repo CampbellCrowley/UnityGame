@@ -3,23 +3,34 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+public
+ enum QuitReason {
+   NORMAL,
+   UNEXPECTED,
+   RANDMISMATCH,
+   GENUINECHECKFAIL,
+   VERSIONMISMATCH
+ };
+
 public class GameData : MonoBehaviour {
 
   public const string TerrainGeneratorVersion = "v0.0.6";
   public const string MultiplayerVersion = "m_4";
- 
+  public static string version = "";
+
   public static GameData Instance;
 
   public AudioSource MusicPlayer;
   public AudioClip QueuedMusic;
   public GameObject PauseMenu;
   private GameObject PauseMenu_;
- 
+
   void Awake() {
     if (Instance == null) {
       MusicPlayer = GetComponent<AudioSource>();
       DontDestroyOnLoad(gameObject);
       Instance = this;
+      version = TerrainGeneratorVersion + MultiplayerVersion;
     } else if (Instance != this) {
       if (GetComponent<AudioSource>().clip != null) {
         Instance.QueuedMusic = GetComponent<AudioSource>().clip;
@@ -50,9 +61,10 @@ public class GameData : MonoBehaviour {
   public static string previousLoadingMessage = "Readying the pigeons.";
   public static string loadingMessage = "Readying the pigeons.";
   public static bool LoadingScreenExists = false;
- 
+  public static QuitReason quitReason = QuitReason.UNEXPECTED;
+
   private static float loadEndTime = -1;
- 
+
   public static int getLevel() {
     return SceneManager.GetActiveScene().buildIndex;
   }
@@ -106,11 +118,16 @@ public class GameData : MonoBehaviour {
             GameData.username == "";
   }
 
-  public static void quit() {
-    Debug.Log("Exiting Game");
+  public static void quit(QuitReason reason = QuitReason.NORMAL) {
+    Debug.LogWarning("Exiting Game (" + reason + ")");
+    quitReason = reason;
+#if UNITY_EDITOR
+    UnityEditor.EditorApplication.isPlaying = false;
+#else
     Application.Quit();
+#endif
   }
- 
+
   void Update() {
 #if UNITY_EDITOR || UNITY_STANDALONE
     if (getLevel() == 0 || isPaused) {
@@ -158,56 +175,56 @@ public class GameData : MonoBehaviour {
       MusicPlayer.volume = Mathf.Lerp(MusicPlayer.volume, goalVol, 0.1f);
     }
   }
- 
+
   public static void LoadSettings() {
     string debug = "Settings Loaded: [\n";
     if (PlayerPrefs.HasKey("Vignette")) {
       vignette = PlayerPrefs.GetInt("Vignette") == 1;
       debug += "Vignette: " + vignette + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("DOF")) {
       dof = PlayerPrefs.GetInt("DOF") == 1;
       debug += "DOF: " + dof + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("Motion Blur")) {
       motionBlur = PlayerPrefs.GetInt("Motion Blur") == 1;
       debug += "Motion Blur: " + motionBlur + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("Bloom and Flare")) {
       bloomAndFlares =
           PlayerPrefs.GetInt("Bloom and Flare") == 1;
       debug += "Bloom and Flare: " + bloomAndFlares + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("Fullscreen")) {
       fullscreen = PlayerPrefs.GetInt("Fullscreen") == 1;
       debug += "Fullscreen: " + fullscreen + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("Sound Effects")) {
       soundEffects = PlayerPrefs.GetInt("Sound Effects") == 1;
       debug += "Sound Effects: " + soundEffects + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("Music")) {
       music = PlayerPrefs.GetInt("Music") == 1;
       debug += "Music: " + music + ",\n";
     }
- 
+
     if (PlayerPrefs.HasKey("Camera Damping")) {
       cameraDamping = PlayerPrefs.GetInt("Camera Damping") == 1;
       debug += "Camera Damping: " + cameraDamping + ",\n";
     }
- 
+
     debug += "]";
     Debug.Log(debug);
- 
+
     Screen.fullScreen = fullscreen;
   }
- 
+
   public static void SaveSettings() {
     PlayerPrefs.SetInt("Vignette", vignette ? 1 : 0);
     PlayerPrefs.SetInt("DOF", dof ? 1 : 0);
@@ -217,10 +234,10 @@ public class GameData : MonoBehaviour {
     PlayerPrefs.SetInt("Sound Effects", soundEffects ? 1 : 0);
     PlayerPrefs.SetInt("Music", music ? 1 : 0);
     PlayerPrefs.SetInt("Camera Damping", cameraDamping ? 1 : 0);
- 
+
     PlayerPrefs.Save();
   }
- 
+
   public static bool vignette = true;
   public static bool dof = true;
   public static bool motionBlur = true;

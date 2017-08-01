@@ -18,6 +18,7 @@ public class NPCController : MonoBehaviour {
   private LocalNavMeshBuilder meshBuilder;
   private float navMeshSpeed;
   public GameObject destinationMarker;
+  public bool terrainGenerator = true;
   private Vector3 goal;
   private float spawnTime = 0;
   private float lastGoalUpdate = 0f;
@@ -75,6 +76,13 @@ public class NPCController : MonoBehaviour {
   [HideInInspector] public bool isDead = false;
   public float knockbackMultiplier = 1f;
   bool isKnockback;
+
+  public DebugOptions debugOptions;
+  [System.Serializable]
+  public class DebugOptions {
+    public bool randomWalk = false;
+    public bool randomActions = false;
+  }
 
   void Start() {
     // set the animator component
@@ -151,17 +159,27 @@ public class NPCController : MonoBehaviour {
       agent.enabled = Time.time - spawnTime > 5;
       if (agent.isOnNavMesh) {
         agent.isStopped = (agent.remainingDistance < 0.1);
-        if (Time.time - lastGoalUpdate > 15 &&
+        if (debugOptions.randomWalk && Time.time - lastGoalUpdate > 15 &&
             agent.remainingDistance <= agent.stoppingDistance) {
-          goal = TerrainGenerator.GetPointOnTerrain(
-              transform.position +
-              new Vector3(Random.Range(-500, 500), 0, Random.Range(-500, 500)));
+          if(terrainGenerator) {
+            goal = TerrainGenerator.GetPointOnTerrain(
+                transform.position + new Vector3(Random.Range(-500, 500), 0,
+                                                 Random.Range(-500, 500)));
+          } else {
+            goal = transform.position + new Vector3(Random.Range(-500, 500), 0,
+                                                    Random.Range(-500, 500));
+          }
           if (destinationMarker != null)
             Destroy(Instantiate(destinationMarker, goal, Quaternion.identity),
                     15);
           lastGoalUpdate = Time.time;
           agent.speed = Random.Range(0.75f, 6.0f);
           // isAggro = Random.value > 0.5;
+        } else if (debugOptions.randomActions &&
+                   Time.time - lastGoalUpdate > 5) {
+          isAggro = true;
+          Attack(Random.Range(1, 3));
+          lastGoalUpdate = Time.time;
         }
         if (meshBuilder != null &&
             Vector3.Distance(agent.destination, goal) >

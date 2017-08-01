@@ -29,6 +29,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 
+[assembly:System.Runtime.CompilerServices.InternalsVisibleTo("RockGenerator")]
+
 [Serializable] public class GeneratorModes {
   [Header("Displace Divide")]
   [Tooltip("Enables generator mode that displaces points randomly within ranges that vary by the distance to the center of the chunk and averages surrounding points.")]
@@ -193,7 +195,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   [Header("Terrains (Auto-populated)")]
   [Tooltip("The list of all currently loaded chunks.")]
-  [SerializeField] public static List<Terrains> terrains = new List<Terrains>();
+  [SerializeField] private static List<Terrains> terrains = new List<Terrains>();
 
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
@@ -292,7 +294,8 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
   // Number of frames to wait before unloading chunks.
   int unloadWaitCount = 100;
-  // Used for pausing the editor if a new maximum is set so the user can view what the culprut was.
+  // Used for pausing the editor if a new maximum is set so the user can view
+  // what the culprit was.
   float lastMaxUpdateTime = 0;
   bool preLoadingDone = false;
   bool preLoadingChunks = false;
@@ -308,6 +311,7 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
 
   void Start() {
+
     Debug.Log("Terrain Generator Start!");
     GameData.AddLoadingScreen();
 
@@ -2285,7 +2289,7 @@ public class TerrainGenerator : MonoBehaviour {
     }
 
     for (int i = 0; i < tex.Length; i++) {
-      tex[i].tileSize = new Vector2(16, 16);  // Sets the size of the texture
+      tex[i].tileSize = new Vector2(8, 8);  // Sets the size of the texture
       tex[i].tileOffset = new Vector2(0, 0);  // Sets the offset of the texture
       //tex[i].texture.Apply(true);
     }
@@ -2425,11 +2429,12 @@ public class TerrainGenerator : MonoBehaviour {
   void UpdateGrassDetail(TerrainData terrainData) {
     float iTime = Time.realtimeSinceStartup;
     int[,] map = new int[terrainData.detailWidth, terrainData.detailHeight];
-    float max = 16f;
+    int terrID = GetTerrainWithData(terrainData);
+    Terrain t = terrains[terrID].gameObject.GetComponent<Terrain>();
+    float max = 16f * (1f - terrains[terrID].biome);
 
     for (int x = 0; x < terrainData.detailWidth; x++) {
       for (int z = 0; z < terrainData.detailHeight; z++) {
-        // map[ x, z ] = (int)((float)x / (float)terrainData.detailWidth * max);
         float height = terrainData.GetInterpolatedHeight(
             (float)x / (float)(terrainData.detailWidth - 1),
             (float)z / (float)(terrainData.detailHeight - 1));
@@ -2445,9 +2450,6 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
     }
-
-    Terrain t = terrains[GetTerrainWithData(terrainData)]
-                    .gameObject.GetComponent<Terrain>();
 
     for (int i = 0; i < terrainData.detailPrototypes.Length; i++) {
       terrainData.SetDetailLayer(0, 0, i, map);
@@ -2629,7 +2631,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   // Find unique number for each given coordinate.
-  int PerfectlyHashThem(short a, short b) {
+  public int PerfectlyHashThem(short a, short b) {
     var A = (uint)(a >= 0 ? 2 * a : -2 * a - 1);
     var B = (uint)(b >= 0 ? 2 * b : -2 * b - 1);
     var C = (int)((A >= B ? A * A + A + B : A + B * B) / 2);
