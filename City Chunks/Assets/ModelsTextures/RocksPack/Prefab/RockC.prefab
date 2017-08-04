@@ -25,6 +25,7 @@ GameObject:
   - component: {fileID: 400002}
   - component: {fileID: 3300000}
   - component: {fileID: 2300000}
+  - component: {fileID: 64718312165050466}
   m_Layer: 0
   m_Name: Group003
   m_TagString: Untagged
@@ -56,7 +57,7 @@ Transform:
   m_GameObject: {fileID: 100000}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.25, y: 0.25, z: 0.25}
   m_Children:
   - {fileID: 400004}
   m_Father: {fileID: 0}
@@ -156,3 +157,17 @@ Prefab:
   m_ParentPrefab: {fileID: 0}
   m_RootGameObject: {fileID: 100000}
   m_IsPrefabParent: 1
+--- !u!64 &64718312165050466
+MeshCollider:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 100002}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Convex: 0
+  m_InflateMesh: 0
+  m_SkinWidth: 0.01
+  m_Mesh: {fileID: 4300000, guid: 725dee3206675764e9ddf6a6e2f736f1, type: 3}

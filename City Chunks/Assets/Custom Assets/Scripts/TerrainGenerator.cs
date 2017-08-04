@@ -29,8 +29,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 
-[assembly:System.Runtime.CompilerServices.InternalsVisibleTo("RockGenerator")]
-
 [Serializable] public class GeneratorModes {
   [Header("Displace Divide")]
   [Tooltip("Enables generator mode that displaces points randomly within ranges that vary by the distance to the center of the chunk and averages surrounding points.")]
@@ -93,6 +91,8 @@ using System.Threading;
   public float DeltaTextureUpdate = 0;
   [Tooltip("Previous amount of time updating tree prototypes and instances took in milliseconds.")]
   public float DeltaTreeUpdate = 0;
+  [Tooltip("Previous amount of time updating rock instances took in milliseconds.")]
+  public float DeltaRockUpdate = 0;
   [Tooltip("Previous amount of time updating the delayed heightmap modifications took in milliseconds.")]
   public float DeltaLODUpdate = 0;
   [Tooltip("Previous amount of time updating neighbors took in milliseconds.")]
@@ -125,6 +125,8 @@ using System.Threading;
   public float[, ] terrPerlinPoints;
   [Tooltip("List of trees currently on this chunk.")]
   public List<GameObject> TreeInstances = new List<GameObject>();
+  [Tooltip("List of rocks currently on this chunk.")]
+  public List<GameObject> RockInstances = new List<GameObject>();
   [Tooltip("The water GameObject attatched to this chunk.")]
   public GameObject waterTile;
   [Tooltip("Whether this terrain chunk is ready for its splatmap to be updated.")]
@@ -141,6 +143,8 @@ using System.Threading;
   public bool terrQueue = false;
   [Tooltip("Whether this terrain chunk is ready for its delayed hightmap modifications to be updated.")]
   public bool LODQueue = false;
+  [Tooltip("Whether this terrain chunk is ready for its rocks to be updated.")]
+  public bool rockQueue = false;
   [Tooltip("True if the heightmap is still being generated.")]
   public bool isDividing = false;
   [Tooltip("True if the heightmap has been generated.")]
@@ -158,6 +162,10 @@ using System.Threading;
   [Tooltip("Number of frames the chunk should live after it has been flagged to be unloaded.")]
   public int startTTL = 1500;
   public int currentTTL = 1500;
+
+  public override string ToString() {
+    return string.Format("Terrain({0}, {1})", x, z);
+  }
 }
 [Serializable] public class Textures {
   public int Length = 6;
@@ -195,24 +203,24 @@ public class TerrainGenerator : MonoBehaviour {
 
   [Header("Terrains (Auto-populated)")]
   [Tooltip("The list of all currently loaded chunks.")]
-  [SerializeField] private static List<Terrains> terrains = new List<Terrains>();
+  private static List<Terrains> terrains = new List<Terrains>();
 
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
-  [SerializeField] public GameObject waterTile;
+  public GameObject waterTile;
   [Tooltip("Maximum number of trees per chunk to be generated.")]
-  [SerializeField] public int maxNumTrees = 500;
+  public int maxNumTrees = 500;
   [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
-  [SerializeField] public bool useSeed = true;
+  public bool useSeed = true;
   [Tooltip("The predetermined seed to use if Use Seed is false.")]
-  [SerializeField] public int Seed = 971;
+  public int Seed = 971;
   [Tooltip("Modifier to shift the perlin noise map in order to reduce chance of finding the same patch of terrain again. The perlin noise map loops at every integer. This value is multiplied by the seed.")]
-  [SerializeField] public float PerlinSeedModifier = 0.2541868f;
+  public float PerlinSeedModifier = 0.2541868f;
   [Header("HUD Text for Debug")]
   [Tooltip("The GUIText object that is used to display the position of the player.")]
-  [SerializeField] public GUIText positionInfo;
+  public GUIText positionInfo;
   [Tooltip("The GUIText object that is used to display the list of loaded chunks.")]
-  [SerializeField] public GUIText chunkListInfo;
+  public GUIText chunkListInfo;
   [Tooltip("Tracking of how long certain events take.")]
   [SerializeField] public Times times;
   [Tooltip("The previous values of times.")]
@@ -221,19 +229,19 @@ public class TerrainGenerator : MonoBehaviour {
   [Tooltip("List of available terrain generators.")]
   [SerializeField] public GeneratorModes GenMode;
   [Tooltip("Distance the player must be from a chunk for it to be loaded.")]
-  [SerializeField] public int loadDist = 1500;
+  public int loadDist = 1500;
   [Tooltip("Roughness of terrain is modified by this value.")]
-  [SerializeField] public float roughness = 0.3f;
+  public float roughness = 0.3f;
   [Tooltip("Multiplier to exaggerate the peaks.")]
-  [SerializeField] public float PeakMultiplier = 1.0f;
+  public float PeakMultiplier = 1.0f;
   [Tooltip("Roughness of terrain is modified by this value.")]
-  [SerializeField] public float PerlinRoughness = 0.1f;
+  public float PerlinRoughness = 0.1f;
   [Tooltip("Maximum height of Perlin Generator in percentage.")]
-  [SerializeField] public float PerlinHeight = 1.0f;
+  public float PerlinHeight = 1.0f;
   [Tooltip("How quickly biomes/terrain roughness changes.")]
-  [SerializeField] public float BiomeRoughness = 0.05f;
+  public float BiomeRoughness = 0.05f;
   [Tooltip("Vertical shift of values pre-rectification.")]
-  [SerializeField] public float yShift = 0.0f;
+  public float yShift = 0.0f;
   [Header("Visuals")]
   [Tooltip("Array of textures to apply to the terrain.")]
   [SerializeField] public Textures TerrainTextures;
@@ -305,18 +313,23 @@ public class TerrainGenerator : MonoBehaviour {
   Thread thread;
   IEnumerator divideEnumerator;
   System.Random rand;
+
+  RockGenerator rg;
+
 #if DEBUG_HUD_LOADED || DEBUG_HUD_LOADING
   // List of chunks loaded as a list of coordinates.
   String LoadedChunkList = "";
 #endif
 
   void Start() {
-
     Debug.Log("Terrain Generator Start!");
     GameData.AddLoadingScreen();
 
     wasDoneLoadingSpawn = false;
     doneLoadingSpawn = false;
+
+    rg = GetComponent<RockGenerator>();
+    if (rg == null) Debug.LogWarning("Failed to find RockG!");
 
     terrains.Clear();
     if (waterTile != null)
@@ -492,6 +505,8 @@ public class TerrainGenerator : MonoBehaviour {
 
     UpdateAllTrees(ref done, ref iTime);
 
+    UpdateAllRocks(ref done, ref iTime);
+
     UpdateAllSplats(ref done, ref iTime);
 
     UpdateAllTextures(ref done, ref iTime);
@@ -539,15 +554,16 @@ public class TerrainGenerator : MonoBehaviour {
   void CalculateLoadPercent() {
       float total = 0f;
       int num = 77;
-      int count = 7;
+      int count = 8;
       for(int i=0; i<terrains.Count; i++) {
         if (terrains[i].isDividing) total += 1.0f / count;
         else if (terrains[i].waterQueue) total += 2.0f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
         else if (terrains[i].treeQueue) total += 3.5f / count;
-        else if (terrains[i].splatQueue) total += 4.5f / count;
-        else if (terrains[i].texQueue) total += 5.5f / count;
-        else if (terrains[i].detailQueue) total += 6.5f / count;
+        else if (terrains[i].rockQueue) total += 4.5f / count;
+        else if (terrains[i].splatQueue) total += 5.5f / count;
+        else if (terrains[i].texQueue) total += 6.5f / count;
+        else if (terrains[i].detailQueue) total += 7.5f / count;
         else if (terrains[i].terrReady) total += 1.0f;
         else num--;
       }
@@ -784,6 +800,7 @@ public class TerrainGenerator : MonoBehaviour {
               terrains[tileCnt].splatQueue = true;
               terrains[tileCnt].texQueue = true;
               terrains[tileCnt].treeQueue = true;
+              terrains[tileCnt].rockQueue = true;
               terrains[tileCnt].detailQueue = true;
               terrains[tileCnt].LODQueue = true;
               break;
@@ -798,6 +815,7 @@ public class TerrainGenerator : MonoBehaviour {
           terrains[tileCnt].splatQueue = true;
           terrains[tileCnt].texQueue = true;
           terrains[tileCnt].treeQueue = true;
+          terrains[tileCnt].rockQueue = true;
           terrains[tileCnt].detailQueue = true;
           // terrains[tileCnt].LODQueue = true;
           terrains[tileCnt].LODQueue = false;
@@ -917,11 +935,11 @@ public class TerrainGenerator : MonoBehaviour {
   void UpdateAllTrees(ref bool done, ref float iTime) {
     bool treesUpdated = false;
     float iTime2 = -1;
-    if(!done) {
-      for(int i=0; i< terrains.Count; i++) {
-        if(terrains[i].treeQueue && !terrains[i].loadingFromDisk) {
-          if(iTime==-1) iTime = Time.realtimeSinceStartup;
-          if(iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+    if (!done) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].treeQueue && !terrains[i].loadingFromDisk) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           UpdateTreePrototypes(terrains[i].terrData);
           UpdateTrees(terrains[i].terrData);
           terrains[i].treeQueue = false;
@@ -938,6 +956,32 @@ public class TerrainGenerator : MonoBehaviour {
       done = treesUpdated;
       GameData.loadingMessage = "Let there be life!";
       times.DeltaTreeUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
+
+  void UpdateAllRocks(ref bool done, ref float iTime) {
+    bool rocksUpdated = false;
+    float iTime2 = -1;
+    if (!done && rg != null) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].rockQueue && !terrains[i].loadingFromDisk) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+          rg.Generate(terrains[i]);
+          terrains[i].rockQueue = false;
+          rocksUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADING
+    if (rocksUpdated) LoadedChunkList += "Updating Rocks\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (rocksUpdated) {
+      done = rocksUpdated;
+      GameData.loadingMessage = "Stuck between two hard places...";
+      times.DeltaRockUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
 
@@ -2164,7 +2208,7 @@ public class TerrainGenerator : MonoBehaviour {
     yield break;
   }
   // Uses perlin noise to define a heightmap.
-  void PerlinDivide(ref float[, ] points, float x, float y, float w, float h,
+  public void PerlinDivide(ref float[, ] points, float x, float y, float w, float h,
                     float PerlinSeedModifier_ = -1,
                     float PerlinRoughness_ = -1) {
     if (PerlinSeedModifier_ == -1) PerlinSeedModifier_ = PerlinSeedModifier;
@@ -2689,6 +2733,12 @@ public class TerrainGenerator : MonoBehaviour {
     }
     return 0;
   }
+ public
+  float GetTerrainWidth() { return terrWidth; }
+ public
+  float GetTerrainLength() { return terrLength; }
+ public
+  float GetTerrainMaxHeight() { return terrHeight; }
  public
   static Vector3 GetPointOnTerrain(Vector3 position) {
     return new Vector3(position.x, GetTerrainHeight(position), position.z);

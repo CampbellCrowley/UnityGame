@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections;
+#if UNITY_EDITOR
 using UnityEditor.Events;
+#endif
 
 public enum Weapon {
   UNARMED = 0,

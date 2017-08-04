@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 4831689091728138}
   - component: {fileID: 114859079309827820}
   - component: {fileID: 114835260205563546}
+  - component: {fileID: 114324250660577398}
   m_Layer: 0
   m_Name: Network Manager
   m_TagString: Untagged
@@ -41,6 +42,24 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114324250660577398
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1566489466233504}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52774eb4e08ee1f44a312b607e84fb4e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_DriveableProperty:
+    m_Fields:
+    - m_Target: {fileID: 114208357573206804, guid: ffbde333fde6c344abc0ab8fd51df67f,
+        type: 2}
+      m_FieldPath: jumpMultiplier
+      m_RSKeyName: 
+      m_Type: float
 --- !u!114 &114835260205563546
 MonoBehaviour:
   m_ObjectHideFlags: 1

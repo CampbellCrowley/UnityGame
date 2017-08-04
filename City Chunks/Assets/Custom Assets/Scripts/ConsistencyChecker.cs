@@ -10,8 +10,13 @@ public class ConsistencyChecker : MonoBehaviour {
   private const string lastGameDataVersion = "v0.0.6m_4";
 
   void Start() {
-    if (!Application.genuineCheckAvailable || !Application.genuine)
-      GameData.quit(QuitReason.GENUINECHECKFAIL);
+    if (!Application.genuineCheckAvailable || !Application.genuine) {
+      if (!Application.genuineCheckAvailable) {
+        Debug.LogError("Genuine check unavailable");
+      } else {
+        GameData.quit(QuitReason.GENUINECHECKFAIL);
+      }
+    }
 
     Debug.Log("Unity Version: " + Application.unityVersion + "\nApp Version: " +
               Application.version + "\nGameData Version: " + GameData.version +
@@ -675,7 +680,7 @@ public class ConsistencyChecker : MonoBehaviour {
     // doubles. We can't compare exactly equal, so this is the next closest
     // thing.
 
-    // 1E-15 was causing issues, but 1E-14 may be too imprecise. Not sure.
+    // TODO: 1E-15 was causing issues, but 1E-14 may be too imprecise. Not sure.
     double epsilon = Math.Max(Math.Abs(x), Math.Abs(y)) * 1E-14;
     return Math.Abs(x - y) <= epsilon;
    }
