@@ -2666,20 +2666,26 @@ MonoBehaviour:
   usernameOSD: {fileID: 0}
   staminaCountBars: 20
   debug: {fileID: 0}
-  MiniMapCamera: {fileID: 0}
-  miniMapRelativePosition: {x: 0, y: 0, z: 0}
+  MiniMapCamera: {fileID: 20806983458297516, guid: 88e0cefc36e14a3458329e0edfa403e8,
+    type: 2}
+  miniMapRelativePosition: {x: 0, y: 2001, z: 0}
+  miniMapRelativeY: 0
   useRenderSettingsFog: 0
   footstepSize: 0.5
   footstepSizeCrouched: 0.7
   footstepSizeSprinting: 0.3
   sounds:
-    Player: {fileID: 0}
-    JumpSound: {fileID: 0}
-    LandSound: {fileID: 0}
+    Player: {fileID: 114522398975570266, guid: 39e7ca2047a902b4d97084cb8c5cce64, type: 2}
+    JumpSound: {fileID: 8300000, guid: 5897aeed9b676024fbb8c694b421a861, type: 3}
+    LandSound: {fileID: 8300000, guid: 3b09d59f4499d45428baa7a21e954296, type: 3}
     CollectibleSound: {fileID: 0}
     Pain: {fileID: 0}
     LevelFail: {fileID: 0}
-    FootSteps: []
+    FootSteps:
+    - {fileID: 8300000, guid: 42e65e088b3f4374e851b8dbd38f3df9, type: 3}
+    - {fileID: 8300000, guid: 8bc94ec6ed537e743b481638bdcd503d, type: 3}
+    - {fileID: 8300000, guid: 5a9383dda6cabc047b7a297602e93eb4, type: 3}
+    - {fileID: 8300000, guid: e9714160ce34f2b4ab63ff8c27bd68e1, type: 3}
   GameTime: 10
   RagdollTemplate: {fileID: 0}
   isDead: 0

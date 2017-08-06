@@ -47,6 +47,7 @@ public class PlayerController : Photon.MonoBehaviour {
   [Header ("MiniMap")]
   public Camera MiniMapCamera;
   public Vector3 miniMapRelativePosition;
+  public bool miniMapRelativeY = false;
   [Header ("Look and Sound")]
   public bool useRenderSettingsFog = true;
   public float footstepSize = 0.5f;
@@ -333,8 +334,9 @@ public class PlayerController : Photon.MonoBehaviour {
       transform.rotation = GameData.Vehicle.gameObject.transform.rotation;
 
       if (MiniMapCamera != null) {
-        MiniMapCamera.transform.position =
-          transform.position + miniMapRelativePosition;
+        Vector3 mapPos = transform.position + miniMapRelativePosition;
+        if (!miniMapRelativeY) mapPos.y = miniMapRelativePosition.y;
+        MiniMapCamera.transform.position = mapPos;
       }
 
       if (GameData.Vehicle.fuelRemaining < 100) {
@@ -636,8 +638,9 @@ public class PlayerController : Photon.MonoBehaviour {
       // Camera
       if (isLocalPlayer) {
         if (MiniMapCamera != null) {
-          MiniMapCamera.transform.position =
-            transform.position + miniMapRelativePosition;
+          Vector3 mapPos = transform.position + miniMapRelativePosition;
+          if (!miniMapRelativeY) mapPos.y = miniMapRelativePosition.y;
+          MiniMapCamera.transform.position = mapPos;
         }
 
         Camera.transform.rotation = Quaternion.Euler (

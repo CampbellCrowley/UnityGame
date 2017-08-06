@@ -1,4 +1,4 @@
-# UnityGame
+# City Chunks
 A game I'm making in Unity that currently includes unlimited terrain generation.
 
 Project Outline (Private)
@@ -47,4 +47,5 @@ Any issues with the Unity specifically, should not be directed to us, but instea
 
 ##
 Copyright 2017 by Campbell Crowley. All Rights Reserved.
+
 Contact Information: github@campbellcrowley.com.
