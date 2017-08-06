@@ -5,7 +5,7 @@ public class ConsistencyChecker : MonoBehaviour {
 
   System.Random rand;
   private static bool checkComplete = false;
-  private const string lastUnityVersion = "5.6.2f1";
+  private const string lastUnityVersion = "2017.1.0f3";
   private const string lastAppVersion = "v0.0.6m_4";
   private const string lastGameDataVersion = "v0.0.6m_4";
 
