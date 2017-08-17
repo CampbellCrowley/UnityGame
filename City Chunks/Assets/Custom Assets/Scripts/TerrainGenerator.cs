@@ -237,6 +237,7 @@ public class TerrainGenerator : MonoBehaviour {
   [Tooltip("Roughness of terrain is modified by this value.")]
   public float PerlinRoughness = 0.1f;
   [Tooltip("Maximum height of Perlin Generator in percentage.")]
+  [Range(0.0f, 1.0f)]
   public float PerlinHeight = 1.0f;
   [Tooltip("How quickly biomes/terrain roughness changes.")]
   public float BiomeRoughness = 0.05f;
@@ -553,9 +554,13 @@ public class TerrainGenerator : MonoBehaviour {
 
   void CalculateLoadPercent() {
       float total = 0f;
-      int num = 77;
+      int num = terrains.Count;
+      if (!preLoadingDone) {
+        num = Mathf.RoundToInt(Mathf.Pow(loadDist / terrWidth, 2) * Mathf.PI);
+      }
+      // int num = 77;
       int count = 8;
-      for(int i=0; i<terrains.Count; i++) {
+      for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].isDividing) total += 1.0f / count;
         else if (terrains[i].waterQueue) total += 2.0f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
@@ -591,13 +596,16 @@ public class TerrainGenerator : MonoBehaviour {
         Debug.LogError("DIVIDE THREAD EXCEEDED TIME TO LIVE! ABORTING! (" +
                        (Time.realtimeSinceStartup - threadStart) + "/" +
                        threadTTL + ")");
-        if (thread.ThreadState != ThreadState.AbortRequested)
+        if (thread.ThreadState != ThreadState.AbortRequested) {
           Debug.LogError("THREAD ABORT FAILED!");
+        }
       }
-      if (thread.ThreadState == ThreadState.AbortRequested)
+      if (thread.ThreadState == ThreadState.AbortRequested) {
         Debug.LogWarning("Thread Abort Requested.");
-      if (thread.ThreadState == ThreadState.Aborted)
+      }
+      if (thread.ThreadState == ThreadState.Aborted) {
         Debug.LogWarning("Thread Aborted.");
+      }
     }
 #if DEBUG_HUD_LOADED || DEBUG_HUD_LOADING
     LoadedChunkList = "";

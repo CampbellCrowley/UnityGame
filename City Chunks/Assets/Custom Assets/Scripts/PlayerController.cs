@@ -106,6 +106,7 @@ public class PlayerController : Photon.MonoBehaviour {
   float lastSprintInput = 0.0f;
   float timeInVehicle = 0.0f;
   float deathTime = 0.0f;
+  float colliderStartPosition = 0f;
 
   void Awake() {
     isLocalPlayer = false;
@@ -145,8 +146,13 @@ public class PlayerController : Photon.MonoBehaviour {
     Camera.GetComponent<AudioListener>().enabled = true;
     Camera.name = "CameraFor" + GameData.username;
 
-    foreach (Camera cam in UnityEngine.Camera.allCameras)
-    { cam.layerCullSpherical = true; }
+    if (GetComponent<CapsuleCollider>() != null) {
+      colliderStartPosition = GetComponent<CapsuleCollider>().center.y;
+    }
+
+    foreach (Camera cam in UnityEngine.Camera.allCameras) {
+      cam.layerCullSpherical = true;
+    }
 
     startCameraRotation = Camera.transform.rotation;
     intendedCameraDistance = MaxCameraDistance;
@@ -156,25 +162,25 @@ public class PlayerController : Photon.MonoBehaviour {
 
     GameObject temp;
 
-    if (lifeCounter != null)
-    { lifeCounter = Instantiate (lifeCounter); }
-    else {
+    if (lifeCounter != null) {
+      lifeCounter = Instantiate(lifeCounter);
+    } else {
       temp = GameObject.Find ("LifeOSD");
 
       if (temp != null) { lifeCounter = temp.GetComponent<GUIText>(); }
     }
 
-    if (levelDisplay != null)
-    { levelDisplay = Instantiate (levelDisplay); }
-    else {
+    if (levelDisplay != null) {
+      levelDisplay = Instantiate(levelDisplay);
+    } else {
       temp = GameObject.Find ("LevelOSD");
 
       if (temp != null) { levelDisplay = temp.GetComponent<GUIText>(); }
     }
 
-    if (usernameOSD != null)
-    { usernameOSD = Instantiate (usernameOSD); }
-    else {
+    if (usernameOSD != null) {
+      usernameOSD = Instantiate(usernameOSD);
+    } else {
       temp = GameObject.Find ("UsernameOSD");
 
       if (temp != null) { usernameOSD = temp.GetComponent<GUIText>(); }
@@ -246,7 +252,7 @@ public class PlayerController : Photon.MonoBehaviour {
     bool wasUnderwater = false;
     RaycastHit hitinfo = new RaycastHit();
     isGrounded =
-      Physics.Raycast (transform.position, Vector3.down, out hitinfo, 0.2f);
+      Physics.Raycast (transform.position + Vector3.up*0.05f, Vector3.down, out hitinfo, 0.2f);
 
     if (isLocalPlayer && !GameData.isPaused && !GameData.isChatOpen) {
       moveHorizontal = Input.GetAxis ("Horizontal");
@@ -470,10 +476,21 @@ public class PlayerController : Photon.MonoBehaviour {
     // Collider
     CapsuleCollider collider = GetComponent<CapsuleCollider>();
 
-    if (isCrouched && collider != null)
-    { collider.height = crouchedHeight; }
-    else if (collider != null)
-    { collider.height = playerHeight; }
+    if (isCrouched && collider != null) {
+      collider.height = crouchedHeight;
+      if (colliderStartPosition != 0) {
+        Vector3 temp = collider.center;
+        temp.y = colliderStartPosition - (playerHeight - crouchedHeight) / 2f;
+        collider.center = temp;
+      }
+    } else if (collider != null) {
+      collider.height = playerHeight;
+      if (colliderStartPosition != 0) {
+        Vector3 temp = collider.center;
+        temp.y = colliderStartPosition;
+        collider.center = temp;
+      }
+    }
 
     // Stamina
     if (isSprinting) { lastSprintTime = Time.time; }
@@ -587,9 +604,9 @@ public class PlayerController : Photon.MonoBehaviour {
 
       if (isCrouched) {
         forward = movement.magnitude;
-        movement *= moveSpeed * 0.5f;
+        movement *= moveSpeed * 0.6f;
       } else {
-        forward = movement.magnitude / Mathf.Lerp (2.5f, 1.0f, sprintInput);
+        forward = movement.magnitude / Mathf.Lerp (2.0f, 1.0f, sprintInput);
         movement *= moveSpeed * Mathf.Lerp (1.0f, 2.5f, sprintInput);
       }
 
@@ -956,11 +973,9 @@ public class PlayerController : Photon.MonoBehaviour {
     if (!photonView.isMine && PhotonNetwork.connected) { return; }
 
     if (anim == null) { anim = GetComponent<Animator>(); }
-
     if (anim == null) { return; }
 
     if (rbody == null) { rbody = GetComponent<Rigidbody>(); }
-
     if (rbody == null) { return; }
 
     if (Mathf.Abs (rbody.velocity.x) > 0.02f ||
@@ -968,10 +983,10 @@ public class PlayerController : Photon.MonoBehaviour {
       turn = (moveAngle - anim.bodyRotation.eulerAngles.y) / 180f;
 
       while (turn < -1) { turn += 2; }
-
       while (turn > 1) { turn -= 2; }
-    } else
-    { turn = 0f; }
+    } else {
+      turn = 0f;
+    }
 
     anim.SetFloat ("Forward", forward);
     anim.SetFloat ("Turn", turn);
