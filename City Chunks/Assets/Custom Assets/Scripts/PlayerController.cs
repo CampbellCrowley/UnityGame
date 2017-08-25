@@ -660,9 +660,9 @@ public class PlayerController : Photon.MonoBehaviour {
           MiniMapCamera.transform.position = mapPos;
         }
 
-        Camera.transform.rotation = Quaternion.Euler (
-                                      Camera.transform.eulerAngles.x - lookVertical,
-                                      Camera.transform.eulerAngles.y + lookHorizontal, 0);
+        Camera.transform.rotation = Quaternion.Euler(
+            Camera.transform.eulerAngles.x - lookVertical,
+            Camera.transform.eulerAngles.y + lookHorizontal, 0);
 
         if (CameraObjectAvoidance && spawned) {
           RaycastHit hit;

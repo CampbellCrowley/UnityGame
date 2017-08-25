@@ -8,6 +8,7 @@ public class ConsistencyChecker : MonoBehaviour {
   private const string lastUnityVersion = "2017.1.0f3";
   private const string lastAppVersion = "v0.0.6m_4";
   private const string lastGameDataVersion = "v0.0.6m_4";
+  private const string lastPUNVersion = "1.85";
 
   void Start() {
     if (!Application.genuineCheckAvailable || !Application.genuine) {
@@ -20,11 +21,31 @@ public class ConsistencyChecker : MonoBehaviour {
 
     Debug.Log("Unity Version: " + Application.unityVersion + "\nApp Version: " +
               Application.version + "\nGameData Version: " + GameData.version +
-              "\nBuild GUID: " + Application.buildGUID);
+              "\nBuild GUID: " + Application.buildGUID + "\nPUN Version: " +
+              PhotonNetwork.versionPUN);
+    if (Application.buildGUID == "") {
+      Debug.Log("This is not a valid build");
+    }
 
-    if(Application.version != GameData.version) {
+    if (Application.version != GameData.version) {
       Debug.LogError("Version mismatch. Version must be updated in Edit->" +
                      "Player->Version and GameData.cs");
+      GameData.quit(QuitReason.VERSIONMISMATCH);
+    }
+    if (Application.unityVersion != lastUnityVersion) {
+      Debug.LogError("Version mismatch. Unity.");
+      GameData.quit(QuitReason.VERSIONMISMATCH);
+    }
+    if (GameData.version != lastGameDataVersion) {
+      Debug.LogError("Version mismatch. GameData.");
+      GameData.quit(QuitReason.VERSIONMISMATCH);
+    }
+    if (PhotonNetwork.versionPUN != lastPUNVersion) {
+      Debug.LogError("Version mismatch. PUN.");
+      GameData.quit(QuitReason.VERSIONMISMATCH);
+    }
+    if (Application.version != lastAppVersion) {
+      Debug.LogError("Version mismatch. App.");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     }
 

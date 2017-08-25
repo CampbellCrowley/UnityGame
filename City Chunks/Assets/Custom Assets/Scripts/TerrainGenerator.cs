@@ -93,6 +93,8 @@ using System.Threading;
   public float DeltaTreeUpdate = 0;
   [Tooltip("Previous amount of time updating rock instances took in milliseconds.")]
   public float DeltaRockUpdate = 0;
+  [Tooltip("Previous amount of time updating cities took in milliseconds.")]
+  public float DeltaCityUpdate = 0;
   [Tooltip("Previous amount of time updating the delayed heightmap modifications took in milliseconds.")]
   public float DeltaLODUpdate = 0;
   [Tooltip("Previous amount of time updating neighbors took in milliseconds.")]
@@ -145,6 +147,8 @@ using System.Threading;
   public bool LODQueue = false;
   [Tooltip("Whether this terrain chunk is ready for its rocks to be updated.")]
   public bool rockQueue = false;
+  [Tooltip("Whether this terrain chunk is ready for its cities to be updated.")]
+  public bool cityQueue = false;
   [Tooltip("True if the heightmap is still being generated.")]
   public bool isDividing = false;
   [Tooltip("True if the heightmap has been generated.")]
@@ -210,6 +214,8 @@ public class TerrainGenerator : MonoBehaviour {
   public GameObject waterTile;
   [Tooltip("Maximum number of trees per chunk to be generated.")]
   public int maxNumTrees = 500;
+  [Tooltip("Are trees allowed to be generated using the terrain instances?")]
+  public bool useTerrainTrees = false;
   [Tooltip("Whether or not to use the pre-determined seed or use Unity's random seed.")]
   public bool useSeed = true;
   [Tooltip("The predetermined seed to use if Use Seed is false.")]
@@ -228,8 +234,8 @@ public class TerrainGenerator : MonoBehaviour {
   [Header("Generator Settings")]
   [Tooltip("List of available terrain generators.")]
   [SerializeField] public GeneratorModes GenMode;
-  [Tooltip("Distance the player must be from a chunk for it to be loaded.")]
-  public int loadDist = 1500;
+  // [Tooltip("Distance the player must be from a chunk for it to be loaded.")]
+  // public int loadDist = 1500;
   [Tooltip("Roughness of terrain is modified by this value.")]
   public float roughness = 0.3f;
   [Tooltip("Multiplier to exaggerate the peaks.")]
@@ -255,6 +261,7 @@ public class TerrainGenerator : MonoBehaviour {
 
   // True allows for things to continue even if this does not exists in the
   // scene. Gets set to false at the beginning of Start().
+  public static bool loadingSpawn = false;
   public static bool doneLoadingSpawn = true;
   public static bool wasDoneLoadingSpawn = false;
   public static float waterHeight = 0f;
@@ -316,6 +323,7 @@ public class TerrainGenerator : MonoBehaviour {
   System.Random rand;
 
   RockGenerator rg;
+  CityGenerator cg;
 
 #if DEBUG_HUD_LOADED || DEBUG_HUD_LOADING
   // List of chunks loaded as a list of coordinates.
@@ -326,11 +334,17 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("Terrain Generator Start!");
     GameData.AddLoadingScreen();
 
+    loadingSpawn = true;
     wasDoneLoadingSpawn = false;
     doneLoadingSpawn = false;
 
     rg = GetComponent<RockGenerator>();
+    rg.Initialize(this);
     if (rg == null) Debug.LogWarning("Failed to find RockG!");
+
+    cg = GetComponent<CityGenerator>();
+    cg.Initialize(this);
+    if (cg == null) Debug.LogWarning("Failed to find CityG!");
 
     terrains.Clear();
     if (waterTile != null)
@@ -425,7 +439,7 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
     SaveChunk(0, 0);
     GenMode.multiThreading = multiThreading;
-    radius = loadDist / ((terrWidth + terrLength) / 2.0f);
+    radius = GameData.LoadDistance / ((terrWidth + terrLength) / 2.0f);
 
 #if DEBUG_HUD_LOADED || DEBUG_HUD_LOADING
     LoadedChunkList = "";
@@ -504,6 +518,8 @@ public class TerrainGenerator : MonoBehaviour {
 
     ApplyHeightmap(ref done, ref iTime);
 
+    UpdateAllCities(ref done, ref iTime);
+
     UpdateAllTrees(ref done, ref iTime);
 
     UpdateAllRocks(ref done, ref iTime);
@@ -556,19 +572,21 @@ public class TerrainGenerator : MonoBehaviour {
       float total = 0f;
       int num = terrains.Count;
       if (!preLoadingDone) {
-        num = Mathf.RoundToInt(Mathf.Pow(loadDist / terrWidth, 2) * Mathf.PI);
+        num = Mathf.RoundToInt(Mathf.Pow(GameData.LoadDistance / terrWidth, 2) *
+                               Mathf.PI);
       }
       // int num = 77;
-      int count = 8;
+      int count = 9;
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].isDividing) total += 1.0f / count;
         else if (terrains[i].waterQueue) total += 2.0f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
-        else if (terrains[i].treeQueue) total += 3.5f / count;
-        else if (terrains[i].rockQueue) total += 4.5f / count;
-        else if (terrains[i].splatQueue) total += 5.5f / count;
-        else if (terrains[i].texQueue) total += 6.5f / count;
-        else if (terrains[i].detailQueue) total += 7.5f / count;
+        else if (terrains[i].cityQueue) total += 3.5f / count;
+        else if (terrains[i].treeQueue) total += 4.5f / count;
+        else if (terrains[i].rockQueue) total += 5.5f / count;
+        else if (terrains[i].splatQueue) total += 6.5f / count;
+        else if (terrains[i].texQueue) total += 7.5f / count;
+        else if (terrains[i].detailQueue) total += 8.5f / count;
         else if (terrains[i].terrReady) total += 1.0f;
         else num--;
       }
@@ -661,6 +679,9 @@ public class TerrainGenerator : MonoBehaviour {
     } else {
       unloadWaitCount--;
     }
+
+    // In case LoadDistance changes
+    radius = GameData.LoadDistance / ((terrWidth + terrLength) / 2.0f);
   }
 
   void HandleMultiplayer() {
@@ -809,6 +830,7 @@ public class TerrainGenerator : MonoBehaviour {
               terrains[tileCnt].texQueue = true;
               terrains[tileCnt].treeQueue = true;
               terrains[tileCnt].rockQueue = true;
+              terrains[tileCnt].cityQueue = true;
               terrains[tileCnt].detailQueue = true;
               terrains[tileCnt].LODQueue = true;
               break;
@@ -824,6 +846,7 @@ public class TerrainGenerator : MonoBehaviour {
           terrains[tileCnt].texQueue = true;
           terrains[tileCnt].treeQueue = true;
           terrains[tileCnt].rockQueue = true;
+          terrains[tileCnt].cityQueue = true;
           terrains[tileCnt].detailQueue = true;
           // terrains[tileCnt].LODQueue = true;
           terrains[tileCnt].LODQueue = false;
@@ -990,6 +1013,32 @@ public class TerrainGenerator : MonoBehaviour {
       done = rocksUpdated;
       GameData.loadingMessage = "Stuck between two hard places...";
       times.DeltaRockUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    }
+  }
+
+  void UpdateAllCities(ref bool done, ref float iTime) {
+    bool citiesUpdated = false;
+    float iTime2 = -1;
+    if (!done && cg != null) {
+      for (int i = 0; i < terrains.Count; i++) {
+        if (terrains[i].cityQueue && !terrains[i].loadingFromDisk) {
+          if (iTime == -1) iTime = Time.realtimeSinceStartup;
+          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+          cg.Generate(terrains[i]);
+          terrains[i].cityQueue = false;
+          citiesUpdated = true;
+          break;
+        }
+      }
+    }
+#if DEBUG_HUD_LOADING
+    if (citiesUpdated) LoadedChunkList += "Updating Cities\n";
+    else LoadedChunkList += "\n";
+#endif
+    if (citiesUpdated) {
+      done = citiesUpdated;
+      GameData.loadingMessage = "Giving life a home...";
+      times.DeltaCityUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
 
@@ -1187,6 +1236,7 @@ public class TerrainGenerator : MonoBehaviour {
       times.DeltaTotalAverage /= (float)DeltaNum;
     }
 #if DEBUG_HUD_TIMES
+    // Missing rock, and city.
     times.deltaNextUpdate.text =
         (Time.time - times.lastUpdate - times.UpdateSpeed).ToString() + "s";
     times.deltaTimes.text = "Current Frame:\n" +
@@ -1308,6 +1358,7 @@ public class TerrainGenerator : MonoBehaviour {
           this.GetComponent<Terrain>().terrainData.heightmapHeight;
       alphamapHeight = this.GetComponent<Terrain>().terrainData.alphamapHeight;
       alphamapWidth = this.GetComponent<Terrain>().terrainData.alphamapWidth;
+      ChangeGrassDensity(GameData.GrassDensity);
 
       Debug.Log("terrWidth: " + terrWidth + ", terrLength: " + terrLength +
                 ", terrHeight: " + terrHeight + ", waterHeight: " +
@@ -1368,6 +1419,9 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[terrains.Count - 1]
           .gameObject.GetComponent<Terrain>()
           .terrainData = terrains[terrains.Count - 1].terrData;
+      terrains[terrains.Count - 1]
+          .gameObject.GetComponent<Terrain>()
+          .detailObjectDensity = GameData.GrassDensity;
 
       terrains[terrains.Count - 1]
           .gameObject.GetComponent<TerrainCollider>()
@@ -2512,6 +2566,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   void UpdateTreePrototypes(TerrainData terrainData) {
+    if (!useTerrainTrees) return;
     if (terrains[0].terrData == terrainData) return;
 
     List<TreePrototype> list = new List<TreePrototype>();
@@ -2551,7 +2606,7 @@ public class TerrainGenerator : MonoBehaviour {
       // If trees have a LOD group, there is no reason to add it to the terrain,
       // so we just instantiate it as a game object.
       int TreeID = UnityEngine.Random.Range(0, TerrainTrees.Length);
-      if (TerrainTrees[TreeID].GetComponent<LODGroup>() == null) {
+      if (TerrainTrees[TreeID].GetComponent<LODGroup>() == null && useTerrainTrees) {
         Y = terrainData.GetInterpolatedHeight(X, Z);
         if (Y <= TerrainGenerator.waterHeight) continue;
         if (terrainData.GetSteepness(X, Z) > 30f) continue;
@@ -2767,6 +2822,10 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
+ public void ForceUnloadAll() {
+   foreach (Terrains t in terrains) { t.currentTTL = 1; }
+ }
+
  public
   bool anyChunksDividing() {
     for (int i = 0; i < terrains.Count; i++) {
@@ -2774,6 +2833,11 @@ public class TerrainGenerator : MonoBehaviour {
     }
     return false;
   }
+ public void ChangeGrassDensity(float density) {
+   foreach (Terrains t in terrains) {
+     t.gameObject.GetComponent<Terrain>().detailObjectDensity = density;
+   }
+ }
  public
   void checkDoneLoadingSpawn() {
     TerrainGenerator.wasDoneLoadingSpawn = TerrainGenerator.doneLoadingSpawn;
@@ -2794,5 +2858,6 @@ public class TerrainGenerator : MonoBehaviour {
     }
     Debug.Log("Done loading spawn!");
     TerrainGenerator.doneLoadingSpawn = true;
+    TerrainGenerator.loadingSpawn = false;
   }
 }

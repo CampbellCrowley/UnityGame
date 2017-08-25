@@ -35,6 +35,7 @@ public class NetworkManager : Photon.MonoBehaviour {
     PhotonNetwork.ConnectUsingSettings(_gameVersion);
   }
   void OnGUI() {
+    if (GameData.isPaused) return;
     int xposCentered = Screen.width / 2 - 125;
     int yposCentered = Screen.height / 2 - 100;
     int xpos = 10;
@@ -47,9 +48,14 @@ public class NetworkManager : Photon.MonoBehaviour {
                 PhotonNetwork.connectionStateDetailed.ToString());
 
       GUI.contentColor = Color.black;
-      if (!PhotonNetwork.offlineMode &&
-          GUI.Button(new Rect(xpos, ypos, 250, 150), "Offline Mode"))
-        PhotonNetwork.offlineMode = true;
+      if (!PhotonNetwork.offlineMode) {
+        if (GUI.Button(new Rect(xpos, ypos, 250, 150), "Offline Mode")) {
+          PhotonNetwork.offlineMode = true;
+        }
+        if (GUI.Button(new Rect(xpos, ypos + 155, 250, 75), "Retry Connecting")) {
+          PhotonNetwork.ConnectUsingSettings(_gameVersion);
+        }
+      }
       if (PhotonNetwork.offlineMode &&
           GUI.Button(new Rect(xpos, ypos, 250, 150), "Go back Online"))
         PhotonNetwork.offlineMode = false;
@@ -130,7 +136,7 @@ public class NetworkManager : Photon.MonoBehaviour {
     PhotonNetwork.LeaveRoom();
   }
   public static void CreateRoom(string name) {
-    if (GameData.isUsernameDefault()) {
+    if (GameData.isUsernameDefault() || !GameData.isUsernameValid()) {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
@@ -138,14 +144,14 @@ public class NetworkManager : Photon.MonoBehaviour {
                              Guid.NewGuid().ToString("N"));
   }
   public static void JoinRoom(string name) {
-    if (GameData.isUsernameDefault()) {
+    if (GameData.isUsernameDefault() || !GameData.isUsernameValid()) {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
     PhotonNetwork.JoinRoom(name);
   }
   public static void JoinRandomRoom() {
-    if (GameData.isUsernameDefault()) {
+    if (GameData.isUsernameDefault() || !GameData.isUsernameValid()) {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);

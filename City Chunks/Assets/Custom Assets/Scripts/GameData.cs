@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public
- enum QuitReason {
+public enum QuitReason {
    NORMAL,
    UNEXPECTED,
    RANDMISMATCH,
    GENUINECHECKFAIL,
    VERSIONMISMATCH
- };
+};
 
 public class GameData : MonoBehaviour {
 
@@ -23,7 +22,9 @@ public class GameData : MonoBehaviour {
   public AudioSource MusicPlayer;
   public AudioClip QueuedMusic;
   public GameObject PauseMenu;
-  private GameObject PauseMenu_;
+
+  private static GameObject PauseMenu_;
+  private static ChatManager chatManager;
 
   void Awake() {
     if (Instance == null) {
@@ -45,6 +46,7 @@ public class GameData : MonoBehaviour {
     if (MusicPlayer != null && !music) {
       MusicPlayer.volume = 0.0f;
     }
+    chatManager = FindObjectOfType<ChatManager>();
   }
   public static int health = 100;
   public static int tries = 3;
@@ -87,6 +89,7 @@ public class GameData : MonoBehaviour {
 
   public static void OpenChat() {
     if (isChatOpen) return;
+    if (chatManager != null && !chatManager.connected()) return;
     isChatOpen = true;
     GameData.showCursor = true;
   }
@@ -95,6 +98,21 @@ public class GameData : MonoBehaviour {
     if (!isChatOpen) return;
     isChatOpen = false;
     GameData.showCursor = false;
+  }
+
+  public static void TogglePaused(bool force = false, bool paused = false) {
+    if (force) {
+      if (paused == GameData.isPaused) return;
+      GameData.isPaused = paused;
+    } else {
+      GameData.isPaused = !GameData.isPaused;
+    }
+    GameData.showCursor = isPaused;
+    if (GameData.isPaused) {
+      PauseMenu_ = Instantiate(Instance.PauseMenu);
+    } else {
+      Destroy(PauseMenu_);
+    }
   }
 
   public static void PlayGame() {
@@ -114,13 +132,22 @@ public class GameData : MonoBehaviour {
   }
 
   public static bool isUsernameDefault() {
-     return GameData.username.ToLower() == "username" ||
-            GameData.username == "";
+    return GameData.username.ToLower() == "username" ||
+           GameData.username == "";
+  }
+  public static bool isUsernameValid() {
+    if (GameData.username.IndexOf('`') != -1) return false;
+    return GameData.username.ToLower() != "citychunks";
   }
 
   public static void quit(QuitReason reason = QuitReason.NORMAL) {
     Debug.LogWarning("Exiting Game (" + reason + ")");
     quitReason = reason;
+    if (quitReason != QuitReason.NORMAL) {
+      CustomDebug.isEnabled = true;
+      CustomDebug.pauseExecutionEnabled = true;
+      CustomDebug.Assert(false, quitReason + ": See log for more info.");
+    }
 #if UNITY_EDITOR
     UnityEditor.EditorApplication.isPlaying = false;
 #else
@@ -141,17 +168,12 @@ public class GameData : MonoBehaviour {
         loadEndTime != -1) {
       loading = false;
     }
-    if (Input.GetButtonDown("Pause") && getLevel() != 0) {
+    if (chatManager == null) chatManager = FindObjectOfType<ChatManager>();
+    if (Input.GetButtonDown("Pause")) {
       if (isChatOpen) {
         CloseChat();
-      } else if (TerrainGenerator.doneLoadingSpawn) {
-        GameData.isPaused = !GameData.isPaused;
-        GameData.showCursor = isPaused;
-        if (GameData.isPaused) {
-          PauseMenu_ = Instantiate(PauseMenu);
-        } else {
-          Destroy(PauseMenu_);
-        }
+      } else if (!TerrainGenerator.loadingSpawn) {
+        TogglePaused();
       }
     } else if (Input.GetButtonDown("OpenChat") && getLevel() != 0 &&
                !isPaused) {
@@ -159,8 +181,9 @@ public class GameData : MonoBehaviour {
     } else if (isPaused && Input.GetButtonDown("Menu") && getLevel() != 0) {
       MainMenu();
     }
-    Cursor.visible = showCursor;
-    Cursor.lockState = showCursor ? CursorLockMode.None : CursorLockMode.Locked;
+    Cursor.visible = showCursor || isPaused || getLevel() == 0;
+    Cursor.lockState =
+        Cursor.visible ? CursorLockMode.None : CursorLockMode.Locked;
 
     if (MusicPlayer != null) {
       float goalVol = music ? 0.5f : 0.0f;
@@ -219,6 +242,26 @@ public class GameData : MonoBehaviour {
       debug += "Camera Damping: " + cameraDamping + ",\n";
     }
 
+    if (PlayerPrefs.HasKey("Load Distance")) {
+      LoadDistance = PlayerPrefs.GetFloat("Load Distance");
+      if (LoadDistance < LoadDistanceSelector.minDistance) {
+        LoadDistance = LoadDistanceSelector.minDistance;
+      } else if (LoadDistance > LoadDistanceSelector.maxDistance) {
+        LoadDistance = LoadDistanceSelector.maxDistance;
+      }
+      debug += "Load Distance: " + LoadDistance + ",\n";
+    }
+
+    if (PlayerPrefs.HasKey("Grass Density")) {
+      GrassDensity = PlayerPrefs.GetFloat("Grass Density");
+      if (GrassDensity < 0) {
+        GrassDensity = 0f;
+      } else if (GrassDensity > 1) {
+        GrassDensity = 1f;
+      }
+      debug += "Grass Density: " + GrassDensity + ",\n";
+    }
+
     debug += "]";
     Debug.Log(debug);
 
@@ -234,6 +277,8 @@ public class GameData : MonoBehaviour {
     PlayerPrefs.SetInt("Sound Effects", soundEffects ? 1 : 0);
     PlayerPrefs.SetInt("Music", music ? 1 : 0);
     PlayerPrefs.SetInt("Camera Damping", cameraDamping ? 1 : 0);
+    PlayerPrefs.SetFloat("Load Distance", LoadDistance);
+    PlayerPrefs.SetFloat("Grass Density", GrassDensity);
 
     PlayerPrefs.Save();
   }
@@ -246,4 +291,6 @@ public class GameData : MonoBehaviour {
   public static bool soundEffects = true;
   public static bool music = true;
   public static bool cameraDamping = false;
+  public static float LoadDistance = 1500.0f;
+  public static float GrassDensity = 1.0f;
 }

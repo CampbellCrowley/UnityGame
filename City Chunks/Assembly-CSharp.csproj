@@ -44,32 +44,29 @@
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="UnityEngine">
-      <HintPath>E:/Program Files/Unity/Editor/Data/Managed/UnityEngine.dll</HintPath>
+      <HintPath>C:/Program Files/Unity/Editor/Data/Managed/UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEditor">
-      <HintPath>E:/Program Files/Unity/Editor/Data/Managed/UnityEditor.dll</HintPath>
+      <HintPath>C:/Program Files/Unity/Editor/Data/Managed/UnityEditor.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-     <Compile Include="Assets\CritiasTreeSystem\Code\ExtraTrees.cs" />
-     <Compile Include="Assets\CritiasTreeSystem\Code\RowCol.cs" />
-     <Compile Include="Assets\CritiasTreeSystem\Code\TreeColliders.cs" />
-     <Compile Include="Assets\CritiasTreeSystem\Code\Treeifier.cs" />
-     <Compile Include="Assets\CritiasTreeSystem\Code\TreeSystem.cs" />
-     <Compile Include="Assets\CritiasTreeSystem\Code\Utils\TerrainUtils.cs" />
-     <Compile Include="Assets\CritiasTreeSystem\Code\Utils\TUtils.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\AudioPlayer.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\ChatManager.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Cinematic.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\CityGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\CloudController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\ConsistencyChecker.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\CustomDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\GraphicsQualitySelector.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\GrassDensitySelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\InitPlayer.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\JoystickDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Launcher.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LevelController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LevelSettingsController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\LoadDistanceSelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LoadingBarController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LoadingCameraController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LoadingLightController.cs" />
@@ -92,6 +89,7 @@
      <Compile Include="Assets\Custom Assets\Scripts\TimeTesting.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Underwater.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\VehicleController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\VersionGetter.cs" />
      <Compile Include="Assets\Day Night Cycle\Scripts\DayNightController.cs" />
      <Compile Include="Assets\Day Night Cycle\Scripts\DemoScripts\RoatateCamera.cs" />
      <Compile Include="Assets\MORPH3D\Vendor\Unity\Shaders\Hair\HairRenderer.cs" />
@@ -317,7 +315,6 @@
      <Compile Include="Assets\RPG Character Animation Pack\Code\RPGCharacterGUI.cs" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.shader" />
      <None Include="Assets\PlayFabSdk\link.xml" />
-     <None Include="Assets\CritiasTreeSystem\Shader\SpeedTree_Master.shader" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Standard\StandardSpecular-doublesided.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\Fog.shader" />
@@ -349,9 +346,6 @@
      <None Include="Assets\PostProcessing\Resources\Shaders\FXAA3.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\AmbientOcclusion.shader" />
-     <None Include="Assets\CritiasTreeSystem\Shader\SpeedTreeBillboard_Batch.shader" />
-     <None Include="Assets\CritiasTreeSystem\Shader\SpeedTree_Include\SpeedTreeWind_Master.cginc" />
-     <None Include="Assets\CritiasTreeSystem\Shader\SpeedTree_Include\SpeedTreeCommon_Master.cginc" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Standard\Standard-doublesided.shader" />
      <None Include="Assets\Standard Assets\ParticleSystems\Shaders\PriorityParticleAlpha.shader" />
      <None Include="Assets\PostProcessing\Resources\Bluenoise64\LICENSE.txt" />
@@ -367,7 +361,6 @@
      <None Include="Assets\PostProcessing\Resources\Shaders\Bloom.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\TAA.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\EyeHistogram.compute" />
-     <None Include="Assets\CritiasTreeSystem\Shader\SpeedTree_Include\SpeedTreeVertex_Master.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\TAA.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\EyeAdaptation.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\GrainGen.shader" />
@@ -400,47 +393,44 @@
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
      <None Include="Assets\Photon Unity Networking\changelog.txt" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Skin\Volund_StandardSpecularCharacter.shader" />
- <Reference Include="UnityEngine.Advertisements">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
- </Reference>
  <Reference Include="UnityEngine.UI">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>
  <Reference Include="UnityEngine.Networking">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Networking/UnityEngine.Networking.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Networking/UnityEngine.Networking.dll</HintPath>
  </Reference>
  <Reference Include="UnityEngine.TestRunner">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/TestRunner/UnityEngine.TestRunner.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/TestRunner/UnityEngine.TestRunner.dll</HintPath>
  </Reference>
  <Reference Include="nunit.framework">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/TestRunner/net35/unity-custom/nunit.framework.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/TestRunner/net35/unity-custom/nunit.framework.dll</HintPath>
  </Reference>
  <Reference Include="UnityEngine.Timeline">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Timeline/RuntimeEditor/UnityEngine.Timeline.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Timeline/RuntimeEditor/UnityEngine.Timeline.dll</HintPath>
  </Reference>
  <Reference Include="UnityEngine.Analytics">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/UnityAnalytics/UnityEngine.Analytics.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/UnityAnalytics/UnityEngine.Analytics.dll</HintPath>
  </Reference>
  <Reference Include="UnityEngine.HoloLens">
- <HintPath>E:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/UnityHoloLens/RuntimeEditor/UnityEngine.HoloLens.dll</HintPath>
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/UnityHoloLens/RuntimeEditor/UnityEngine.HoloLens.dll</HintPath>
  </Reference>
  <Reference Include="ICSharpCode.SharpZipLib">
- <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Assets/MORPH3D/Scripts/Plugins/ICSharpCode.SharpZipLib.dll</HintPath>
+ <HintPath>C:/Users/campbell/Documents/GitHub/UnityGame/City Chunks/Assets/MORPH3D/Scripts/Plugins/ICSharpCode.SharpZipLib.dll</HintPath>
  </Reference>
  <Reference Include="M3DIMPORT_DLL">
- <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Assets/MORPH3D/Scripts/Plugins/M3DIMPORT_DLL.dll</HintPath>
+ <HintPath>C:/Users/campbell/Documents/GitHub/UnityGame/City Chunks/Assets/MORPH3D/Scripts/Plugins/M3DIMPORT_DLL.dll</HintPath>
  </Reference>
  <Reference Include="M3D_DLL">
- <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Assets/MORPH3D/Scripts/Plugins/M3D_DLL.dll</HintPath>
+ <HintPath>C:/Users/campbell/Documents/GitHub/UnityGame/City Chunks/Assets/MORPH3D/Scripts/Plugins/M3D_DLL.dll</HintPath>
  </Reference>
  <Reference Include="MCS_Utilities">
- <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Assets/MORPH3D/Scripts/Plugins/MCS_Utilities.dll</HintPath>
+ <HintPath>C:/Users/campbell/Documents/GitHub/UnityGame/City Chunks/Assets/MORPH3D/Scripts/Plugins/MCS_Utilities.dll</HintPath>
  </Reference>
  <Reference Include="Photon3Unity3D">
- <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Assets/Plugins/Photon3Unity3D.dll</HintPath>
+ <HintPath>C:/Users/campbell/Documents/GitHub/UnityGame/City Chunks/Assets/Plugins/Photon3Unity3D.dll</HintPath>
  </Reference>
  <Reference Include="websocket-sharp">
- <HintPath>E:/Users/Campbell/Documents/UnityGameDev/City Chunks/Assets/Plugins/WebSocket/websocket-sharp.dll</HintPath>
+ <HintPath>C:/Users/campbell/Documents/GitHub/UnityGame/City Chunks/Assets/Plugins/WebSocket/websocket-sharp.dll</HintPath>
  </Reference>
   </ItemGroup>
   <ItemGroup>

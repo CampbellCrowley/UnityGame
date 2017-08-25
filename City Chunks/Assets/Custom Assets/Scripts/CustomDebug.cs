@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using UnityEngine;
- 
+
 public static class CustomDebug {
     public static bool isEnabled = false;
     public static bool pauseExecutionEnabled = true;
@@ -23,7 +23,7 @@ public static class CustomDebug {
             pauseExecutionEnabled = false;
         "".ToString(); // place breakpoint here
     }
- 
+
     [DllImport("User32", ExactSpelling = true, CharSet = CharSet.Auto)]
     public static extern IntPtr GetActiveWindow();
     [DllImport("User32", CharSet = CharSet.Auto), SuppressMessage("Microsoft.Usage", "CA2205:UseManagedEquivalentsOfWin32Api")]

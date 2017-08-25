@@ -29,15 +29,12 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
   int firstIndex = -1;
 
   class User {
-   public
-    User(string userId, string username) {
-      this.userId = userId;
-      this.username = username;
+    public User(string userId, string username) {
+       this.userId = userId;
+       this.username = username;
     }
-   public
-    string userId = "";
-   public
-    string username = "";
+    public string userId = "";
+    public string username = "";
   }
   List<User> knownUsers = new List<User>();
 
@@ -103,83 +100,99 @@ public class ChatManager : MonoBehaviour, IChatClientListener {
     }
   }
 
-   void OpenChat() { input.ActivateInputField(); }
+  public bool connected() {
+    return chatClient != null && AuthVal != null &&
+           chatClient.State == ChatState.ConnectedToFrontEnd;
+  }
 
-   void CloseChat() {
-     input.DeactivateInputField();
-     PushLinesUpAllTheWay();
-   }
+  void OpenChat() { input.ActivateInputField(); }
 
-   void Connect() {
-     if (AuthVal == null) return;
+  void CloseChat() {
+    input.DeactivateInputField();
+    PushLinesUpAllTheWay();
+  }
 
-     chatClient = new ChatClient(this);
+  void Connect() {
+    if (AuthVal == null) return;
+
+    chatClient = new ChatClient(this);
 #if !UNITY_WEBGL
-     chatClient.UseBackgroundWorkerForSending = true;
+    chatClient.UseBackgroundWorkerForSending = true;
 #endif
-     if (!chatClient.Connect(PhotonNetwork.PhotonServerSettings.ChatAppID,
-                             "0.1", AuthVal)) {
-       Debug.LogWarning("Connecting to chat returned false!");
-     } else {
-       Debug.Log("Chat Connecting as: " + GameData.username);
-     }
-   }
+    if (!chatClient.Connect(PhotonNetwork.PhotonServerSettings.ChatAppID,
+                            "0.1", AuthVal)) {
+      Debug.LogWarning("Connecting to chat returned false!");
+    } else {
+      Debug.Log("Chat Connecting as: " + GameData.username);
+      string[] message = {"Connecting to chat as: " + GameData.username};
 
-   void Subscribe() { chatClient.Subscribe(chatsToSubscribeTo); }
+      AddUsername("CityChunks", ref message[0]);
+      OnGetMessages("Notice", new string[]{"CityChunks"}, message);
+    }
+  }
 
-  public
-   void SendPublicMessage(string message) {
-     input.text = "";
-     if (string.IsNullOrEmpty(message)) return;
-     GameData.CloseChat();
-     AddUsername(GameData.username, ref message);
-     chatClient.PublishMessage("General", message);
-   }
-  public
-   bool SendPrivateMessage(string target, string message) {
-     Debug.LogError(
-         "Sending private messages is not implemented and will not work unless " +
-         "you know the specific userId of the person you are trying to send a " +
-         "message to.");
-     input.text = "";
-     if (string.IsNullOrEmpty(message) || string.IsNullOrEmpty(target))
-       return false;
-     GameData.CloseChat();
-     return chatClient.SendPrivateMessage(target, message);
-   }
+  void Subscribe() { chatClient.Subscribe(chatsToSubscribeTo); }
 
-   void OnDestroy() {
-     if (chatClient != null) {
-       chatClient.Disconnect();
-     }
-   }
-  public
-   void OnConnected() {
-     Debug.Log("Chat Connected!");
-     Subscribe();
-   }
+  public void SendPublicMessage(string message) {
+    input.text = "";
+    if (string.IsNullOrEmpty(message)) return;
+    GameData.CloseChat();
+    AddUsername(GameData.username, ref message);
+    chatClient.PublishMessage("General", message);
+  }
+  public bool SendPrivateMessage(string target, string message) {
+    Debug.LogError(
+        "Sending private messages is not implemented and will not work unless " +
+        "you know the specific userId of the person you are trying to send a " +
+        "message to.");
+    input.text = "";
+    if (string.IsNullOrEmpty(message) || string.IsNullOrEmpty(target))
+      return false;
+    GameData.CloseChat();
+    return chatClient.SendPrivateMessage(target, message);
+  }
+
+  void OnDestroy() {
+    if (chatClient != null) {
+      chatClient.Disconnect();
+    }
+  }
+  public void OnConnected() {
+    Debug.Log("Chat Connected!");
+    Subscribe();
+  }
 
   public void OnSubscribed(string[] channels, bool[] results) {
     string[] outputs = new string[channels.Length];
     string[] sender = new string[channels.Length];
+    bool GeneralChat = false;
     for (int i = 0; i < channels.Length; i++) {
-      sender[i] = "Server";
-      outputs[i] = string.Format("Connecting to {0} {1}.", channels[i],
-                                 results[i] ? "succeeded" : "failed");
-      AddUsername("Server", ref outputs[i]);
-      Debug.Log("Chat subscribed to " + channels[i] + " " +
-                (results[i] ? "successfully" : "failed"));
+      sender[i] = "CityChunks";
+      outputs[i] =
+          string.Format("Connecting to channel: \"{0}\" {1}.", channels[i],
+                        results[i] ? "succeeded" : "failed");
+      if (channels[i] == "General") GeneralChat = true;
+      AddUsername("CityChunks", ref outputs[i]);
+      Debug.Log(outputs[i]);
     }
-    OnGetMessages("Info", sender, outputs);
+    OnGetMessages("Notice", sender, outputs);
+    if (GeneralChat) {
+      string[] message = {
+          "General chat is public and anyone in any room can see your " +
+          "messages"};
+
+      AddUsername("CityChunks", ref message[0]);
+      OnGetMessages("Notice", new string[]{"CityChunks"}, message);
+    }
   }
   public void OnUnsubscribed(string[] channels) {
     string[] outputs = new string[channels.Length];
     string[] sender = new string[channels.Length];
     for (int i = 0; i < channels.Length; i++) {
-      sender[i] = "Server";
+      sender[i] = "CityChunks";
       outputs[i] = string.Format("Disconnected from {0}.", channels[i]);
     }
-    OnGetMessages("Info", sender, outputs);
+    OnGetMessages("Notice", sender, outputs);
   }
 
   public void OnGetMessages(string channelName, string[] senders,

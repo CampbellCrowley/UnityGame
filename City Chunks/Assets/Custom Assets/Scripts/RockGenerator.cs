@@ -14,20 +14,15 @@ public class RockGenerator : MonoBehaviour {
 
   private TerrainGenerator tg;
 
-  void Start() {
-    Debug.Log("Rock Generator Start!");
-    tg = GetComponent<TerrainGenerator>();
+  public void Initialize(TerrainGenerator TG) {
+    tg = TG;
     if (tg == null) Debug.LogWarning("Failed to find TG!");
+    Debug.Log("Rock Generator Initialized!");
   }
 
   public void Generate(Terrains terrain) {
     if (!terrain.rockQueue) return;
-    if (tg == null) {
-      tg = FindObjectOfType<TerrainGenerator>();
-      if (tg == null) {
-        Debug.LogError("RockGenerator failed to find TerrainGenerator!");
-      }
-    }
+    if (tg == null) return;
     float[, ] modifier = new float[2, 2];
     tg.PerlinDivide(ref modifier, terrain.x, terrain.z, 2, 2);
     int numRocks = Mathf.RoundToInt(modifier[0, 0] * maxNumRocks);
@@ -60,6 +55,8 @@ public class RockGenerator : MonoBehaviour {
               Random.Range(minScaleMultiplier.z, maxScaleMultiplier.z));
 
       terrain.RockInstances.Add(ri);
+
+      ri.transform.parent = terrain.gameObject.transform;
     }
     terrain.rockQueue = false;
   }
