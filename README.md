@@ -5,7 +5,7 @@ Project Outline (Private)
 https://goo.gl/4ShZqV
 
 # Welcome to the City Chunks readme!
-#### This Commit Version: v0.0.6m_4
+#### This Commit Version: v0.0.6m4c1
 Unity Version: 2017.1.0f3
 
 ## Installation / Setup

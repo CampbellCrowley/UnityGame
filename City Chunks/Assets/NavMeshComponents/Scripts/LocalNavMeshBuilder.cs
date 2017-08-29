@@ -66,9 +66,9 @@ public class LocalNavMeshBuilder : MonoBehaviour
 
     Bounds QuantizedBounds()
     {
-        // Quantize the bounds to update only when theres a 10% change in size
+        // Quantize the bounds to update only when theres a 20% change in size
         var center = m_Tracked ? m_Tracked.position : transform.position;
-        return new Bounds(Quantize(center, 0.1f * m_Size), m_Size);
+        return new Bounds(Quantize(center, 0.2f * m_Size), m_Size);
     }
 
     void OnDrawGizmosSelected()

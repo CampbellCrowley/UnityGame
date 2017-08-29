@@ -12,10 +12,8 @@ public enum QuitReason {
 };
 
 public class GameData : MonoBehaviour {
-
-  public const string TerrainGeneratorVersion = "v0.0.6";
-  public const string MultiplayerVersion = "m_4";
-  public static string version = "";
+  public const string version = TerrainGenerator.version + NetworkManager.version +
+                          CityGenerator.version;
 
   public static GameData Instance;
 
@@ -31,7 +29,6 @@ public class GameData : MonoBehaviour {
       MusicPlayer = GetComponent<AudioSource>();
       DontDestroyOnLoad(gameObject);
       Instance = this;
-      version = TerrainGeneratorVersion + MultiplayerVersion;
     } else if (Instance != this) {
       if (GetComponent<AudioSource>().clip != null) {
         Instance.QueuedMusic = GetComponent<AudioSource>().clip;

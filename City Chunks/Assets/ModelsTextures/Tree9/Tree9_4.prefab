@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 3335006}
   - component: {fileID: 2346822}
   - component: {fileID: 136117867016828096}
+  - component: {fileID: 114219668934611000}
   m_Layer: 16
   m_Name: Tree9_4
   m_TagString: Untagged
@@ -7059,6 +7060,17 @@ Prefab:
   m_ParentPrefab: {fileID: 0}
   m_RootGameObject: {fileID: 114418}
   m_IsPrefabParent: 1
+--- !u!114 &114219668934611000
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 114418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 368c7f56c49fba4428302a9aef1e1ecc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!136 &136117867016828096
 CapsuleCollider:
   m_ObjectHideFlags: 1

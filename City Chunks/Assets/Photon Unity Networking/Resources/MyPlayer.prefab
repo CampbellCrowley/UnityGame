@@ -2845,7 +2845,7 @@ MonoBehaviour:
   RagdollTemplate: {fileID: 0}
   isDead: 0
   spawned: 0
-  flyDownTime: 1
+  flyDownTime: 6
   flyDownEndTime: 0.25
   deltaSendTime: 0
   deltaReceiveTime: 0

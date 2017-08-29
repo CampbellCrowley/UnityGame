@@ -52,44 +52,45 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Custom Assets\Scripts\AudioPlayer.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\ChatManager.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Cinematic.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\CityGenerator.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\CloudController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\ConsistencyChecker.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\CustomDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\GraphicsQualitySelector.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\GrassDensitySelector.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\CityGenerator.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\CloudController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\RockGenerator.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\SubGeneratorInterface.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\TerrainGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\InitPlayer.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\JoystickDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Launcher.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LevelController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LevelSettingsController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\LoadDistanceSelector.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\LoadingBarController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\LoadingCameraController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\LoadingLightController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingBarController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingCameraController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingLightController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LoadingTextController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuObjectController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MiniMapIconController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\MyNetworkManagerHUD.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\NameList.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\NetworkManager.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\NPCController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\PlayerController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\PlayFabAuthenticator.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\RockGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\SaveLoad.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\SettingsController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\SunController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\SunShaftFixer.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\TerrainGenerator.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\TimeTesting.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\ChatManager.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\GraphicsQualitySelector.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\GrassDensitySelector.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\LoadDistanceSelector.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\MyNetworkManagerHUD.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\NetworkManager.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\SettingsController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\VersionGetter.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Underwater.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Utility\ConsistencyChecker.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Utility\CustomDebug.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Utility\JoystickDebug.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Utility\TimeTesting.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\VehicleController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\VersionGetter.cs" />
      <Compile Include="Assets\Day Night Cycle\Scripts\DayNightController.cs" />
      <Compile Include="Assets\Day Night Cycle\Scripts\DemoScripts\RoatateCamera.cs" />
      <Compile Include="Assets\MORPH3D\Vendor\Unity\Shaders\Hair\HairRenderer.cs" />
@@ -314,6 +315,7 @@
      <Compile Include="Assets\RPG Character Animation Pack\Code\RPGCharacterControllerFREE.cs" />
      <Compile Include="Assets\RPG Character Animation Pack\Code\RPGCharacterGUI.cs" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.shader" />
+     <None Include="Assets\ModelsTextures\Urban Buildings Pack 1\runesimple.shader" />
      <None Include="Assets\PlayFabSdk\link.xml" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Standard\StandardSpecular-doublesided.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.cginc" />
@@ -393,6 +395,9 @@
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
      <None Include="Assets\Photon Unity Networking\changelog.txt" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Skin\Volund_StandardSpecularCharacter.shader" />
+ <Reference Include="UnityEngine.Advertisements">
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
+ </Reference>
  <Reference Include="UnityEngine.UI">
  <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>
