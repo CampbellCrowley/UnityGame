@@ -8,7 +8,7 @@ GameObject:
   serializedVersion: 5
   m_Component:
   - component: {fileID: 400000}
-  m_Layer: 0
+  m_Layer: 18
   m_Name: RockB
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -27,7 +27,7 @@ GameObject:
   - component: {fileID: 2300000}
   - component: {fileID: 64834071494289962}
   - component: {fileID: 114342654638115634}
-  m_Layer: 0
+  m_Layer: 18
   m_Name: Group001
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -43,7 +43,7 @@ GameObject:
   m_Component:
   - component: {fileID: 400004}
   - component: {fileID: 9500000}
-  m_Layer: 0
+  m_Layer: 18
   m_Name: Set1_RockB
   m_TagString: Untagged
   m_Icon: {fileID: 0}

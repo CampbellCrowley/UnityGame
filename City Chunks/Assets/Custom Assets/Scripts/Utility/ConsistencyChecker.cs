@@ -7,7 +7,7 @@ public class ConsistencyChecker : MonoBehaviour {
   private static bool checkComplete = false;
   private const string lastUnityVersion = "2017.1.0f3";
   private const string lastAppVersion = "v0.0.6m4c1";
-  private const string lastPUNVersion = "1.85";
+  private const string lastPUNVersion = "1.86";
 
   void Start() {
     if (!Application.genuineCheckAvailable || !Application.genuine) {

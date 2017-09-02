@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Day Night Cycle\Editor\DayNightControllerEditor.cs" />
+     <Compile Include="Assets\Editor\BuildingEditor.cs" />
      <Compile Include="Assets\Editor\RemoteSettings\DriveablePropertyDrawer.cs" />
      <Compile Include="Assets\Editor\RemoteSettings\RemoteSettingsComponentEditor.cs" />
      <Compile Include="Assets\Editor\RemoteSettings\RemoteSettingsHolder.cs" />
@@ -152,7 +153,6 @@
      <Compile Include="Assets\PostProcessing\Editor\Utils\FxStyles.cs" />
      <Compile Include="Assets\PostProcessing\Editor\Utils\ReflectionUtils.cs" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.shader" />
-     <None Include="Assets\ModelsTextures\Urban Buildings Pack 1\runesimple.shader" />
      <None Include="Assets\PlayFabSdk\link.xml" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Standard\StandardSpecular-doublesided.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.cginc" />

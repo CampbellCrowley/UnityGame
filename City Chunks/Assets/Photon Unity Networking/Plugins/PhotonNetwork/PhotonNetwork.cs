@@ -28,7 +28,7 @@ using System.IO;
 public static class PhotonNetwork
 {
     /// <summary>Version number of PUN. Also used in GameVersion to separate client version from each other.</summary>
-    public const string versionPUN = "1.85";
+    public const string versionPUN = "1.86";
 
     /// <summary>Version string for your this build. Can be used to separate incompatible clients. Sent during connect.</summary>
     /// <remarks>This is only sent when you connect so that is also the place you set it usually (e.g. in ConnectUsingSettings).</remarks>
@@ -1129,8 +1129,7 @@ public static class PhotonNetwork
 
 
         #if UNITY_XBOXONE
-        networkingPeer.AuthMode = AuthModeOption.AuthOnceWss;
-        networkingPeer.EncryptionMode = EncryptionMode.DatagramEncryption;
+        networkingPeer.AuthMode = AuthModeOption.Auth;
         #endif
 
         if (UsePreciseTimer)

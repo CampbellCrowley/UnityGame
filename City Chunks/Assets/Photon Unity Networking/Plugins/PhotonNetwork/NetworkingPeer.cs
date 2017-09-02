@@ -660,30 +660,30 @@ internal class NetworkingPeer : LoadBalancingPeer, IPhotonPeerListener
         ConnectionProtocol protocolOverride = this.TransportProtocol;
 
         #if UNITY_XBOXONE
-        if (this.AuthMode != AuthModeOption.AuthOnceWss)
+        this.AuthMode = AuthModeOption.Auth;
+        if (this.AuthValues == null)
         {
-            UnityEngine.Debug.LogWarning("UNITY_XBOXONE builds must use AuthMode \"AuthOnceWss\". The default setting was changed. Resetting it now.");
+            this.AuthValues = new AuthenticationValues();
+            UnityEngine.Debug.LogError("UNITY_XBOXONE builds must set AuthValues. Set this before calling any Connect method. Refer to the online docs for guidance.");
+            Debug.Break();
+            return;
         }
-        if (this.EncryptionMode != EncryptionMode.DatagramEncryption)
+        if (this.AuthValues.AuthPostData == null)
         {
-            UnityEngine.Debug.LogWarning("UNITY_XBOXONE builds must use EncryptionMode \"DatagramEncryption\". The default setting was changed. Resetting it now.");
+            UnityEngine.Debug.LogError("UNITY_XBOXONE builds must use Photon's XBox Authentication and set the XSTS token by calling: PhotonNetwork.AuthValues.SetAuthPostData(xstsToken). Refer to the online docs for guidance.");
+            Debug.Break();
+            return;
         }
-        if (this.AuthValues == null || this.AuthValues.AuthType != CustomAuthenticationType.Xbox)
+        if (this.AuthValues.AuthType != CustomAuthenticationType.Xbox)
         {
-            UnityEngine.Debug.LogError("UNITY_XBOXONE builds must use AuthValues.AuthType \"CustomAuthenticationType.XboxCheck\". Set this before calling any Connect method.");
-            if (this.AuthValues == null)
-            {
-                this.AuthValues = new AuthenticationValues();
-            }
+            UnityEngine.Debug.LogWarning("UNITY_XBOXONE builds must use AuthValues.AuthType \"CustomAuthenticationType.Xbox\". PUN sets this value now. Refer to the online docs to avoid this warning.");
             this.AuthValues.AuthType = CustomAuthenticationType.Xbox;
         }
-        if (!PhotonPeer.NativeDatagramEncrypt)
+        if (this.TransportProtocol != ConnectionProtocol.WebSocketSecure)
         {
-            throw new NotSupportedException("UNITY_XBOXONE builds have to use a special Photon library with Native Datagram Encryption. This is missing. Check your build setup!");
+            UnityEngine.Debug.LogWarning("UNITY_XBOXONE builds must use WSS (Secure WebSockets) as Transport Protocol. Changing to WSS from your selection: " + this.TransportProtocol);
+            this.TransportProtocol = ConnectionProtocol.WebSocketSecure;
         }
-
-        this.AuthMode = AuthModeOption.AuthOnceWss;
-        this.EncryptionMode = EncryptionMode.DatagramEncryption;
         #endif
 
         if (this.AuthMode == AuthModeOption.AuthOnceWss)
@@ -706,13 +706,22 @@ internal class NetworkingPeer : LoadBalancingPeer, IPhotonPeerListener
             }
         }
 
+        Type socketTcp = null;
+        #if UNITY_XBOXONE
+        socketTcp = Type.GetType("ExitGames.Client.Photon.SocketWebTcpNativeDynamic, Assembly-CSharp", false);
+        if (socketTcp == null)
+        {
+            socketTcp = Type.GetType("ExitGames.Client.Photon.SocketWebTcpNativeDynamic, Assembly-CSharp-firstpass", false);
+        }
+        #else
         // to support WebGL export in Unity, we find and assign the SocketWebTcp class (if it's in the project).
         // alternatively class SocketWebTcp might be in the Photon3Unity3D.dll
-        Type socketTcp = Type.GetType("ExitGames.Client.Photon.SocketWebTcp, Assembly-CSharp", false);
+        socketTcp = Type.GetType("ExitGames.Client.Photon.SocketWebTcp, Assembly-CSharp", false);
         if (socketTcp == null)
         {
             socketTcp = Type.GetType("ExitGames.Client.Photon.SocketWebTcp, Assembly-CSharp-firstpass", false);
         }
+        #endif
         if (socketTcp != null)
         {
             this.SocketImplementationConfig[ConnectionProtocol.WebSocket] = socketTcp;
@@ -1663,7 +1672,7 @@ internal class NetworkingPeer : LoadBalancingPeer, IPhotonPeerListener
                         }
                         if (operationResponse.Parameters.ContainsKey(ParameterCode.NickName))
                         {
-                            this.playername = (string)operationResponse.Parameters[ParameterCode.NickName];
+                            this.PlayerName = (string)operationResponse.Parameters[ParameterCode.NickName];
                             if (PhotonNetwork.logLevel >= PhotonLogLevel.Informational)
                             {
                                 this.DebugReturn(DebugLevel.INFO, string.Format("Received your NickName from server. Updating local value to: {0}", this.playername));
@@ -2112,7 +2121,6 @@ internal class NetworkingPeer : LoadBalancingPeer, IPhotonPeerListener
 
             case StatusCode.ExceptionOnConnect:
             case StatusCode.SecurityExceptionOnConnect:
-
 				this.IsInitialConnect = false;
 
                 this.State = ClientState.PeerCreated;

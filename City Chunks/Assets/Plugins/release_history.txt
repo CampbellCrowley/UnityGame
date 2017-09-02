@@ -8,6 +8,23 @@ https://doc.photonengine.com
 http://forum.photonengine.com
 
 
+*** Version 4.1.1.15 (17. July 2017 - rev4232)
+WebSocket:
+	Changed: WebSockets are now treated like "addons", as their implementations are complex and potentially not running on some platforms (be it UWP or some Unity export). The Readme-Photon-WebSocket.txt tells you how to add them to your project and set them up.
+	Added: Folder "PhotonWebSocket" with SocketWebTcpCoroutine and SocketWebTcpThread classes, to support platforms with and without Thread API.
+	Added: PingHttp.cs for Unity WebGL exports, to support "Best Region" selection in PUN.
+LoadBalancing:
+	Added: LoadBalancingClient.TransportProtocol as shortcut to the use PhotonPeer's TransportProtocol value. This enables setting the protocol easily while not connected.
+	Added: LoadBalancingClient.SocketImplementationConfig as shortcut to modify PhotonPeer's SocketImplementationConfig. This enables you to setup which IPhotonSocket implementation to use for which network protocol.
+	Changed: LoadBalancingPeer.ConfigUnitySockets() to try to find our websocket implementations in the assembly, making the SocketWebTcpCoroutine and SocketWebTcpThread classes optional.
+	Removed: Class "SocketWebTcp" is no longer found by ConfigUnitySockets().
+Chat:
+	Added: ChatClient.TransportProtocol as shortcut to the use PhotonPeer's TransportProtocol value. This enables setting the protocol easily while not connected.
+	Added: ChatClient.SocketImplementationConfig as shortcut to modify PhotonPeer's SocketImplementationConfig. This enables you to setup which IPhotonSocket implementation to use for which network protocol.
+	Changed: ChatPeer.ConfigUnitySockets() to try to find our websocket implementations in the assembly, making the SocketWebTcpCoroutine and SocketWebTcpThread classes optional.
+	Removed: Class "SocketWebTcp" is no longer found by ConfigUnitySockets().
+
+
 *** Version 4.1.1.14 (5. July 2017 - rev4191)
     Changed: SupportClass StartBackgroundCalls method now assigns an ID to each thread/task and enables you to cancel it explicitly via StopBackgroundCalls. CallInBackground is now obsolete due to renaming.
 LoadBalancing
@@ -19,7 +36,6 @@ Chat:
     Added: ChatClient.UseBackgroundWorkerForSending. Set this to true, to use the new background thread. Note: Do not use this in WebGL exports from Unity cause Threads are unavailable in them.
 WebSocket:
     Changed: Updated enabled protocols for WebSocket.cs. Now it is posible to connect to a server which supports only either TLS 1.1 or TLS 1.2 or TLS 1.0 or any combination of them.
-
 
 *** Version 4.1.1.13 (2. June 2017 - rev4112)
     Internal: Fixed StreamBuffer.Seek() which was throwing an exception when seeking position 0 in an empty stream.

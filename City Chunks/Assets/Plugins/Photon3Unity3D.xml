@@ -401,6 +401,10 @@
         <member name="P:ExitGames.Client.Photon.PhotonPeer.ClientVersion">
             <summary>Version of this library as string.</summary>
         </member>
+        <member name="P:ExitGames.Client.Photon.PhotonPeer.SerializationProtocolType">
+            <summary>Enables selection of a (Photon-)serialization protocol. Used in Connect methods.</summary>
+            <remarks>Defaults to SerializationProtocol.GpBinaryV16;</remarks>
+        </member>
         <member name="F:ExitGames.Client.Photon.PhotonPeer.SocketImplementationConfig">
              <summary>Defines which IPhotonSocket class to use per ConnectionProtocol.</summary>
              <remarks>
@@ -1152,6 +1156,10 @@
         <member name="F:ExitGames.Client.Photon.PhotonCodes.Ok">
             <summary>Result code for any (internal) operation.</summary>
         </member>
+        <member name="P:ExitGames.Client.Photon.PeerBase.ServerAddress">
+            <summary>The server's address, as set by a Connect() call, including any protocol, ports and or path.</summary>
+            <remarks>If rHTTP is used, this can be set directly.</remarks>
+        </member>
         <member name="F:ExitGames.Client.Photon.PeerBase.ByteCountLastOperation">
             <summary>Byte count of last sent operation (set during serialization).</summary>
         </member>
@@ -1451,6 +1459,27 @@
         </member>
         <member name="M:ExitGames.Client.Photon.TPeer.ReceiveIncomingCommands(System.Byte[],System.Int32)">
             <summary>reads incoming tcp-packages to create and queue incoming commands*</summary>
+        </member>
+        <member name="M:ExitGames.Client.Photon.IProtocol.Serialize(System.Object)">
+            <summary>
+            Serialize creates a byte-array from the given object and returns it.
+            </summary>
+            <param name="obj">The object to serialize</param>
+            <returns>The serialized byte-array</returns>
+        </member>
+        <member name="M:ExitGames.Client.Photon.IProtocol.Deserialize(ExitGames.Client.Photon.StreamBuffer)">
+            <summary>
+            Deserialize returns an object reassembled from the given StreamBuffer.
+            </summary>
+            <param name="stream">The buffer to be Deserialized</param>
+            <returns>The Deserialized object</returns>
+        </member>
+        <member name="M:ExitGames.Client.Photon.IProtocol.Deserialize(System.Byte[])">
+            <summary>
+            Deserialize returns an object reassembled from the given byte-array.
+            </summary>
+            <param name="serializedData">The byte-array to be Deserialized</param>
+            <returns>The Deserialized object</returns>
         </member>
         <member name="T:ExitGames.Client.Photon.OperationRequest">
             <summary>
@@ -1773,6 +1802,21 @@
             <param name="ip">Address in IPv4 or IPv6 format. An address containing a '.' will be interpretet as IPv4.</param>
             <returns>True if the Photon Ping could be sent.</returns>
         </member>
+        <member name="F:ExitGames.Client.Photon.IPhotonSocket.Protocol">
+            <summary>The protocol for this socket, defined in constructor.</summary>
+        </member>
+        <member name="P:ExitGames.Client.Photon.IPhotonSocket.ConnectAddress">
+            <summary>Address, as defined via a Connect() call. Including protocol, port and or path.</summary>
+        </member>
+        <member name="P:ExitGames.Client.Photon.IPhotonSocket.ServerAddress">
+            <summary>Contains only the server's hostname (stripped protocol, port and or path). Set in IphotonSocket.Connect().</summary>
+        </member>
+        <member name="P:ExitGames.Client.Photon.IPhotonSocket.ServerPort">
+            <summary>Contains only the server's port address (as string).  Set in IphotonSocket.Connect().</summary>
+        </member>
+        <member name="P:ExitGames.Client.Photon.IPhotonSocket.AddressResolvedAsIpv6">
+            <summary>Where available, this exposes if the server's address was resolved into an IPv6 address or not.</summary>
+        </member>
         <member name="M:ExitGames.Client.Photon.IPhotonSocket.TryParseAddress(System.String,System.String@,System.UInt16@,System.String@,System.String@)">
              <summary>
              Separates the given address into address (host name or IP) and port. Port must be included after colon!
@@ -2017,27 +2061,6 @@
         </member>
         <member name="P:ExitGames.Client.Photon.TrafficStats.TimestampOfLastReliableCommand">
             <summary>Timestamp of last incoming reliable command (every second we expect a PING).</summary>
-        </member>
-        <member name="M:ExitGames.Client.IProtocol.Serialize(System.Object)">
-            <summary>
-            Serialize creates a byte-array from the given object and returns it.
-            </summary>
-            <param name="obj">The object to serialize</param>
-            <returns>The serialized byte-array</returns>
-        </member>
-        <member name="M:ExitGames.Client.IProtocol.Deserialize(ExitGames.Client.Photon.StreamBuffer)">
-            <summary>
-            Deserialize returns an object reassembled from the given StreamBuffer.
-            </summary>
-            <param name="stream">The buffer to be Deserialized</param>
-            <returns>The Deserialized object</returns>
-        </member>
-        <member name="M:ExitGames.Client.IProtocol.Deserialize(System.Byte[])">
-            <summary>
-            Deserialize returns an object reassembled from the given byte-array.
-            </summary>
-            <param name="serializedData">The byte-array to be Deserialized</param>
-            <returns>The Deserialized object</returns>
         </member>
         <member name="T:Photon.SocketServer.Security.OakleyGroups">
             <summary>

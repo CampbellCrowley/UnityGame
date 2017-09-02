@@ -53,7 +53,6 @@
   <ItemGroup>
      <Compile Include="Assets\Standard Assets\Editor\ImageEffects\SunShaftsEditor.cs" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.shader" />
-     <None Include="Assets\ModelsTextures\Urban Buildings Pack 1\runesimple.shader" />
      <None Include="Assets\PlayFabSdk\link.xml" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Standard\StandardSpecular-doublesided.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.cginc" />

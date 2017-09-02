@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
      <Compile Include="Assets\Custom Assets\Scripts\AudioPlayer.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Building.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Cinematic.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\CityGenerator.cs" />
@@ -315,7 +316,6 @@
      <Compile Include="Assets\RPG Character Animation Pack\Code\RPGCharacterControllerFREE.cs" />
      <Compile Include="Assets\RPG Character Animation Pack\Code\RPGCharacterGUI.cs" />
      <None Include="Assets\PostProcessing\Resources\Shaders\DepthOfField.shader" />
-     <None Include="Assets\ModelsTextures\Urban Buildings Pack 1\runesimple.shader" />
      <None Include="Assets\PlayFabSdk\link.xml" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Standard\StandardSpecular-doublesided.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\MotionBlur.cginc" />

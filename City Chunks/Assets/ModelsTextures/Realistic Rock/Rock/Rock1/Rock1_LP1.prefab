@@ -22,7 +22,7 @@ GameObject:
   - component: {fileID: 33230865231708958}
   - component: {fileID: 23485531382891812}
   - component: {fileID: 64626887226765616}
-  m_Layer: 0
+  m_Layer: 18
   m_Name: default
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -38,7 +38,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4789874355024388}
   - component: {fileID: 114562614787774402}
-  m_Layer: 0
+  m_Layer: 18
   m_Name: Rock1_LP1
   m_TagString: Untagged
   m_Icon: {fileID: 0}

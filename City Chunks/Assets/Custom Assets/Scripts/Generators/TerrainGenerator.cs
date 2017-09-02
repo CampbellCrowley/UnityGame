@@ -129,6 +129,8 @@ using System.Threading;
   public List<GameObject> TreeInstances = new List<GameObject>();
   [Tooltip("List of rocks currently on this chunk.")]
   public List<GameObject> RockInstances = new List<GameObject>();
+  [Tooltip("List of buildings currently on this chunk.")]
+  public List<Building> BuildingInstances = new List<Building>();
   [Tooltip("The water GameObject attatched to this chunk.")]
   public GameObject waterTile;
   [Tooltip("Whether this terrain chunk is ready for its splatmap to be updated.")]
