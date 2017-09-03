@@ -259,6 +259,16 @@ public class GameData : MonoBehaviour {
       debug += "Grass Density: " + GrassDensity + ",\n";
     }
 
+    if (PlayerPrefs.HasKey("Mouse Sensitivity")) {
+      mouseSensitivity = PlayerPrefs.GetFloat("Mouse Sensitivity");
+      if (mouseSensitivity < 0) {
+        mouseSensitivity = 0f;
+      } else if (mouseSensitivity > 10) {
+        mouseSensitivity = 10f;
+      }
+      debug += "Mouse Sensitivity: " + mouseSensitivity + ",\n";
+    }
+
     debug += "]";
     Debug.Log(debug);
 
@@ -276,6 +286,7 @@ public class GameData : MonoBehaviour {
     PlayerPrefs.SetInt("Camera Damping", cameraDamping ? 1 : 0);
     PlayerPrefs.SetFloat("Load Distance", LoadDistance);
     PlayerPrefs.SetFloat("Grass Density", GrassDensity);
+    PlayerPrefs.SetFloat("Mouse Sensitivity", mouseSensitivity);
 
     PlayerPrefs.Save();
   }
@@ -290,4 +301,5 @@ public class GameData : MonoBehaviour {
   public static bool cameraDamping = false;
   public static float LoadDistance = 1500.0f;
   public static float GrassDensity = 1.0f;
+  public static float mouseSensitivity = 1.0f;
 }
