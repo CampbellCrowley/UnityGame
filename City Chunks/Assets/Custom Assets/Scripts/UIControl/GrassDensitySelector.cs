@@ -55,7 +55,8 @@ public class GrassDensitySelector : MonoBehaviour {
   void UpdateValue() {
     GameData.GrassDensity = slider.value;
     if (GameData.getLevel() != 0) {
-      FindObjectOfType<TerrainGenerator>().ChangeGrassDensity(slider.value);
+      TerrainGenerator tg = FindObjectOfType<TerrainGenerator>();
+      if (tg != null) tg.ChangeGrassDensity(slider.value);
     }
   }
 

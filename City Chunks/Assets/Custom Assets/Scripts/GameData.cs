@@ -152,6 +152,8 @@ public class GameData : MonoBehaviour {
 #endif
   }
 
+  void OnApplicationQuit() { Debug.Log("Application Quitting"); }
+
   void Update() {
 #if UNITY_EDITOR || UNITY_STANDALONE
     if (getLevel() == 0 || isPaused) {
@@ -161,8 +163,7 @@ public class GameData : MonoBehaviour {
     }
 #endif
     if (Time.time - loadEndTime > 1 &&
-        Time.time - loadEndTime - Time.deltaTime < 1 && loading &&
-        loadEndTime != -1) {
+        Time.time - loadEndTime - Time.deltaTime < 1 && loadEndTime != -1) {
       loading = false;
     }
     if (chatManager == null) chatManager = FindObjectOfType<ChatManager>();
@@ -184,9 +185,9 @@ public class GameData : MonoBehaviour {
 
     if (MusicPlayer != null) {
       float goalVol = music ? 0.5f : 0.0f;
-      if(QueuedMusic != null && QueuedMusic != MusicPlayer.clip) {
+      if (QueuedMusic != null && QueuedMusic != MusicPlayer.clip) {
         goalVol = 0.0f;
-        if(MusicPlayer.volume <= 0.001f) {
+        if (MusicPlayer.volume <= 0.001f) {
           Debug.Log("Playing Music: " + QueuedMusic.name);
           MusicPlayer.clip = QueuedMusic;
           MusicPlayer.Play();

@@ -11,6 +11,12 @@ public class JoystickDebug : MonoBehaviour {
                     Input.GetAxisRaw("Vertical") + ")\nLook(" +
                     Input.GetAxisRaw("Joystick X") + ", " +
                     Input.GetAxisRaw("Joystick Y") + ")";
+    float lookHorizontal =
+        Input.GetAxis("Mouse X") + Input.GetAxis("Joystick X");
+    float lookVertical = Input.GetAxis("Mouse Y") + Input.GetAxis("Joystick Y");
+    output += "\nMove: (" + Input.GetAxis("Horizontal") + ", " +
+              Input.GetAxis("Vertical") + ")\nLook(" + lookVertical + ", " +
+              lookHorizontal + ")";
     text.text = output;
   }
 }

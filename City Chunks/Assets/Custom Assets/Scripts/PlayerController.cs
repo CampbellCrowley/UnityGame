@@ -2,8 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.PostProcessing.Utilities;
-#pragma warning disable 0414 // Private field is assigned but never used
+// #pragma warning disable 0414 // Private field is assigned but never used
 
+[RequireComponent(typeof (MyCameraController))]
 public class PlayerController : Photon.MonoBehaviour {
   [System.Serializable] public class Sounds {
     public AudioPlayer Player;
@@ -24,12 +25,6 @@ public class PlayerController : Photon.MonoBehaviour {
   [Tooltip ("Seconds")]
   public float staminaRechargeDelay = 3.0f;
   public float staminaRechargeMultiplier = 1.5f;
-  [Header ("Camera")]
-  public GameObject Camera;
-  public bool CameraObjectAvoidance = true;
-  public bool rotateWithCamera = false;
-  public bool firstPerson = true;
-  public float MaxCameraDistance = 3f;
   public float playerHeight = 1.5f;
   public float crouchedHeight = 1.0f;
   [Header ("OSDs/HUD")]
@@ -65,18 +60,21 @@ public class PlayerController : Photon.MonoBehaviour {
   public float deltaReceiveTime = 0.0f;
   public bool waitForSpawnLoading = true;
 
-  public bool isLocalPlayer = false;
+  [HideInInspector] public bool isLocalPlayer = false;
 
   Animator anim;
   Cinematic cinematic;
   Color startColor;
   CapsuleCollider collider;
   GameObject Ragdoll;
+  MyCameraController cam;
   PostProcessingController PPC;
   Quaternion startCameraRotation, cameraSpawnRotation;
   Rigidbody rbody;
+  SkinnedMeshRenderer[] meshRenderers;
   TextMesh nameplate;
   Transform lastFloorTransform;
+  Transform Head;
   Vector3 spawnLocation;
   Vector3 lastFloorTransformPosition;
   bool isGrounded = true;
@@ -86,16 +84,15 @@ public class PlayerController : Photon.MonoBehaviour {
   bool isJumping = false;
   bool godMode = false;
   bool cinematicsFinished = false;
+  bool camFirstPerson = true;
+  bool camDistanceSnap = false;
   float moveHorizontal = 0f;
   float moveVertical = 0f;
-  float lookHorizontal = 0f;
-  float lookVertical = 0f;
   float spawnCameraDistance = 1500f;
-  float intendedCameraDistance;
+  float startCameraDistance = 3f;
   float turn = 0f;
   float forward = 0f;
   float moveAngle = 0f;
-  float CurrentCameraDistance = 3f;
   float endTime = 0f;
   float staminaRemaining = 1.0f;
   float levelStartTime = 0f;
@@ -136,28 +133,34 @@ public class PlayerController : Photon.MonoBehaviour {
     }
 
     GameData.showCursor = false;
+    cam = GetComponent<MyCameraController>();
     cinematic = FindObjectOfType<Cinematic>();
     collider = GetComponent<CapsuleCollider>();
     anim = GetComponent<Animator>();
     rbody = GetComponent<Rigidbody>();
     startColor = RenderSettings.fogColor;
-    Camera = Instantiate (Camera);
-    Camera.transform.parent = null;
-    Camera.transform.rotation = Quaternion.identity;
-    Camera.GetComponent<Camera>().enabled = true;
-    Camera.GetComponent<AudioListener>().enabled = true;
-    Camera.name = "CameraFor" + GameData.username;
 
     if (GetComponent<CapsuleCollider>() != null) {
       colliderStartPosition = collider.center.y;
     }
 
-    foreach (Camera cam in UnityEngine.Camera.allCameras) {
-      cam.layerCullSpherical = true;
-    }
+    meshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
 
-    startCameraRotation = Camera.transform.rotation;
-    intendedCameraDistance = MaxCameraDistance;
+    cam.Initialize();
+    startCameraRotation = cam.cam.transform.rotation;
+    Transform[] children = GetComponentsInChildren<Transform>();
+    Head = transform;
+    foreach (Transform target_ in children) {
+      if (target_.name.Contains("Head_M")) {
+        Head = target_;
+        break;
+      }
+    }
+    cam.UpdateTarget(Head);
+    startCameraDistance = cam.MaxCameraDistance;
+    camFirstPerson = cam.firstPerson;
+    camDistanceSnap = cam.distanceSnap;
+
     PPC = GameObject.FindObjectOfType<PostProcessingController>();
 
     if (MiniMapCamera != null) { MiniMapCamera = Instantiate (MiniMapCamera); }
@@ -190,6 +193,9 @@ public class PlayerController : Photon.MonoBehaviour {
 
     if (debug != null) { debug = Instantiate (debug); }
 
+    nameplate = GetComponentInChildren<TextMesh>();
+    nameplate.transform.GetComponent<MeshRenderer>().enabled = false;
+
     levelStartTime = Time.time;
     lastGroundedTime = Time.time;
     lastSprintTime = Time.time;
@@ -201,13 +207,15 @@ public class PlayerController : Photon.MonoBehaviour {
   void Update() {
     isLocalPlayer = photonView.isMine || !PhotonNetwork.connected;
 
-    if (!GameData.loading && !Camera.activeSelf) { Camera.SetActive (true); }
-    else if (GameData.loading && Camera.activeSelf) { Camera.SetActive (false); }
+    if (!GameData.loading && !cam.cam.activeSelf) {
+      cam.cam.SetActive(true);
+    } else if (GameData.loading && cam.cam.activeSelf) {
+      cam.cam.SetActive(false);
+    }
 
     rbody = GetComponent<Rigidbody>();
 
     if (!GameData.loading && UnityEngine.Camera.main != null) {
-      nameplate = GetComponentInChildren<TextMesh>();
       nameplate.transform.LookAt (UnityEngine.Camera.main.transform.position);
       nameplate.transform.rotation *= Quaternion.Euler (0, 180f, 0);
 
@@ -216,7 +224,7 @@ public class PlayerController : Photon.MonoBehaviour {
       }
     }
 
-    if (isLocalPlayer && intendedCameraDistance == 0 &&
+    if (isLocalPlayer && cam.MaxCameraDistance == 0 &&
         Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
       if (!GameData.loading) {
         nameplate.GetComponent<MeshRenderer>().enabled = false;
@@ -264,20 +272,16 @@ public class PlayerController : Photon.MonoBehaviour {
     if (isLocalPlayer && !GameData.isPaused && !GameData.isChatOpen) {
       moveHorizontal = Input.GetAxis ("Horizontal");
       moveVertical = Input.GetAxis ("Vertical");
-      lookHorizontal =
-        Input.GetAxis ("Mouse X") + Input.GetAxis ("Joystick X") * 3f;
-      lookVertical =
-        Input.GetAxis ("Mouse Y") + Input.GetAxis ("Joystick Y") * 3f;
       interact = Input.GetAxis ("Interact");
 
       if (Input.GetButtonDown ("GodMode")) { godMode = !godMode; }
 
-      isCrouched = Input.GetAxis ("Crouch") > 0.5;
-      isJumping = Input.GetAxis ("Jump") > 0.5 && isGrounded && !isCrouched &&
+      isCrouched = Input.GetAxis ("Crouch") > 0.1;
+      isJumping = Input.GetAxis ("Jump") > 0.1 && isGrounded && !isCrouched &&
                   lastJumpTime >= jumpFrequency;
       sprintInput = Input.GetAxis ("Sprint");
       isSprinting =
-        (sprintInput > 0.5 && !isCrouched) || (isSprinting && !isGrounded);
+        (sprintInput > 0.1 && !isCrouched) || (isSprinting && !isGrounded);
       wasUnderwater = isUnderwater;
       isUnderwater = transform.position.y < TerrainGenerator.waterHeight;
 
@@ -316,22 +320,24 @@ public class PlayerController : Photon.MonoBehaviour {
     // Debug HUD
     if (debug != null) {
       debug.text = "Horizontal: " + moveHorizontal + "\nVertical: " +
-                   moveVertical + "\nMouse X: " + lookHorizontal +
-                   "\nMouseY: " + lookVertical + "\nTime: " + Time.time;
+                   moveVertical + "\nTime: " + Time.time;
     }
 
     if (!TerrainGenerator.doneLoadingSpawn && !spawned && waitForSpawnLoading) {
       levelStartTime = Time.time;
-      Camera.transform.rotation = Quaternion.Euler (70f, 30f, 0f);
-      cameraSpawnRotation = Camera.transform.rotation;
+      cam.userInput = false;
+      cam.cam.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
+      cameraSpawnRotation = cam.cam.transform.rotation;
       spawnLocation = transform.position;
     } else if (cinematicsFinished && !spawned) {
       levelStartTime = Time.time;
-      cameraSpawnRotation = Camera.transform.rotation;
+      cam.userInput = false;
+      cameraSpawnRotation = cam.cam.transform.rotation;
       spawnLocation = transform.position;
       spawned = true;
     } else {
       spawned = true;
+      cam.userInput = true;
     }
 
     // Vehicles
@@ -342,9 +348,11 @@ public class PlayerController : Photon.MonoBehaviour {
     // }
 
     if (GameData.Vehicle != null) {
-      GameData.Vehicle.UpdateInputs (moveVertical, moveHorizontal,
-                                     lookHorizontal, lookVertical, sprintInput,
-                                     Camera.GetComponent<Camera>());
+      // TODO: Remove this and let VehicleController get its own inputs.
+      GameData.Vehicle.UpdateInputs(moveVertical, moveHorizontal,
+                                    0 /* lookVertical */,
+                                    0 /* lookHorizontal */, sprintInput,
+                                    cam.cam.GetComponent<Camera>());
       transform.position =
         GameData.Vehicle.gameObject.transform.position + Vector3.up * 0.25f;
       transform.rotation = GameData.Vehicle.gameObject.transform.rotation;
@@ -366,17 +374,17 @@ public class PlayerController : Photon.MonoBehaviour {
 
       moveHorizontal = 0;
       moveVertical = 0;
-      lookHorizontal = 0;
-      lookVertical = 0;
+      // lookHorizontal = 0;
+      // lookVertical = 0;
       rbody.velocity = Vector3.zero;
       isCrouched = true;
       isGrounded = true;
       isJumping = false;
 
       if (timeInVehicle < 1.0f) {
-        GameData.Vehicle.UpdateInputs (moveVertical, moveHorizontal,
-                                       lookHorizontal, lookVertical, sprintInput,
-                                       Camera.GetComponent<Camera>());
+        GameData.Vehicle.UpdateInputs(
+            moveVertical, moveHorizontal, 0 /* lookHorizontal */,
+            0 /* lookVertical */, sprintInput, cam.cam.GetComponent<Camera>());
       }
 
       if (interact > 0.5 && timeInVehicle > 0.5f) {
@@ -384,9 +392,9 @@ public class PlayerController : Photon.MonoBehaviour {
       }
     } else {
       RaycastHit raycast;
-      Physics.Raycast (Camera.transform.position,
-                       Camera.transform.rotation * Vector3.forward, out raycast,
-                       10f);
+      Physics.Raycast(cam.cam.transform.position,
+                      cam.cam.transform.rotation * Vector3.forward,
+                      out raycast, 10f);
 
       if (raycast.transform != null &&
           raycast.transform.CompareTag ("Vehicle")) {
@@ -420,6 +428,7 @@ public class PlayerController : Photon.MonoBehaviour {
         GameData.isPaused || GameData.isChatOpen) {
       if (Input.GetKeyDown("enter")) {
         levelStartTime = Time.time - flyDownTime;
+        cam.cam.transform.rotation = startCameraRotation;
       }
 
       if (GameData.isPaused) {
@@ -427,17 +436,21 @@ public class PlayerController : Photon.MonoBehaviour {
       }
 
       if (cameraSpawnRotation.w == 0) {
-        Camera.transform.rotation = Quaternion.Euler (70f, 30f, 0f);
-        cameraSpawnRotation = Camera.transform.rotation;
+        cam.userInput = false;
+        cam.cam.transform.rotation = Quaternion.Euler (70f, 30f, 0f);
+        cameraSpawnRotation = cam.cam.transform.rotation;
       }
 
       if (!GameData.isPaused && Time.time - levelStartTime < flyDownTime) {
-        Camera.transform.rotation =
+        cam.firstPerson = false;
+        cam.userInput = false;
+        cam.distanceSnap = true;
+        cam.cam.transform.rotation =
           Quaternion.Lerp (cameraSpawnRotation, startCameraRotation,
                            (Time.time - levelStartTime) / flyDownTime);
-        intendedCameraDistance =
-          Mathf.Lerp (spawnCameraDistance, MaxCameraDistance,
-                      (Time.time - levelStartTime) / flyDownTime);
+        cam.MaxCameraDistance =
+            Mathf.Lerp(spawnCameraDistance, startCameraDistance,
+                       (Time.time - levelStartTime) / flyDownTime);
       }
 
       // if (GameData.Vehicle != null) {
@@ -449,8 +462,8 @@ public class PlayerController : Photon.MonoBehaviour {
 
       moveHorizontal = 0;
       moveVertical = 0;
-      lookHorizontal = 0;
-      lookVertical = 0;
+      // lookHorizontal = 0;
+      // lookVertical = 0;
       rbody.velocity = Vector3.zero;
       isCrouched = false;
       isJumping = false;
@@ -459,29 +472,19 @@ public class PlayerController : Photon.MonoBehaviour {
           flyDownTime + flyDownEndTime + Time.deltaTime &&
           Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
         moveVertical = 1.0f;
+        cam.firstPerson = camFirstPerson;
+        cam.MaxCameraDistance = startCameraDistance;
+        cam.distanceSnap = camDistanceSnap;
 
-        if (firstPerson) {
-          intendedCameraDistance = 0f;
-          rotateWithCamera = true;
-        } else {
-          intendedCameraDistance = MaxCameraDistance;
-          rotateWithCamera = false;
-        }
-
-        if (intendedCameraDistance == 0 && isLocalPlayer) {
-          SkinnedMeshRenderer[] renderers =
-            GetComponentsInChildren<SkinnedMeshRenderer>();
-
-          foreach (SkinnedMeshRenderer r in renderers) {
+        if (cam.firstPerson && isLocalPlayer) {
+          foreach (SkinnedMeshRenderer r in meshRenderers) {
             r.shadowCastingMode =
               UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
           }
         } else if (!isLocalPlayer) {
-          SkinnedMeshRenderer[] renderers =
-            GetComponentsInChildren<SkinnedMeshRenderer>();
-
-          foreach (SkinnedMeshRenderer r in renderers)
-          { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; }
+          foreach (SkinnedMeshRenderer r in meshRenderers) {
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+          }
         }
       }
     }
@@ -667,7 +670,7 @@ public class PlayerController : Photon.MonoBehaviour {
     }
 
     movement =
-        Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0) * movement;
+        Quaternion.Euler(0, cam.cam.transform.eulerAngles.y, 0) * movement;
 
     if (movement.magnitude <= 0.015) {
       movement = Vector3.zero;
@@ -683,91 +686,7 @@ public class PlayerController : Photon.MonoBehaviour {
         MiniMapCamera.transform.position = mapPos;
       }
 
-      Camera.transform.rotation =
-          Quaternion.Euler(Camera.transform.eulerAngles.x -
-                               lookVertical * GameData.mouseSensitivity,
-                           Camera.transform.eulerAngles.y +
-                               lookHorizontal * GameData.mouseSensitivity,
-                           0);
-
-      if (CameraObjectAvoidance && spawned) {
-        RaycastHit hit;
-        Physics.Linecast(
-            transform.position +
-                Vector3.up * (isCrouched ? crouchedHeight : playerHeight),
-            Camera.transform.position, out hit, LayerMask.GetMask("Ground"));
-
-        if (hit.transform != Camera.transform && hit.transform != transform &&
-            hit.transform != null) {
-          CurrentCameraDistance = hit.distance;
-        } else {
-          CurrentCameraDistance += 5.0f * Time.deltaTime;
-
-          if (CurrentCameraDistance > intendedCameraDistance) {
-            CurrentCameraDistance = intendedCameraDistance;
-          }
-        }
-      }
-
-      if (!spawned || isDead) {
-        CurrentCameraDistance = intendedCameraDistance;
-      }
-
-      Vector3 newCameraPos =
-          Vector3.up * (isCrouched ? crouchedHeight : playerHeight) +
-          Vector3.ClampMagnitude(
-              (Vector3.left *
-                   (Mathf.Sin(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) -
-                    Mathf.Sin(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) *
-                        Mathf.Sin((-45f + Camera.transform.eulerAngles.x) /
-                                  90f * Mathf.PI)) +
-               Vector3.back *
-                   (Mathf.Cos(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) -
-                    Mathf.Cos(Camera.transform.eulerAngles.y / 180f *
-                              Mathf.PI) *
-                        Mathf.Sin((-45f + Camera.transform.eulerAngles.x) /
-                                  90f * Mathf.PI)) +
-               Vector3.up *
-                   Mathf.Sin(Camera.transform.eulerAngles.x / 180f * Mathf.PI)),
-              1.0f) *
-              CurrentCameraDistance;
-
-      if (!isDead || Ragdoll == null) {
-        newCameraPos += transform.position;
-      } else {
-        newCameraPos += Ragdoll.transform.position;
-      }
-
-      if (isDead) {
-        Vector3 velocity = Vector3.zero;
-        newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
-                                          newCameraPos, ref velocity, 0.05f);
-      } else if (GameData.cameraDamping && spawned &&
-                 (intendedCameraDistance != 0 ||
-                  Time.time - levelStartTime < flyDownTime + flyDownEndTime)) {
-        Vector3 velocity = Vector3.zero;
-        newCameraPos = Vector3.SmoothDamp(Camera.transform.position,
-                                          newCameraPos, ref velocity, 0.05f);
-      }
-
-      if (newCameraPos.y <= TerrainGenerator.waterHeight + 0.4f) {
-        newCameraPos += Vector3.down * 0.8f;
-      }
-
-      Camera.transform.position = newCameraPos;
-
-      if (Camera.transform.eulerAngles.x > 85.0f &&
-          Camera.transform.eulerAngles.x < 90.0f) {
-        Camera.transform.rotation =
-            Quaternion.Euler(85.0f, Camera.transform.eulerAngles.y, 0f);
-      } else if (Camera.transform.eulerAngles.x < 360f - 85.0f &&
-                 Camera.transform.eulerAngles.x > 90.0f) {
-        Camera.transform.rotation =
-            Quaternion.Euler(-85.0f, Camera.transform.eulerAngles.y, 0f);
-      }
+      cam.UpdateTransform(Time.deltaTime);
 
       if (isDead && Ragdoll != null) {
         Transform[] children = Ragdoll.GetComponentsInChildren<Transform>();
@@ -782,17 +701,14 @@ public class PlayerController : Photon.MonoBehaviour {
           }
         }
 
-        Quaternion startRot = Camera.transform.rotation;
-        Camera.transform.LookAt(target.position + Vector3.up * 0.2f);
-        Camera.transform.rotation =
-            Quaternion.Lerp(startRot, Camera.transform.rotation, 0.1f);
+        cam.UpdateTarget(target);
       }
 
       // Rotation
-      if (rotateWithCamera) {
+      if (cam.rotateWithCamera) {
         rbody.transform.rotation = Quaternion.identity;
         transform.rotation =
-            Quaternion.Euler(0, Camera.transform.eulerAngles.y, 0);
+            Quaternion.Euler(0, cam.cam.transform.eulerAngles.y, 0);
       } else {
         moveAngle = Mathf.Atan(moveHorizontal / moveVertical) * 180f / Mathf.PI;
 
@@ -806,7 +722,7 @@ public class PlayerController : Photon.MonoBehaviour {
 
         if (Mathf.Abs(rbody.velocity.x) > 0.01f ||
             Mathf.Abs(rbody.velocity.z) > 0.01f) {
-          moveAngle += Camera.transform.eulerAngles.y;
+          moveAngle += cam.cam.transform.eulerAngles.y;
           Quaternion rotation = Quaternion.Euler(
               0f,
               Mathf.LerpAngle(rbody.transform.eulerAngles.y, moveAngle, 0.10f),
@@ -841,7 +757,7 @@ public class PlayerController : Photon.MonoBehaviour {
       // }
 
       // if (useRenderSettingsFog) {
-      //   if (Camera.transform.position.y > TerrainGenerator.waterHeight) {
+      //   if (cam.cam.transform.position.y > TerrainGenerator.waterHeight) {
       //     RenderSettings.fogStartDistance = 2000 * (1 - (vignette / 0.45f));
       //     RenderSettings.fogEndDistance = 2000 * (1 - (vignette / 0.45f));
       //     RenderSettings.fogColor =
@@ -895,26 +811,17 @@ public class PlayerController : Photon.MonoBehaviour {
   }
 
   void ToggleThirdPerson() {
-    firstPerson = !firstPerson;
+    cam.ToggleThirdPerson();
 
-    if (firstPerson) {
-      intendedCameraDistance = 0f;
-      rotateWithCamera = true;
-      SkinnedMeshRenderer[] renderers =
-        GetComponentsInChildren<SkinnedMeshRenderer>();
-
-      foreach (SkinnedMeshRenderer r in renderers) {
+    if (cam.firstPerson) {
+      foreach (SkinnedMeshRenderer r in meshRenderers) {
         r.shadowCastingMode =
-          UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
+            UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
       }
     } else {
-      intendedCameraDistance = MaxCameraDistance;
-      rotateWithCamera = false;
-      SkinnedMeshRenderer[] renderers =
-        GetComponentsInChildren<SkinnedMeshRenderer>();
-
-      foreach (SkinnedMeshRenderer r in renderers)
-      { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; }
+      foreach (SkinnedMeshRenderer r in meshRenderers) {
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+      }
     }
   }
 
@@ -925,14 +832,15 @@ public class PlayerController : Photon.MonoBehaviour {
     GameData.tries--;
     ExitVehicle();
 
-    if (GameData.tries <= 0)
-    { PlaySound (sounds.LevelFail, 1.0f); }
-    else
-    { PlaySound (sounds.Pain, 1.0f); }
+    if (GameData.tries <= 0) {
+      PlaySound(sounds.LevelFail, 1.0f);
+    } else {
+      PlaySound(sounds.Pain, 1.0f);
+    }
 
-    intendedCameraDistance += 10f;
+    cam.MaxCameraDistance += 10f;
     deathTime = Time.realtimeSinceStartup;
-    GetComponent<Rigidbody>().isKinematic = true;
+    rbody.isKinematic = true;
 
     if (RagdollTemplate != null) {
       Ragdoll = Instantiate (RagdollTemplate);
@@ -953,28 +861,31 @@ public class PlayerController : Photon.MonoBehaviour {
       Ragdoll.GetComponent<Rigidbody>().velocity = rbody.velocity;
 
       foreach (SkinnedMeshRenderer renderer in
-               GetComponentsInChildren<SkinnedMeshRenderer>())
-      { renderer.enabled = false; }
+                   GetComponentsInChildren<SkinnedMeshRenderer>()) {
+        renderer.enabled = false;
+      }
 
-      GetComponent<CapsuleCollider>().enabled = false;
-      GetComponent<Animator>().enabled = false;
-      // Camera.transform.eulerAngles = new Vector3(85f, 0, 0);
+      collider.enabled = false;
+      anim.enabled = false;
+      // cam.cam.transform.eulerAngles = new Vector3(85f, 0, 0);
     }
   }
   void UnDead() {
     transform.position = spawnLocation;
     transform.rotation = Quaternion.identity;
-    Camera.transform.rotation = Quaternion.identity;
+    cam.cam.transform.eulerAngles =
+        new Vector3(0, cam.cam.transform.eulerAngles.y, 0);
     spawned = false;
     isDead = false;
     GameData.health = 5;
     Time.timeScale = 1.0f;
     Time.fixedDeltaTime = 0.02f * Time.timeScale;
-    intendedCameraDistance -= 10;
-    GetComponent<Rigidbody>().isKinematic = false;
+    cam.MaxCameraDistance -= 10;
+    cam.UpdateTarget(Head);
+    rbody.isKinematic = false;
     Destroy (Ragdoll);
-    GetComponent<CapsuleCollider>().enabled = true;
-    GetComponent<Animator>().enabled = true;
+    collider.enabled = true;
+    anim.enabled = true;
   }
 
   public void EnterVehicle (VehicleController vehicle) {
@@ -982,14 +893,12 @@ public class PlayerController : Photon.MonoBehaviour {
 
     GameData.Vehicle = vehicle;
     timeInVehicle = 0.0f;
-    GetComponent<Collider>().enabled = false;
+    collider.enabled = false;
 
     if (isLocalPlayer) {
-      SkinnedMeshRenderer[] renderers =
-        GetComponentsInChildren<SkinnedMeshRenderer>();
-
-      foreach (SkinnedMeshRenderer r in renderers)
-      { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; }
+      foreach (SkinnedMeshRenderer r in meshRenderers) {
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+      }
     }
   }
   public void ExitVehicle() {
@@ -1001,11 +910,9 @@ public class PlayerController : Photon.MonoBehaviour {
     transform.rotation = Quaternion.Euler(
         0, GameData.Vehicle.transform.rotation.eulerAngles.y, 0);
     rbody.velocity = Vector3.zero;
-    Camera.transform.rotation = transform.rotation;
-    SkinnedMeshRenderer[] renderers =
-        GetComponentsInChildren<SkinnedMeshRenderer>();
+    cam.cam.transform.rotation = transform.rotation;
 
-    foreach (SkinnedMeshRenderer r in renderers) {
+    foreach (SkinnedMeshRenderer r in meshRenderers) {
       r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
     }
 
