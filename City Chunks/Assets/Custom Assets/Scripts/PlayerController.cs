@@ -64,11 +64,11 @@ public class PlayerController : Photon.MonoBehaviour {
 
   Animator anim;
   Cinematic cinematic;
-  Color startColor;
+  // Color startColor;
   CapsuleCollider collider;
   GameObject Ragdoll;
   MyCameraController cam;
-  PostProcessingController PPC;
+  // PostProcessingController PPC;
   Quaternion startCameraRotation, cameraSpawnRotation;
   Rigidbody rbody;
   SkinnedMeshRenderer[] meshRenderers;
@@ -112,6 +112,8 @@ public class PlayerController : Photon.MonoBehaviour {
     if (photonView.isMine) {
       LevelController.LocalPlayerInstance = gameObject;
       PhotonNetwork.playerName = GameData.username;
+      cam = GetComponent<MyCameraController>();
+      cam.Initialize();
       isLocalPlayer = true;
     }
   }
@@ -133,12 +135,11 @@ public class PlayerController : Photon.MonoBehaviour {
     }
 
     GameData.showCursor = false;
-    cam = GetComponent<MyCameraController>();
     cinematic = FindObjectOfType<Cinematic>();
     collider = GetComponent<CapsuleCollider>();
     anim = GetComponent<Animator>();
     rbody = GetComponent<Rigidbody>();
-    startColor = RenderSettings.fogColor;
+    // startColor = RenderSettings.fogColor;
 
     if (GetComponent<CapsuleCollider>() != null) {
       colliderStartPosition = collider.center.y;
@@ -146,7 +147,6 @@ public class PlayerController : Photon.MonoBehaviour {
 
     meshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
 
-    cam.Initialize();
     startCameraRotation = cam.cam.transform.rotation;
     Transform[] children = GetComponentsInChildren<Transform>();
     Head = transform;
@@ -156,12 +156,13 @@ public class PlayerController : Photon.MonoBehaviour {
         break;
       }
     }
+    if (cam == null) cam = GetComponent<MyCameraController>();
     cam.UpdateTarget(Head);
     startCameraDistance = cam.MaxCameraDistance;
     camFirstPerson = cam.firstPerson;
     camDistanceSnap = cam.distanceSnap;
 
-    PPC = GameObject.FindObjectOfType<PostProcessingController>();
+    // PPC = GameObject.FindObjectOfType<PostProcessingController>();
 
     if (MiniMapCamera != null) { MiniMapCamera = Instantiate (MiniMapCamera); }
 
@@ -194,7 +195,7 @@ public class PlayerController : Photon.MonoBehaviour {
     if (debug != null) { debug = Instantiate (debug); }
 
     nameplate = GetComponentInChildren<TextMesh>();
-    nameplate.transform.GetComponent<MeshRenderer>().enabled = false;
+    nameplate.GetComponent<MeshRenderer>().enabled = false;
 
     levelStartTime = Time.time;
     lastGroundedTime = Time.time;
@@ -207,31 +208,30 @@ public class PlayerController : Photon.MonoBehaviour {
   void Update() {
     isLocalPlayer = photonView.isMine || !PhotonNetwork.connected;
 
-    if (!GameData.loading && !cam.cam.activeSelf) {
-      cam.cam.SetActive(true);
-    } else if (GameData.loading && cam.cam.activeSelf) {
-      cam.cam.SetActive(false);
+    if (cam == null) cam = GetComponent<MyCameraController>();
+    if (cam != null && cam.cam != null) {
+      if (!GameData.loading && !cam.cam.activeSelf) {
+        cam.cam.SetActive(true);
+      } else if (GameData.loading && cam.cam.activeSelf) {
+        cam.cam.SetActive(false);
+      }
     }
 
     rbody = GetComponent<Rigidbody>();
 
     if (!GameData.loading && UnityEngine.Camera.main != null) {
-      nameplate.transform.LookAt (UnityEngine.Camera.main.transform.position);
-      nameplate.transform.rotation *= Quaternion.Euler (0, 180f, 0);
+      if (nameplate == null) nameplate = GetComponentInChildren<TextMesh>();
+      if (nameplate != null) {
+        nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
+        nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
 
-      if (photonView.owner != null) {
-        nameplate.text = photonView.owner.NickName;
+        if (photonView.owner != null) {
+          nameplate.text = photonView.owner.NickName;
+        }
       }
     }
 
-    if (isLocalPlayer && cam.MaxCameraDistance == 0 &&
-        Time.time - levelStartTime > flyDownTime + flyDownEndTime) {
-      if (!GameData.loading) {
-        nameplate.GetComponent<MeshRenderer>().enabled = false;
-      }
-    }
-
-    if (usernameOSD != null && !GameData.loading) {
+    if (usernameOSD != null && nameplate != null && !GameData.loading) {
       usernameOSD.text = nameplate.text;
     }
 
@@ -426,7 +426,8 @@ public class PlayerController : Photon.MonoBehaviour {
     // paused, or if chat is open.
     if (Time.time - levelStartTime < flyDownTime || isDead ||
         GameData.isPaused || GameData.isChatOpen) {
-      if (Input.GetKeyDown("enter")) {
+      if (Input.GetKeyDown("enter") && !GameData.isPaused &&
+          !GameData.isChatOpen && !isDead) {
         levelStartTime = Time.time - flyDownTime;
         cam.cam.transform.rotation = startCameraRotation;
       }
@@ -481,7 +482,7 @@ public class PlayerController : Photon.MonoBehaviour {
             r.shadowCastingMode =
               UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
           }
-        } else if (!isLocalPlayer) {
+        } else if (!isLocalPlayer && meshRenderers != null) {
           foreach (SkinnedMeshRenderer r in meshRenderers) {
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
           }

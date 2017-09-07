@@ -12,17 +12,17 @@ public class MyCameraController : MonoBehaviour {
 
   [HideInInspector] public bool isMaster = true;
   [HideInInspector] public bool userInput = true;
-  [HideInInspector] public bool initialized = false;
   [HideInInspector] public bool rotateWithCamera = false;
 
   Transform target;
   float CurrentCameraDistance = 0f;
   float intendedCameraDistance = 0f;
+  bool initialized = false;
 
   public void Initialize() {
     if (initialized) {
       Debug.LogWarning(
-          "Initialize() was called more than once, this is not allowed!");
+          "Initialize() was called more than once. This is not allowed!");
       return;
     }
     if (cam == null) {
@@ -55,8 +55,6 @@ public class MyCameraController : MonoBehaviour {
       debug.text = "IntendedCameraDistance: " + intendedCameraDistance +
                    "\nMaxCameraDistance: " + MaxCameraDistance +
                    "\nCurrentCameraDistance: " + CurrentCameraDistance;
-    } else {
-      debug.text = "";
     }
 
     float lookHorizontal =
@@ -138,4 +136,5 @@ public class MyCameraController : MonoBehaviour {
   }
 
   public void ToggleThirdPerson() { firstPerson = !firstPerson; }
+  public bool Initialized() { return initialized; }
 }

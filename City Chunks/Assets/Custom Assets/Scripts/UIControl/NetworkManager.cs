@@ -46,6 +46,9 @@ public class NetworkManager : Photon.MonoBehaviour {
       GUI.contentColor = Color.black;
       GUI.Label(new Rect(xposCentered, yposCentered, 250, 30),
                 PhotonNetwork.connectionStateDetailed.ToString());
+      if (PhotonNetwork.connectionStateDetailed.ToString() == "PeerCreated") {
+        PhotonNetwork.ConnectUsingSettings(GameData.version);
+      }
 
       GUI.contentColor = Color.black;
       if (!PhotonNetwork.offlineMode) {
@@ -82,8 +85,10 @@ public class NetworkManager : Photon.MonoBehaviour {
       if (roomsList != null && roomsList.Length > 0) {
         for (int i = 0; i < roomsList.Length; i++) {
           if (GUI.Button(
-                  new Rect(xposCentered - 125, yposCentered + (30 * i), 500, 27),
-                  "Join " + roomsList[i].Name)) {
+                  new Rect(xposCentered + 25, yposCentered + (30 * i), 200, 27),
+                  "Join " +
+                      roomsList[i].Name.Substring(
+                          0, roomsList[i].Name.IndexOf('`')))) {
             JoinRoom(roomsList[i].Name);
           }
         }
@@ -107,12 +112,18 @@ public class NetworkManager : Photon.MonoBehaviour {
         FindObjectOfType<TerrainGenerator>().SaveAllChunks();
         LeaveRoom();
       } else {
-        GUI.Label(new Rect(xpos, ypos, 300, 40),
-                  "Players: " + PhotonNetwork.room.PlayerCount);
+        GUI.Label(new Rect(xpos, ypos - 20, 300, 20), PhotonNetwork.room.Name);
         if(PhotonNetwork.isMasterClient) {
-          GUI.Label(new Rect(xpos, ypos + spacing, 300, 40),
+          GUI.Label(new Rect(xpos, ypos, 300, 20),
                     "You are the master client");
         }
+        string playerList = "";
+        foreach (PhotonPlayer players in PhotonNetwork.playerList) {
+          playerList += "\n" + players.name;
+        }
+        GUI.Label(
+            new Rect(xpos, ypos + 20, 300, 300),
+            "Players in room: " + PhotonNetwork.room.PlayerCount + playerList);
       }
     }
   }
@@ -140,7 +151,7 @@ public class NetworkManager : Photon.MonoBehaviour {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
-    PhotonNetwork.CreateRoom(GameData.username + " " + name +
+    PhotonNetwork.CreateRoom(GameData.username + "`" + name +
                              Guid.NewGuid().ToString("N"));
   }
   public static void JoinRoom(string name) {

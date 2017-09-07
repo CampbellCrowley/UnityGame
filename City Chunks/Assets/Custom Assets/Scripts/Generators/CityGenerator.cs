@@ -80,6 +80,13 @@ public class CityGenerator : SubGenerator {
                       Color.green, 10000f);
     }
 
+    if (tg.useSeed) {
+      UnityEngine.Random.InitState(
+          (int)(tg.Seed +
+                tg.PerfectlyHashThem((short)(terrain.x * 3 - 3),
+                                     (short)(terrain.z * 3 - 2))));
+    }
+
     for (int x = 0; x < pointMap.GetLength(0); x++) {
       for (int z = 0; z < pointMap.GetLength(1); z++) {
         if (debugAll || pointMap[x, z] > threshold) {

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+#pragma warning disable 0162 // Unreachable code
 
 public class ConsistencyChecker : MonoBehaviour {
 
@@ -49,9 +50,7 @@ public class ConsistencyChecker : MonoBehaviour {
     checkComplete = true;
   }
 
-  public static bool isCheckComplete() {
-    return checkComplete;
-  }
+  public static bool isCheckComplete() { return checkComplete; }
 
   bool randomNumCheck() {
     // Checks that the random numbers provided on all devices are identical

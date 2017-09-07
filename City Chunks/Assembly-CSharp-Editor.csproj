@@ -172,6 +172,7 @@
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Hair\Hair_UnityStandardInput.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\UberSecondPass.cginc" />
      <None Include="Assets\PostProcessing\Resources\Shaders\Tonemapping.cginc" />
+     <None Include="Assets\Standard Assets\Effects\ImageEffects\Readme.txt" />
      <None Include="Assets\Day Night Cycle\ReadMe.txt" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\HistogramCompute.compute" />
      <None Include="Assets\Plugins\Photon3Unity3D.xml" />
@@ -226,6 +227,7 @@
      <None Include="Assets\Standard Assets\Environment\Water\Water4\Shaders\FXWater4Advanced.shader" />
      <None Include="Assets\MORPH3D\Resources\Shaders\EyeAndLash.shader" />
      <None Include="Assets\Custom Assets\Scripts\NamesFormatted.txt" />
+     <None Include="Assets\Standard Assets\Effects\ImageEffects\Shaders\SimpleClear.shader" />
      <None Include="Assets\Standard Assets\ParticleSystems\Shaders\PriorityParticleAdd.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\AmbientOcclusion.cginc" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\UniqueShadow\UniqueShadow_DepthOnly.shader" />
