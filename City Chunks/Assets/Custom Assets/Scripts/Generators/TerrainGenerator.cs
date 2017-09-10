@@ -16,6 +16,7 @@
 // #define DEBUG_POSITION
 // #define DEBUG_START
 // #define DEBUG_STEEPNESS
+// #define DEBUG_TEXTURES
 // #define DEBUG_UPDATES
 // #define DEBUG_WATER
 // #define DEBUG_HUD_POS
@@ -35,6 +36,8 @@ using System.Threading;
   public bool DisplaceDivide = true;
   [Tooltip("Offset middle of the sides of each chunk with perlin noise")]
   public bool midOffset = true;
+  [Tooltip("Smooth the heightmap by averaging all surrounding points in the heightmap.")]
+  public bool SmoothHeightmap = true;
 
   [Header("Perlin Noise")]
   [Tooltip("Uses Perlin noise to generate terrain.")]
@@ -183,10 +186,12 @@ using System.Threading;
   public Texture2D[] Rock;
   [Tooltip("For high altitudes")]
   public Texture2D Snow;
+#if DEBUG_TEXTURES
   [Tooltip("For Debugging")]
   public Texture2D White;
   [Tooltip("For Debugging")]
   public Texture2D Black;
+#endif
 }
 [Serializable] public class TextureNormals {
   public int Length = 6;
@@ -198,10 +203,12 @@ using System.Threading;
   public Texture2D[] Rock;
   [Tooltip("For high altitudes")]
   public Texture2D Snow;
+#if DEBUG_TEXTURES
   [Tooltip("For Debugging")]
   public Texture2D White;
   [Tooltip("For Debugging")]
   public Texture2D Black;
+#endif
 }
 public class TerrainGenerator : MonoBehaviour {
   public const float EmptyPoint = -100f;
@@ -214,6 +221,8 @@ public class TerrainGenerator : MonoBehaviour {
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
   public GameObject waterTile;
+  [Tooltip("Minimap icon to instantiate with the terrain when generating a new chunk.")]
+  public GameObject miniMapIcon;
   [Tooltip("Maximum number of trees per chunk to be generated.")]
   public int maxNumTrees = 500;
   [Tooltip("Are trees allowed to be generated using the terrain instances?")]
@@ -886,13 +895,14 @@ public class TerrainGenerator : MonoBehaviour {
           lastTerrUpdated = new Terrains();
         }
       }
+      if (GameData.loading)
+        GameData.loadingMessage = "Creating something from nothing...";
     }
 #if DEBUG_HUD_LOADING
     if (heightmapApplied) LoadedChunkList += "Applying Heightmap\n";
     else LoadedChunkList += "\n";
 #endif
     if (heightmapApplied) {
-      GameData.loadingMessage = "Creating something from nothing...";
       done = heightmapApplied;
       times.DeltaHeightmapApplied = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
@@ -914,14 +924,15 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading)
+        GameData.loadingMessage = "Turning that FPS back up...";
+      // GameData.loadingMessage = GameData.previousLoadingMessage;
     }
 #if DEBUG_HUD_LOADING
     if (LODUpdated) LoadedChunkList += "Updating LOD\n";
     else LoadedChunkList += "\n";
 #endif
     if (LODUpdated) {
-      GameData.loadingMessage = "Turning that FPS back up...";
-      // GameData.loadingMessage = GameData.previousLoadingMessage;
       done = LODUpdated;
       times.DeltaLODUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
@@ -941,13 +952,13 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading) GameData.loadingMessage = "Slowly drowning...";
     }
 #if DEBUG_HUD_LOADING
     if (waterUpdated) LoadedChunkList += "Updating Water\n";
     else LoadedChunkList += "\n";
 #endif
     if (waterUpdated) {
-      GameData.loadingMessage = "Slowly drowning...";
       done = waterUpdated;
       times.DeltaWaterUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
@@ -967,13 +978,13 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading) GameData.loadingMessage = "Discovering color...";
     }
 #if DEBUG_HUD_LOADING
     if (splatsUpdated) LoadedChunkList += "Updating Splats\n";
     else LoadedChunkList += "\n";
 #endif
     if (splatsUpdated) {
-      GameData.loadingMessage = "Discovering color...";
       done = splatsUpdated;
       times.DeltaSplatUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
@@ -994,6 +1005,7 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading) GameData.loadingMessage = "Let there be life!";
     }
 #if DEBUG_HUD_LOADING
     if (treesUpdated) LoadedChunkList += "Updating Trees\n";
@@ -1001,7 +1013,6 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
     if (treesUpdated) {
       done = treesUpdated;
-      GameData.loadingMessage = "Let there be life!";
       times.DeltaTreeUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
@@ -1020,6 +1031,8 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading)
+        GameData.loadingMessage = "Stuck between two hard places...";
     }
 #if DEBUG_HUD_LOADING
     if (rocksUpdated) LoadedChunkList += "Updating Rocks\n";
@@ -1027,7 +1040,6 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
     if (rocksUpdated) {
       done = rocksUpdated;
-      GameData.loadingMessage = "Stuck between two hard places...";
       times.DeltaRockUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
@@ -1046,6 +1058,7 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading) GameData.loadingMessage = "Giving life a home...";
     }
 #if DEBUG_HUD_LOADING
     if (citiesUpdated) LoadedChunkList += "Updating Cities\n";
@@ -1053,7 +1066,6 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
     if (citiesUpdated) {
       done = citiesUpdated;
-      GameData.loadingMessage = "Giving life a home...";
       times.DeltaCityUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
@@ -1069,6 +1081,7 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading) GameData.loadingMessage = "Watching grass grow...";
     }
 #if DEBUG_HUD_LOADING
     if (grassUpdated) LoadedChunkList += "Updating Grass\n";
@@ -1077,7 +1090,6 @@ public class TerrainGenerator : MonoBehaviour {
     if (grassUpdated) {
       done = grassUpdated;
       times.DeltaDetailUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
-      GameData.loadingMessage = "Watching grass grow...";
     }
   }
 
@@ -1094,6 +1106,7 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading) GameData.loadingMessage = "Watching grass grow...";
     }
 #if DEBUG_HUD_LOADING
     if (detailsUpdated) LoadedChunkList += "Updating Details\n";
@@ -1102,7 +1115,6 @@ public class TerrainGenerator : MonoBehaviour {
     if (detailsUpdated) {
       done = detailsUpdated;
       times.DeltaDetailUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
-      GameData.loadingMessage = "Watching grass grow...";
     }
   }
 
@@ -1121,6 +1133,8 @@ public class TerrainGenerator : MonoBehaviour {
           break;
         }
       }
+      if (GameData.loading)
+        GameData.loadingMessage = "Painting a masterpiece...";
     }
 #if DEBUG_HUD_LOADING
     if (textureUpdated) LoadedChunkList += "Texturing\n";
@@ -1129,7 +1143,6 @@ public class TerrainGenerator : MonoBehaviour {
     if (textureUpdated) {
       done = textureUpdated;
       times.DeltaTextureUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
-      GameData.loadingMessage = "Painting a masterpiece...";
     }
   }
 
@@ -1431,7 +1444,9 @@ public class TerrainGenerator : MonoBehaviour {
 
       // Terrain
       terrains[terrains.Count - 1].gameObject =
-          Instantiate(terrains[0].gameObject);
+          Instantiate(terrains[0].gameObject,
+                      new Vector3(cntX * terrWidth, 0f, cntZ * terrLength),
+                      Quaternion.identity);
       terrains[terrains.Count - 1]
           .gameObject.GetComponent<Terrain>()
           .terrainData = terrains[terrains.Count - 1].terrData;
@@ -1444,30 +1459,35 @@ public class TerrainGenerator : MonoBehaviour {
           .terrainData = terrains[terrains.Count - 1].terrData;
 
       // Game Object and Components
-      foreach (
-          Transform child in terrains[terrains.Count - 1].gameObject.transform) {
+      foreach (Transform child in terrains[terrains.Count - 1]
+                   .gameObject.transform) {
         Destroy(child.gameObject);
       }
       foreach (Component comp in terrains[terrains.Count - 1]
                    .gameObject.GetComponents<Component>()) {
         if (!(comp is TerrainGenerator) && !(comp is Transform) &&
             !(comp is Terrain) && !(comp is TerrainCollider) &&
-            !(comp is NavMeshSourceTag)) {
+            !(comp is NavMeshSourceTag) && !(comp is ChunkCulling)) {
           Destroy(comp);
         }
       }
       foreach (Component comp in terrains[terrains.Count - 1]
                    .gameObject.GetComponents<Component>()) {
         if (!(comp is Transform) && !(comp is Terrain) &&
-            !(comp is TerrainCollider) && !(comp is NavMeshSourceTag)) {
+            !(comp is TerrainCollider) && !(comp is NavMeshSourceTag) &&
+            !(comp is ChunkCulling)) {
           Destroy(comp);
         }
       }
 
+      if (miniMapIcon != null)
+        Instantiate(miniMapIcon,
+                    terrains[terrains.Count - 1].gameObject.transform.position,
+                    Quaternion.identity,
+                    terrains[terrains.Count - 1].gameObject.transform);
+
       terrains[terrains.Count - 1].gameObject.name =
           "Terrain(" + cntX + "," + cntZ + ")";
-      terrains[terrains.Count - 1].gameObject.transform.Translate(
-          cntX * terrWidth, 0f, cntZ * terrLength);
       terrains[terrains.Count - 1].gameObject.layer =
           terrains[0].gameObject.layer;
 
@@ -1869,6 +1889,8 @@ public class TerrainGenerator : MonoBehaviour {
         }
       }
 
+      if (GenMode.SmoothHeightmap) SmoothHeightmap(ref flippedPoints);
+
       // Double check that all the edges match up.
       if (!MatchEdges(iWidth, iHeight, changeX, changeZ, ref flippedPoints)) {
         Debug.LogError("This shouldn't happen... (You broke something)");
@@ -1883,6 +1905,16 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[terrIndex].terrPerlinPoints = perlinPoints;
     terrains[terrIndex].terrQueue = true;
     terrains[terrIndex].waterQueue = true;
+  }
+
+  void SmoothHeightmap(ref float[, ] points) {
+    float[, ] smoothedPoints = points;
+    for (int i = 0; i < smoothedPoints.GetLength(0); i++) {
+      for (int j = 0; j < smoothedPoints.GetLength(1); j++) {
+        smoothedPoints[i, j] = AverageSurroundingPoints(ref points, i, j);
+      }
+    }
+    points = smoothedPoints;
   }
 
   // Set the edge of the new chunk to the same values as the bordering chunks.
@@ -2411,6 +2443,7 @@ public class TerrainGenerator : MonoBehaviour {
       tex[startPoint].smoothness = 0.3f;
     }
     startPoint++;
+#if DEBUG_TEXTURES
     if (TerrainTextures.White != null) {
       tex[startPoint].texture = TerrainTextures.White;
       tex[startPoint].normalMap = TerrainTextureNormals.White;
@@ -2420,6 +2453,7 @@ public class TerrainGenerator : MonoBehaviour {
       tex[startPoint].texture = TerrainTextures.Black;
       tex[startPoint].normalMap = TerrainTextureNormals.Black;
     }
+#endif
 
     for (int i = 0; i < tex.Length; i++) {
       tex[i].tileSize = new Vector2(8, 8);  // Sets the size of the texture
@@ -2528,9 +2562,11 @@ public class TerrainGenerator : MonoBehaviour {
         values[startPoint] =
             ((height >= TerrainGenerator.snowHeight) ? 1f - frac : 0f);
 
+#if DEBUG_TEXTURES
         // B/W Debug
         values[++startPoint] = 0f;
         values[++startPoint] = 0f;
+#endif
 
         // Normalize values
         float total = 0f;
@@ -2615,8 +2651,10 @@ public class TerrainGenerator : MonoBehaviour {
     if (terrID < 0) return;
 
     int numberOfTrees =
-        (int)((PeakMultiplier - terrains[terrID].biome) /
-              (PeakMultiplier == 0 ? 1f : PeakMultiplier) * maxNumTrees);
+        (int)(Mathf.Pow((PeakMultiplier - terrains[terrID].biome) /
+                            (PeakMultiplier == 0 ? 1f : PeakMultiplier),
+                        2f) *
+              maxNumTrees);
     terrains[terrID].TreeInstances.Clear();
     List<TreeInstance> newTrees =
         new List<TreeInstance>(terrainData.treeInstances);
@@ -2761,6 +2799,33 @@ public class TerrainGenerator : MonoBehaviour {
     if (numAvg == 0) {
       return EmptyPoint;
     }
+    return Avg / numAvg;
+  }
+
+  float AverageSurroundingPoints(ref float[,] points, int x, int z) {
+    int numAvg = 0;
+    float Avg = 0f;
+    if (points[x, z] != EmptyPoint) {
+      Avg = points[x,z];
+      numAvg = 1;
+    }
+    if (x - 1 >= 0 && points[x - 1, z] != EmptyPoint) {
+      Avg += points[x - 1, z];
+      numAvg++;
+    }
+    if (x + 1 < points.GetLength(0) && points[x + 1, z] != EmptyPoint) {
+      Avg += points[x + 1, z];
+      numAvg++;
+    }
+    if (z - 1 >= 0 && points[x, z - 1] != EmptyPoint) {
+      Avg += points[x, z - 1];
+      numAvg++;
+    }
+    if (z + 1 < points.GetLength(1) && points[x, z + 1] != EmptyPoint) {
+      Avg += points[x, z + 1];
+      numAvg++;
+    }
+    if (numAvg == 0) return EmptyPoint;
     return Avg / numAvg;
   }
 

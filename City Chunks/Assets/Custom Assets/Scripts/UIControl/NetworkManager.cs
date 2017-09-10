@@ -119,7 +119,7 @@ public class NetworkManager : Photon.MonoBehaviour {
         }
         string playerList = "";
         foreach (PhotonPlayer players in PhotonNetwork.playerList) {
-          playerList += "\n" + players.name;
+          playerList += "\n" + players.NickName;
         }
         GUI.Label(
             new Rect(xpos, ypos + 20, 300, 300),

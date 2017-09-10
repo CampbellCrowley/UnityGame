@@ -132,6 +132,7 @@ PlayerSettings:
   - {fileID: 1358504509004944, guid: a1fc49736f91db646aac9c7e982dc94f, type: 2}
   - {fileID: 102900000, guid: 1bc0e897a37199143953e326bdce8173, type: 3}
   - {fileID: 102900000, guid: 5c0a5aba3d8b4264093111c0181fe3b0, type: 3}
+  - {fileID: 1290914141351588, guid: 28ffa30613a686845b489893b56f92ac, type: 2}
   metroInputSource: 0
   m_HolographicPauseOnTrackingLoss: 1
   xboxOneDisableKinectGpuReservation: 0
@@ -169,11 +170,11 @@ PlayerSettings:
   ForceSDCardPermission: 0
   CreateWallpaper: 0
   APKExpansionFiles: 0
-  keepLoadedShadersAlive: 1
+  keepLoadedShadersAlive: 0
   StripUnusedMeshComponents: 1
   VertexChannelCompressionMask:
     serializedVersion: 2
-    m_Bits: 238
+    m_Bits: 4294967295
   iPhoneSdkVersion: 988
   iOSTargetOSVersionString: 7.0
   tvOSSdkVersion: 0

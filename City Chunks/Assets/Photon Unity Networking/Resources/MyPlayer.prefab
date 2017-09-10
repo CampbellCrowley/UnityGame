@@ -910,7 +910,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!1 &1680735239609876
 GameObject:
@@ -1092,7 +1092,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 1
   m_IsActive: 1
 --- !u!1 &1827286896613062
 GameObject:
@@ -2250,7 +2250,7 @@ Transform:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1339628593904990}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 147.03642, y: 575.8212, z: 89.6918}
+  m_LocalPosition: {x: 151.50706, y: 392.00986, z: -19.119734}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 4247764641435418}
@@ -2505,8 +2505,8 @@ MeshRenderer:
   m_CastShadows: 0
   m_ReceiveShadows: 0
   m_MotionVectors: 2
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
+  m_LightProbeUsage: 0
+  m_ReflectionProbeUsage: 0
   m_Materials:
   - {fileID: 2100000, guid: 9fd7398afc9122841a5baae602fbf5b5, type: 2}
   m_StaticBatchInfo:
@@ -2516,7 +2516,7 @@ MeshRenderer:
   m_ProbeAnchor: {fileID: 0}
   m_LightProbeVolumeOverride: {fileID: 0}
   m_ScaleInLightmap: 1
-  m_PreserveUVs: 1
+  m_PreserveUVs: 0
   m_IgnoreNormalsForChartDetection: 0
   m_ImportantGI: 0
   m_SelectedEditorRenderState: 3
@@ -2974,7 +2974,6 @@ MonoBehaviour:
   debug: {fileID: 0}
   isMaster: 1
   userInput: 1
-  initialized: 0
   rotateWithCamera: 0
 --- !u!114 &114939371627269268
 MonoBehaviour:

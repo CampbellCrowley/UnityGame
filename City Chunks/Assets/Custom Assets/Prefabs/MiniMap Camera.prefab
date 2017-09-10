@@ -48,7 +48,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4011039532626870
 Transform:
   m_ObjectHideFlags: 1
@@ -85,7 +85,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 3
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
@@ -93,20 +93,20 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.3
-  far clip plane: 2001
+  far clip plane: 2002
   field of view: 13
-  orthographic: 0
-  orthographic size: 300
+  orthographic: 1
+  orthographic size: 145
   m_Depth: 3
   m_CullingMask:
     serializedVersion: 2
     m_Bits: 1024
-  m_RenderingPath: -1
+  m_RenderingPath: 1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
   m_HDR: 1
-  m_AllowMSAA: 1
+  m_AllowMSAA: 0
   m_ForceIntoRT: 0
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
@@ -120,8 +120,8 @@ Camera:
   m_GameObject: {fileID: 1546496113401208}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 3
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 4
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_NormalizedViewPortRect:
     serializedVersion: 2
     x: 0
@@ -131,18 +131,18 @@ Camera:
   near clip plane: 0.3
   far clip plane: 2001
   field of view: 13
-  orthographic: 0
-  orthographic size: 5
+  orthographic: 1
+  orthographic size: 145
   m_Depth: 2
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 18960
-  m_RenderingPath: -1
+    m_Bits: 528
+  m_RenderingPath: 1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
   m_HDR: 1
-  m_AllowMSAA: 1
+  m_AllowMSAA: 0
   m_ForceIntoRT: 0
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
