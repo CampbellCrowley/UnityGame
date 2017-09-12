@@ -220,10 +220,17 @@ public class GameData : MonoBehaviour {
       debug += "Bloom and Flare: " + bloomAndFlares + ",\n";
     }
 
-    if (PlayerPrefs.HasKey("Fullscreen")) {
-      fullscreen = PlayerPrefs.GetInt("Fullscreen") == 1;
-      debug += "Fullscreen: " + fullscreen + ",\n";
+    if (PlayerPrefs.HasKey("Color Grading")) {
+      colorGrading = PlayerPrefs.GetInt("Color Grading") == 1;
+      debug += "Color Grading: " + colorGrading + ",\n";
     }
+
+    fullscreen = Screen.fullScreen;
+    debug += "Fullscreen: " + fullscreen + ",\n";
+    // if (PlayerPrefs.HasKey("Fullscreen")) {
+    //   fullscreen = PlayerPrefs.GetInt("Fullscreen") == 1;
+    //   debug += "Fullscreen: " + fullscreen + ",\n";
+    // }
 
     if (PlayerPrefs.HasKey("Sound Effects")) {
       soundEffects = PlayerPrefs.GetInt("Sound Effects") == 1;
@@ -281,6 +288,7 @@ public class GameData : MonoBehaviour {
     PlayerPrefs.SetInt("DOF", dof ? 1 : 0);
     PlayerPrefs.SetInt("Motion Blur", motionBlur ? 1 : 0);
     PlayerPrefs.SetInt("Bloom and Flare", bloomAndFlares ? 1 : 0);
+    PlayerPrefs.SetInt("Color Grading", colorGrading ? 1 : 0);
     PlayerPrefs.SetInt("Fullscreen", fullscreen ? 1 : 0);
     PlayerPrefs.SetInt("Sound Effects", soundEffects ? 1 : 0);
     PlayerPrefs.SetInt("Music", music ? 1 : 0);
@@ -296,6 +304,7 @@ public class GameData : MonoBehaviour {
   public static bool dof = true;
   public static bool motionBlur = true;
   public static bool bloomAndFlares = true;
+  public static bool colorGrading = true;
   public static bool fullscreen = true;
   public static bool soundEffects = true;
   public static bool music = true;

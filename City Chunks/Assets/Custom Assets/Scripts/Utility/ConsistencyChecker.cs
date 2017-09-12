@@ -6,7 +6,7 @@ public class ConsistencyChecker : MonoBehaviour {
 
   System.Random rand;
   private static bool checkComplete = false;
-  private const string lastUnityVersion = "2017.1.0f3";
+  private const string lastUnityVersion = "2017.1.1f1";
   private const string lastAppVersion = "v0.0.6m4c1";
   private const string lastPUNVersion = "1.86";
 

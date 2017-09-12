@@ -65,7 +65,7 @@ public class PlayerController : Photon.MonoBehaviour {
   Animator anim;
   Cinematic cinematic;
   // Color startColor;
-  CapsuleCollider collider;
+  CapsuleCollider collider_;
   GameObject Ragdoll;
   MyCameraController cam;
   // PostProcessingController PPC;
@@ -136,13 +136,13 @@ public class PlayerController : Photon.MonoBehaviour {
 
     GameData.showCursor = false;
     cinematic = FindObjectOfType<Cinematic>();
-    collider = GetComponent<CapsuleCollider>();
+    collider_ = GetComponent<CapsuleCollider>();
     anim = GetComponent<Animator>();
     rbody = GetComponent<Rigidbody>();
     // startColor = RenderSettings.fogColor;
 
     if (GetComponent<CapsuleCollider>() != null) {
-      colliderStartPosition = collider.center.y;
+      colliderStartPosition = collider_.center.y;
     }
 
     meshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
@@ -491,19 +491,19 @@ public class PlayerController : Photon.MonoBehaviour {
     }
 
     // Collider
-    if (isCrouched && collider != null) {
-      collider.height = crouchedHeight;
+    if (isCrouched && collider_ != null) {
+      collider_.height = crouchedHeight;
       if (colliderStartPosition != 0) {
-        Vector3 temp = collider.center;
+        Vector3 temp = collider_.center;
         temp.y = colliderStartPosition - (playerHeight - crouchedHeight) / 2f;
-        collider.center = temp;
+        collider_.center = temp;
       }
-    } else if (collider != null) {
-      collider.height = playerHeight;
+    } else if (GetComponent<Collider>() != null) {
+      collider_.height = playerHeight;
       if (colliderStartPosition != 0) {
-        Vector3 temp = collider.center;
+        Vector3 temp = collider_.center;
         temp.y = colliderStartPosition;
-        collider.center = temp;
+        collider_.center = temp;
       }
     }
 
@@ -866,7 +866,7 @@ public class PlayerController : Photon.MonoBehaviour {
         renderer.enabled = false;
       }
 
-      collider.enabled = false;
+      collider_.enabled = false;
       anim.enabled = false;
       // cam.cam.transform.eulerAngles = new Vector3(85f, 0, 0);
     }
@@ -885,7 +885,7 @@ public class PlayerController : Photon.MonoBehaviour {
     cam.UpdateTarget(Head);
     rbody.isKinematic = false;
     Destroy (Ragdoll);
-    collider.enabled = true;
+    collider_.enabled = true;
     anim.enabled = true;
   }
 
@@ -894,7 +894,7 @@ public class PlayerController : Photon.MonoBehaviour {
 
     GameData.Vehicle = vehicle;
     timeInVehicle = 0.0f;
-    collider.enabled = false;
+    collider_.enabled = false;
 
     if (isLocalPlayer) {
       foreach (SkinnedMeshRenderer r in meshRenderers) {

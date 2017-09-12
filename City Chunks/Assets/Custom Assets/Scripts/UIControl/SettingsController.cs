@@ -3,13 +3,10 @@ using UnityEngine;
 using UnityEngine.UI;
 #pragma warning disable 0168
 
-public
-class SettingsController : MonoBehaviour {
- private
-  bool overrideToggle = false;
+public class SettingsController : MonoBehaviour {
+  private bool overrideToggle = false;
 
- public
-  void Start() {
+  public void Start() {
     overrideToggle = true;
     Toggle temp = GameObject.Find("Toggle Vignette").GetComponent<Toggle>();
     if (temp != null) temp.isOn = GameData.vignette;
@@ -19,6 +16,8 @@ class SettingsController : MonoBehaviour {
     if (temp != null) temp.isOn = GameData.motionBlur;
     temp = GameObject.Find("Toggle Bloom and Flare").GetComponent<Toggle>();
     if (temp != null) temp.isOn = GameData.bloomAndFlares;
+    temp = GameObject.Find("Toggle Color Grading").GetComponent<Toggle>();
+    if (temp != null) temp.isOn = GameData.colorGrading;
     temp = GameObject.Find("Toggle Fullscreen").GetComponent<Toggle>();
     if (temp != null) temp.isOn = GameData.fullscreen;
     temp = GameObject.Find("Toggle Sound Effects").GetComponent<Toggle>();
@@ -30,52 +29,47 @@ class SettingsController : MonoBehaviour {
     overrideToggle = false;
   }
 
- public
-  void ToggleVignette() {
+  public void ToggleVignette() {
     if (overrideToggle) return;
     GameData.vignette = !GameData.vignette;
   }
- public
-  void ToggleDOF() {
+  public void ToggleDOF() {
     if (overrideToggle) return;
     GameData.dof = !GameData.dof;
   }
- public
-  void ToggleMotionBlur() {
+  public void ToggleMotionBlur() {
     if (overrideToggle) return;
     GameData.motionBlur = !GameData.motionBlur;
   }
- public
-  void ToggleBloomAndFlare() {
+  public void ToggleBloomAndFlare() {
     if (overrideToggle) return;
     GameData.bloomAndFlares = !GameData.bloomAndFlares;
   }
- public
-  void ToggleFullscreen() {
+  public void ToggleColorGrading() {
+    if (overrideToggle) return;
+    GameData.colorGrading = !GameData.colorGrading;
+  }
+  public void ToggleFullscreen() {
     if (overrideToggle) return;
     GameData.fullscreen = !GameData.fullscreen;
     Screen.fullScreen = GameData.fullscreen;
   }
- public
-  void ToggleSoundEffects() {
+  public void ToggleSoundEffects() {
     if (overrideToggle) return;
     GameData.soundEffects = !GameData.soundEffects;
   }
- public
-  void ToggleMusic() {
+  public void ToggleMusic() {
     if (overrideToggle) return;
     GameData.music = !GameData.music;
   }
- public
-  void ToggleCameraDamping() {
+  public void ToggleCameraDamping() {
     if (overrideToggle) return;
     GameData.cameraDamping = !GameData.cameraDamping;
   }
- public void Quit() {
+  public void Quit() {
     GameData.quit();
- }
- public
-  void Exit() {
+  }
+  public void Exit() {
     GameData.isPaused = false;
     GameData.showCursor = false;
     Destroy(gameObject);

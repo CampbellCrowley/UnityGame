@@ -8,7 +8,8 @@ public class LevelSettingsController : MonoBehaviour {
   void Awake() {
     Debug.Log("Vignette: " + GameData.vignette + ", DOF: " + GameData.dof +
               ", Blur: " + GameData.motionBlur + ", Bloom: " +
-              GameData.bloomAndFlares);
+              GameData.bloomAndFlares + ", Color Grading: " +
+              GameData.colorGrading);
 
     controller = GameObject.FindObjectOfType<PostProcessingController>();
     if (controller == null) return;
@@ -17,10 +18,12 @@ public class LevelSettingsController : MonoBehaviour {
     controller.controlDepthOfField = true;
     controller.controlMotionBlur = true;
     controller.controlBloom = true;
+    controller.controlColorGrading = true;
     controller.enableVignette = GameData.vignette;
     controller.enableDepthOfField = GameData.dof;
     controller.enableMotionBlur = GameData.motionBlur;
     controller.enableBloom = GameData.bloomAndFlares;
+    controller.enableColorGrading = GameData.colorGrading;
   }
   void Update() {
     if (controller == null) {
@@ -30,10 +33,12 @@ public class LevelSettingsController : MonoBehaviour {
       controller.controlDepthOfField = true;
       controller.controlMotionBlur = true;
       controller.controlBloom = true;
+      controller.controlColorGrading = true;
     }
     controller.enableVignette = GameData.vignette;
     controller.enableDepthOfField = GameData.dof;
     controller.enableMotionBlur = GameData.motionBlur;
     controller.enableBloom = GameData.bloomAndFlares;
+    controller.enableColorGrading = GameData.colorGrading;
   }
 }
