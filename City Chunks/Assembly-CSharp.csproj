@@ -67,7 +67,7 @@
      <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingBarController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingCameraController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingLightController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\LoadingTextController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingTextController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuObjectController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MiniMapIconController.cs" />

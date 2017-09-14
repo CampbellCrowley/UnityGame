@@ -166,6 +166,9 @@ public class GameData : MonoBehaviour {
         Time.time - loadEndTime - Time.deltaTime < 1 && loadEndTime != -1) {
       loading = false;
     }
+    if (loadingMessage == "Readying the pigeons.") {
+      loadingPercent = Mathf.PingPong(Time.time / 2, 1);
+    }
     if (chatManager == null) chatManager = FindObjectOfType<ChatManager>();
     if (Input.GetButtonDown("Pause")) {
       if (isChatOpen) {
