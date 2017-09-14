@@ -16,8 +16,8 @@ MonoBehaviour:
   RequestType: 0
   RequestTimeout: 2000
   RequestKeepAlive: 1
-  CompressApiData: 1
-  LogLevel: 12
+  CompressApiData: 0
+  LogLevel: 8
   LoggerHost: 
   LoggerPort: 0
   EnableRealTimeLogging: 0

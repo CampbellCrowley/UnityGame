@@ -6,7 +6,7 @@ public class ConsistencyChecker : MonoBehaviour {
 
   System.Random rand;
   private static bool checkComplete = false;
-  private const string lastUnityVersion = "2017.1.1f1";
+  private string[] lastUnityVersions = {"2017.1.1f1", "2017.1.1xf1Linux"};
   private const string lastAppVersion = "v0.0.6m4c1";
   private const string lastPUNVersion = "1.86";
 
@@ -31,9 +31,9 @@ public class ConsistencyChecker : MonoBehaviour {
       Debug.LogError("Version mismatch. Version must be updated in Edit->" +
                      "Player->Version and GameData.cs");
       GameData.quit(QuitReason.VERSIONMISMATCH);
-    } else if (Application.unityVersion != lastUnityVersion) {
-      Debug.LogError("Version mismatch. Unity.");
-      GameData.quit(QuitReason.VERSIONMISMATCH);
+    } else if (checkUnityVersions()) {
+      Debug.LogWarning("Version mismatch. Unity.");
+      // GameData.quit(QuitReason.VERSIONMISMATCH);
     } else if (GameData.version != lastAppVersion) {
       Debug.LogError("Version mismatch. GameData.");
       GameData.quit(QuitReason.VERSIONMISMATCH);
@@ -48,6 +48,13 @@ public class ConsistencyChecker : MonoBehaviour {
     if (!randomNumCheck()) GameData.quit(QuitReason.RANDMISMATCH);
     if (!randomNumCheck2()) GameData.quit(QuitReason.RANDMISMATCH);
     checkComplete = true;
+  }
+
+  private bool checkUnityVersions() {
+    foreach (string s in lastUnityVersions) {
+      if (Application.unityVersion == s) return false;
+    }
+    return true;
   }
 
   public static bool isCheckComplete() { return checkComplete; }
