@@ -83,7 +83,6 @@
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\GrassDensitySelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\LoadDistanceSelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\MouseSensitivitySelector.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\UIControl\MyNetworkManagerHUD.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\NetworkManager.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\ResolutionSelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\SettingsController.cs" />

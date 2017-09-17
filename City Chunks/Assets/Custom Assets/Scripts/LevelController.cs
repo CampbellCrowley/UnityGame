@@ -1,3 +1,5 @@
+// Copyright (c) Campbell Crowley. All rights reserved.
+// Author: Campbell Crowley (github@campbellcrowley.com)
 using UnityEngine;
 
 public class LevelController : MonoBehaviour {

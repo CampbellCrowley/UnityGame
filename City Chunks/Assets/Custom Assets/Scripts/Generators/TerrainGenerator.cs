@@ -1,3 +1,5 @@
+// Copyright (c) Campbell Crowley. All rights reserved.
+// Author: Campbell Crowley (github@campbellcrowley.com)
 ////////////////////////////////////////////////////////////////////
 // WARNING: MANY DEBUG SETTINGS MAY CAUSE IMMENSE AMOUNTS OF LAG! //
 //                      USE WITH CAUTION!                         //

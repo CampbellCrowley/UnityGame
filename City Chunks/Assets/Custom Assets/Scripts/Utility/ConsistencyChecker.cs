@@ -1,3 +1,5 @@
+// Copyright (c) Campbell Crowley. All rights reserved.
+// Author: Campbell Crowley (github@campbellcrowley.com)
 using UnityEngine;
 using System;
 #pragma warning disable 0162 // Unreachable code
