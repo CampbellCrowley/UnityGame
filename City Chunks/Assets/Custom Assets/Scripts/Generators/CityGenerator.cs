@@ -30,10 +30,12 @@ public class CityGenerator : SubGenerator {
   private int numMidFloors = 0;
   private int numRoofFloors = 0;
   private int numCompleteBuildings = 0;
+  private RockGenerator rg;
 
   protected override void Initialized() {
     Debug.Log("City Generator Initialized");
     divisionWidth = (1f - cityHeight);
+    rg = GetComponent<RockGenerator>();
 
     for (int i = 0; i < buildingPrefabs.Length; i++) {
       switch (buildingPrefabs[i].floor) {
@@ -141,32 +143,62 @@ public class CityGenerator : SubGenerator {
           Vector3 checkPos = new Vector3(buildingX, buildingY, buildingZ) +
                              buildingPrefabs[buildingID].centerOffset;
           Vector3 checkDim =
-              new Vector3(buildingPrefabs[buildingID].dimensions.x / 2f, 100f,
+              new Vector3(buildingPrefabs[buildingID].dimensions.x / 2f,
+                          buildingPrefabs[buildingID].dimensions.y / 2f,
                           buildingPrefabs[buildingID].dimensions.z / 2f);
-          int mask = 1 << buildingPrefabs[buildingID].gameObject.layer;
 
-          bool overlapping =
-              Physics.CheckBox(checkPos, checkDim, Quaternion.identity, mask);
+          int mask = 1 << buildingPrefabs[buildingID].gameObject.layer;
+          bool overlapping = Physics.CheckBox(
+              checkPos, checkDim + Vector3.up * 50, Quaternion.identity, mask);
           if (overlapping) continue;
+
+          if (rg != null && rg.SpawnableRocks.Length > 0) {
+            mask = 1 << rg.SpawnableRocks[0].layer;
+            Collider[] hits =
+                Physics.OverlapBox(checkPos, checkDim + Vector3.up * 50,
+                                   Quaternion.identity, mask);
+            for (int i = 0; i < hits.Length; i++) {
+              Destroy(hits[i].transform.gameObject);
+            }
+          }
 
           float floorHeight = 0f;
 
           GameObject ground = null;
           for (int i = 0; i < numFloors; i++) {
+            Building.Floor goalFloor;
+            int floorID = 0;
+            if (i == 0 && i == numFloors - 1) {
+              // goalFloor = Building.Floor.COMPLETE;
+              goalFloor = Building.Floor.GROUND;
+            } else if (i == 0) {
+              goalFloor = Building.Floor.GROUND;
+            } else if (i == numFloors - 1) {
+              goalFloor = Building.Floor.ROOF;
+            } else {
+              goalFloor = Building.Floor.MIDDLE;
+            }
+            for (int j = 0; j < buildingPrefabs.Length; j++) {
+              if (buildingPrefabs[i].ID == buildingPrefabs[j].ID &&
+                  goalFloor == buildingPrefabs[j].floor) {
+                floorID = j;
+                break;
+              }
+            }
             GameObject last = Instantiate(
-                buildingPrefabs[buildingID].gameObject,
+                buildingPrefabs[floorID].gameObject,
                 new Vector3(
-                    buildingX - buildingPrefabs[buildingID].centerOffset.x,
+                    buildingX - buildingPrefabs[floorID].centerOffset.x,
                     (debugPerlin ? pointMap[x, z] * 1000f : buildingY) +
                         floorHeight -
-                        buildingPrefabs[buildingID].centerOffset.y,
-                    buildingZ - buildingPrefabs[buildingID].centerOffset.z),
+                        buildingPrefabs[floorID].centerOffset.y,
+                    buildingZ - buildingPrefabs[floorID].centerOffset.z),
                 Quaternion.identity);
-            floorHeight += buildingPrefabs[buildingID].dimensions.y;
+            floorHeight += buildingPrefabs[floorID].dimensions.y;
 
             last.transform.name =
-                "BuildingFloor" + i + "(" + x + ", " + z + ")";
-            if (ground == null) {
+                "BuildingFloor" + (i + 1) + "(" + x + ", " + z + ")";
+            if (i == 0) {
               last.transform.parent = terrain.gameObject.transform;
               ground = last;
             } else {
@@ -194,6 +226,14 @@ public class CityGenerator : SubGenerator {
                                 ((float)terrain.terrData.heightmapHeight /
                                  (float)tg.GetTerrainLength())) +
                 1;
+            if (heightmapW + heightmapX >= terrain.terrData.heightmapWidth) {
+              heightmapW -= (heightmapW + heightmapX) -
+                            terrain.terrData.heightmapWidth + 1;
+            }
+            if (heightmapH + heightmapY >= terrain.terrData.heightmapHeight) {
+              heightmapH -= (heightmapH + heightmapZ) -
+                            terrain.terrData.heightmapHeight + 1;
+            }
             float[, ] points = new float[heightmapW, heightmapH];
             for (int i = 0; i < points.GetLength(0); i++) {
               for (int j = 0; j < points.GetLength(1); j++) {

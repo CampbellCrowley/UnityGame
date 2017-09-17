@@ -439,7 +439,7 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("Adding Trees to spawn chunk");
 #endif
     UpdateTreePrototypes(terrains[0].terrData);
-    UpdateTrees(terrains[0].terrData);
+    UpdateTrees(terrains[0]);
 #if DEBUG_START
     Debug.Log("Possibly creating spawn chunk rocks");
 #endif
@@ -543,11 +543,11 @@ public class TerrainGenerator : MonoBehaviour {
 
     ApplyHeightmap(ref done, ref iTime);
 
+    UpdateAllRocks(ref done, ref iTime);
+
     UpdateAllCities(ref done, ref iTime);
 
     UpdateAllTrees(ref done, ref iTime);
-
-    UpdateAllRocks(ref done, ref iTime);
 
     UpdateAllSplats(ref done, ref iTime);
 
@@ -999,7 +999,7 @@ public class TerrainGenerator : MonoBehaviour {
           if (iTime == -1) iTime = Time.realtimeSinceStartup;
           if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
           UpdateTreePrototypes(terrains[i].terrData);
-          UpdateTrees(terrains[i].terrData);
+          UpdateTrees(terrains[i]);
           terrains[i].treeQueue = false;
           treesUpdated = true;
           break;
@@ -2645,23 +2645,21 @@ public class TerrainGenerator : MonoBehaviour {
     terrainData.RefreshPrototypes();
   }
 
-  void UpdateTrees(TerrainData terrainData) {
+  void UpdateTrees(Terrains terrain) {
     if (TerrainTrees.Length <= 0) return;
-    int terrID = GetTerrainWithData(terrainData);
-    if (terrID < 0) return;
 
     int numberOfTrees =
-        (int)(Mathf.Pow((PeakMultiplier - terrains[terrID].biome) /
+        (int)(Mathf.Pow((PeakMultiplier - terrain.biome) /
                             (PeakMultiplier == 0 ? 1f : PeakMultiplier),
                         2f) *
               maxNumTrees);
-    terrains[terrID].TreeInstances.Clear();
+    terrain.TreeInstances.Clear();
     List<TreeInstance> newTrees =
-        new List<TreeInstance>(terrainData.treeInstances);
+        new List<TreeInstance>(terrain.terrData.treeInstances);
     if (useSeed) {
       UnityEngine.Random.InitState(
-          (int)(Seed + PerfectlyHashThem((short)(terrains[terrID].x * 3 - 1),
-                                         (short)(terrains[terrID].z * 3 - 2))));
+          (int)(Seed + PerfectlyHashThem((short)(terrain.x * 3 - 1),
+                                         (short)(terrain.z * 3 - 2))));
     }
     for (int i = 0; i < numberOfTrees; i++) {
       float X = UnityEngine.Random.value;
@@ -2671,10 +2669,23 @@ public class TerrainGenerator : MonoBehaviour {
       // If trees have a LOD group, there is no reason to add it to the terrain,
       // so we just instantiate it as a game object.
       int TreeID = UnityEngine.Random.Range(0, TerrainTrees.Length);
+
+      bool overlaps = false;
       if (TerrainTrees[TreeID].GetComponent<LODGroup>() == null && useTerrainTrees) {
-        Y = terrainData.GetInterpolatedHeight(X, Z);
+        Y = terrain.terrData.GetInterpolatedHeight(X, Z);
         if (Y <= TerrainGenerator.waterHeight) continue;
-        if (terrainData.GetSteepness(X, Z) > 30f) continue;
+        if (terrain.terrData.GetSteepness(X, Z) > 30f) continue;
+        Vector3 treePos = new Vector3((X + terrain.x) * terrWidth, Y + 0.5f,
+                                      (Z + terrain.z) * terrLength);
+        for (int j = 0; j < terrain.BuildingInstances.Count; j++) {
+          if (terrain.BuildingInstances[j]
+                  .GetComponent<Collider>()
+                  .bounds.Contains(treePos)) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (overlaps) continue;
         int index = 0;
         for (int j = 0; j < TreeID; j++) {
           if (TerrainTrees[j].GetComponent<LODGroup>() == null) index++;
@@ -2688,23 +2699,33 @@ public class TerrainGenerator : MonoBehaviour {
         newTreeInstance.position = new Vector3(X, (Y - 2f) / terrHeight, Z);
         newTrees.Add(newTreeInstance);
       } else {
-        Y = terrainData.GetHeight((int)(X * heightmapHeight),
+        Y = terrain.terrData.GetHeight((int)(X * heightmapHeight),
                                   (int)(Z * heightmapWidth));
         if (Y <= TerrainGenerator.waterHeight) continue;
-        if (terrainData.GetSteepness(X, Z) > 30f) continue;
-        terrains[terrID].TreeInstances.Add(Instantiate(
+        if (terrain.terrData.GetSteepness(X, Z) > 30f) continue;
+        Vector3 treePos = new Vector3(X, Y, Z);
+        for (int j = 0; j < terrain.BuildingInstances.Count; j++) {
+          if (terrain.BuildingInstances[j]
+                  .GetComponent<Collider>()
+                  .bounds.Contains(treePos)) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (overlaps) continue;
+        terrain.TreeInstances.Add(Instantiate(
             TerrainTrees[TreeID],
-            new Vector3(X * terrWidth + terrWidth * terrains[terrID].x, Y,
-                        Z * terrLength + terrLength * terrains[terrID].z),
-            Quaternion.identity, terrains[terrID].gameObject.transform));
+            new Vector3(X * terrWidth + terrWidth * terrain.x, Y,
+                        Z * terrLength + terrLength * terrain.z),
+            Quaternion.identity, terrain.gameObject.transform));
       }
-      terrainData.treeInstances = newTrees.ToArray();
-      Terrain terrain = terrains[terrID].gameObject.GetComponent<Terrain>();
-      terrain.Flush();
+      terrain.terrData.treeInstances = newTrees.ToArray();
+      Terrain t= terrain.gameObject.GetComponent<Terrain>();
+      t.Flush();
       // Refresh the collider since unity doesn't update this unless
       // SetHeights() is called or toggling the collider off and on.
-      terrain.GetComponent<Collider>().enabled = false;
-      terrain.GetComponent<Collider>().enabled = true;
+      t.GetComponent<Collider>().enabled = false;
+      t.GetComponent<Collider>().enabled = true;
     }
   }
 

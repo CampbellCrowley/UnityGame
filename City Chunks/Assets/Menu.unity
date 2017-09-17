@@ -229,6 +229,11 @@ Prefab:
       propertyPath: m_RootOrder
       value: 8
       objectReference: {fileID: 0}
+    - target: {fileID: 114996653848028432, guid: b8cde65d08bb3ff43a13fbe4392caf79,
+        type: 2}
+      propertyPath: speed
+      value: 0.05
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: b8cde65d08bb3ff43a13fbe4392caf79, type: 2}
   m_IsPrefabParent: 0
@@ -601,6 +606,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1332511126}
   - component: {fileID: 1332511125}
+  - component: {fileID: 1332511127}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -640,20 +646,6 @@ Light:
   m_Lightmapping: 4
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
-  m_FalloffTable:
-    m_Table[0]: 0
-    m_Table[1]: 0
-    m_Table[2]: 0
-    m_Table[3]: 0
-    m_Table[4]: 0
-    m_Table[5]: 0
-    m_Table[6]: 0
-    m_Table[7]: 0
-    m_Table[8]: 0
-    m_Table[9]: 0
-    m_Table[10]: 0
-    m_Table[11]: 0
-    m_Table[12]: 0
   m_ColorTemperature: 6570
   m_UseColorTemperature: 0
   m_ShadowRadius: 0
@@ -671,6 +663,17 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 36.8, y: -32.3, z: 0}
+--- !u!114 &1332511127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1332511124}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c3e8d3e1fbd34947b1772e1001988b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1461146040
 GameObject:
   m_ObjectHideFlags: 0
@@ -868,6 +871,11 @@ Prefab:
       propertyPath: m_RootOrder
       value: 7
       objectReference: {fileID: 0}
+    - target: {fileID: 114977137835562662, guid: 2a4d93ae98d79ce4cb94a7c4fa021f82,
+        type: 2}
+      propertyPath: speed
+      value: 0.05
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 2a4d93ae98d79ce4cb94a7c4fa021f82, type: 2}
   m_IsPrefabParent: 0
@@ -1032,6 +1040,11 @@ Prefab:
       propertyPath: m_RootOrder
       value: 6
       objectReference: {fileID: 0}
+    - target: {fileID: 114651486263781002, guid: a2849b07f87500b49ba64b48c3432133,
+        type: 2}
+      propertyPath: speed
+      value: 0.05
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: a2849b07f87500b49ba64b48c3432133, type: 2}
   m_IsPrefabParent: 0
@@ -1047,6 +1060,7 @@ GameObject:
   - component: {fileID: 1901826563}
   - component: {fileID: 1901826562}
   - component: {fileID: 1901826561}
+  - component: {fileID: 1901826566}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1124,3 +1138,14 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1901826566
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1901826560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 675e5a51fe2df424087b2181fe32cd52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 

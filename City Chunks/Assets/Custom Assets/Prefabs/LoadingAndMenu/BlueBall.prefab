@@ -90,10 +90,10 @@ Light:
   m_GameObject: {fileID: 1806038948773256}
   m_Enabled: 1
   serializedVersion: 8
-  m_Type: 0
+  m_Type: 2
   m_Color: {r: 0, g: 0, b: 1, a: 1}
   m_Intensity: 1
-  m_Range: 1
+  m_Range: 5
   m_SpotAngle: 165.6
   m_CookieSize: 10
   m_Shadows:
@@ -130,5 +130,5 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   radius: 5
-  speed: 1
+  speed: 0.2
   angle: 2.0943933
