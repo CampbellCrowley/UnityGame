@@ -191,7 +191,7 @@ public class CityGenerator : SubGenerator {
               goalFloor = Building.Floor.MIDDLE;
             }
             for (int j = 0; j < buildingPrefabs.Length; j++) {
-              if (buildingPrefabs[i].ID == buildingPrefabs[j].ID &&
+              if (buildingPrefabs[buildingID].ID == buildingPrefabs[j].ID &&
                   goalFloor == buildingPrefabs[j].floor) {
                 floorID = j;
                 break;
@@ -237,12 +237,12 @@ public class CityGenerator : SubGenerator {
                                 ((float)terrain.terrData.heightmapHeight /
                                  (float)tg.GetTerrainLength())) +
                 1;
-            if (heightmapW + heightmapX >= terrain.terrData.heightmapWidth) {
-              heightmapW -= (heightmapW + heightmapX) -
+            if (heightmapH + heightmapX >= terrain.terrData.heightmapWidth) {
+              heightmapH -= (heightmapH + heightmapX) -
                             terrain.terrData.heightmapWidth + 1;
             }
-            if (heightmapH + heightmapY >= terrain.terrData.heightmapHeight) {
-              heightmapH -= (heightmapH + heightmapZ) -
+            if (heightmapW + heightmapZ >= terrain.terrData.heightmapHeight) {
+              heightmapW -= (heightmapW + heightmapZ) -
                             terrain.terrData.heightmapHeight + 1;
             }
             float[, ] points = new float[heightmapW, heightmapH];
