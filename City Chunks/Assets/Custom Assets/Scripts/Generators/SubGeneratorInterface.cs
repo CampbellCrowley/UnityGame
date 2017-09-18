@@ -9,6 +9,7 @@ public abstract class SubGenerator : MonoBehaviour {
   protected TerrainGenerator tg;
   public void Initialize(TerrainGenerator TG) {
     tg = TG;
+    firstError = true;
     Initialized();
   }
   protected abstract void Initialized();

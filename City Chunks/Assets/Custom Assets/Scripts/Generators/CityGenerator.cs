@@ -4,10 +4,8 @@ using UnityEngine;
 
 public class CityGenerator : SubGenerator {
   public const string version = "c1";
-  // TODO: Make buildings modular vertically. Meaning they can stack on top of
-  // each other. Or use different models for different heights.
   // TODO: Generate roads
-  // TODO: Remove grass, trees, and rocks where buildings and roads are.
+  // TODO: Remove grass where buildings and roads are.
   public Building[] buildingPrefabs;
   // Lower is higher resolition/more points per chunk.
   public float searchResolution = 10f;
@@ -39,6 +37,10 @@ public class CityGenerator : SubGenerator {
     divisionWidth = (1f - cityHeight);
     rg = GetComponent<RockGenerator>();
 
+    numGroundFloors = 0;
+    numMidFloors = 0;
+    numRoofFloors = 0;
+    numCompleteBuildings = 0;
     for (int i = 0; i < buildingPrefabs.Length; i++) {
       switch (buildingPrefabs[i].floor) {
         case Building.Floor.GROUND:
@@ -62,26 +64,26 @@ public class CityGenerator : SubGenerator {
   }
 
   protected override void Generate(Terrains terrain) {
-     int PWidth = Mathf.FloorToInt(tg.GetTerrainWidth() / searchResolution);
-     float chunkXPos = terrain.gameObject.transform.position.x;
-     float chunkZPos = terrain.gameObject.transform.position.z;
+    int PWidth = Mathf.FloorToInt(tg.GetTerrainWidth() / searchResolution);
+    float chunkXPos = terrain.gameObject.transform.position.x;
+    float chunkZPos = terrain.gameObject.transform.position.z;
 
-     float[, ] pointMap = new float[PWidth, PWidth];
+    float[, ] pointMap = new float[PWidth, PWidth];
 
-     tg.PerlinDivide(ref pointMap, terrain.x, terrain.z, PWidth, PWidth, -1,
-                     noiseRoughness);
+    tg.PerlinDivide(ref pointMap, terrain.x, terrain.z, PWidth, PWidth, -1,
+                    noiseRoughness);
 
-     float threshold = 1f - (citySize * (1f - Mathf.Pow(terrain.biome, 3f)));
-     if (debugThreshold) {
-       Debug.DrawLine(
-           new Vector3(chunkXPos, threshold * 1000f, chunkZPos),
-           new Vector3(chunkXPos + tg.GetTerrainWidth(), threshold * 1000f,
-                       chunkZPos + tg.GetTerrainLength()),
-           Color.red, 10000f);
-       Debug.DrawLine(new Vector3(chunkXPos, 1000f, chunkZPos),
-                      new Vector3(chunkXPos + tg.GetTerrainWidth(), 1000f,
-                                  chunkZPos + tg.GetTerrainLength()),
-                      Color.green, 10000f);
+    float threshold = 1f - (citySize * (1f - Mathf.Pow(terrain.biome, 3f)));
+    if (debugThreshold) {
+      Debug.DrawLine(
+          new Vector3(chunkXPos, threshold * 1000f, chunkZPos),
+          new Vector3(chunkXPos + tg.GetTerrainWidth(), threshold * 1000f,
+                      chunkZPos + tg.GetTerrainLength()),
+          Color.red, 10000f);
+      Debug.DrawLine(new Vector3(chunkXPos, 1000f, chunkZPos),
+                     new Vector3(chunkXPos + tg.GetTerrainWidth(), 1000f,
+                                 chunkZPos + tg.GetTerrainLength()),
+                     Color.green, 10000f);
     }
 
     if (tg.useSeed) {
@@ -110,7 +112,7 @@ public class CityGenerator : SubGenerator {
           if (buildingID <= -1 || buildingID >= buildingPrefabs.Length) {
             Debug.LogError("Invalid building ID: " + buildingID +
                            "\nNumGroundFloors: " + numGroundFloors +
-                           ", buildginNum: " + buildingNum);
+                           ", buildingNum: " + buildingNum);
             return;
           }
 
@@ -124,6 +126,14 @@ public class CityGenerator : SubGenerator {
           float buildingZ =
               chunkZPos + (roadWidth / 2f) + (buildingWidth / 2f) +
               (float)x / (float)pointMap.GetLength(0) * tg.GetTerrainWidth();
+
+          if (debugThreshold) {
+            Debug.DrawLine(
+                new Vector3(buildingX, pointMap[x, z] * 1000f, buildingZ),
+                new Vector3(buildingX + buildingWidth, pointMap[x, z] * 1000f,
+                            buildingZ + buildingWidth),
+                Color.yellow, 10000f);
+          }
 
           float buildingDoorX =
               buildingX + buildingPrefabs[buildingID].doorPosition.x;
@@ -192,8 +202,7 @@ public class CityGenerator : SubGenerator {
                 new Vector3(
                     buildingX - buildingPrefabs[floorID].centerOffset.x,
                     (debugPerlin ? pointMap[x, z] * 1000f : buildingY) +
-                        floorHeight -
-                        buildingPrefabs[floorID].centerOffset.y,
+                        floorHeight - buildingPrefabs[floorID].centerOffset.y,
                     buildingZ - buildingPrefabs[floorID].centerOffset.z),
                 Quaternion.identity);
             floorHeight += buildingPrefabs[floorID].dimensions.y;

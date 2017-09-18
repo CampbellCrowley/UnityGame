@@ -37,6 +37,7 @@ public class MyCameraController : MonoBehaviour {
     cam.GetComponent<Camera>().enabled = true;
     cam.GetComponent<AudioListener>().enabled = true;
     cam.name = "CameraFor" + GameData.username;
+    initialized = true;
   }
 
   public void UpdateTarget(Transform target_) { target = target_; }
@@ -44,6 +45,7 @@ public class MyCameraController : MonoBehaviour {
   public void UpdateTransform(float dt) {
     if (!isMaster) return;
     if (target == null) return;
+    if (!initialized) return;
 
     if (firstPerson) {
       intendedCameraDistance = 0f;

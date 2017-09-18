@@ -1,24 +1,18 @@
-// Copyright (c) Campbell Crowley. All rights reserved.
-// Author: Campbell Crowley (github@campbellcrowley.com)
 using UnityEngine;
 using System;
-public
-class NameList : MonoBehaviour {
- public
-  static String GetName() {
+public class NameList : MonoBehaviour {
+  public static String GetName() {
     UnityEngine.Random.InitState(
         (int)(Time.realtimeSinceStartup * 100000 * UnityEngine.Random.value));
     return GetName(UnityEngine.Random.Range(0, names.Length));
   }
- public
-  static String GetName(int num) {
+  public static String GetName(int num) {
     String output = names[num];
     output = output[0].ToString().ToUpper() + output.Substring(1).ToLower();
     return output;
   }
 
- private
-  static String[] names = {
+  private static String[] names = {
       "Nathan",      "Campbell",    "Dennis",      "Marc",       "Emerson",
       "Bahar",       "Emma",        "Kyle",        "Ginger",     "Matt",
       "Audrey",      "Nancie",      "Jerry",       "Katherine",  "William",

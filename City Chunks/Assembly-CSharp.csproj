@@ -78,6 +78,7 @@
      <Compile Include="Assets\Custom Assets\Scripts\PlayFabAuthenticator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\SaveLoad.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\SunShaftFixer.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\ChangeSeedController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\ChatManager.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\GraphicsQualitySelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\GrassDensitySelector.cs" />
@@ -381,7 +382,6 @@
      <None Include="Assets\PostProcessing\Resources\Shaders\Bloom.shader" />
      <None Include="Assets\Photon Unity Networking\readme.txt" />
      <None Include="Assets\ModelsTextures\Realistic Rock\Shaders\Rock.shader" />
-     <None Include="Assets\Custom Assets\Scripts\Names.txt" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Hair\Hair_UnityStandardCore.cginc" />
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\VectorscopeRender.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\EyeAdaptation.shader" />
@@ -391,7 +391,6 @@
      <None Include="Assets\PostProcessing\Resources\Shaders\ColorGrading.cginc" />
      <None Include="Assets\Standard Assets\Environment\Water\Water4\Shaders\FXWater4Advanced.shader" />
      <None Include="Assets\MORPH3D\Resources\Shaders\EyeAndLash.shader" />
-     <None Include="Assets\Custom Assets\Scripts\NamesFormatted.txt" />
      <None Include="Assets\Standard Assets\Effects\ImageEffects\Shaders\SimpleClear.shader" />
      <None Include="Assets\Standard Assets\ParticleSystems\Shaders\PriorityParticleAdd.shader" />
      <None Include="Assets\PostProcessing\Resources\Shaders\AmbientOcclusion.cginc" />
@@ -399,6 +398,9 @@
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
      <None Include="Assets\Photon Unity Networking\changelog.txt" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Skin\Volund_StandardSpecularCharacter.shader" />
+ <Reference Include="UnityEngine.Advertisements">
+ <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
+ </Reference>
  <Reference Include="UnityEngine.UI">
  <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>

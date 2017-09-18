@@ -153,12 +153,19 @@ public class NetworkManager : Photon.MonoBehaviour {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
-    PhotonNetwork.CreateRoom(GameData.username + "`" + name +
-                             Guid.NewGuid().ToString("N"));
+    PhotonNetwork.CreateRoom(GameData.username + "`" + GameData.Seed + "`" +
+                             name + Guid.NewGuid().ToString("N"));
   }
   public static void JoinRoom(string name) {
     if (GameData.isUsernameDefault() || !GameData.isUsernameValid()) {
       GameData.username = NameList.GetName();
+    }
+    string seed = name.Split('`')[1];
+    int Seed;
+    if (System.Int32.TryParse(seed, out Seed)) {
+      GameData.Seed = Seed;
+    } else {
+      Debug.LogError("Failed to parse room seed!");
     }
     SetPlayerName(GameData.username);
     PhotonNetwork.JoinRoom(name);

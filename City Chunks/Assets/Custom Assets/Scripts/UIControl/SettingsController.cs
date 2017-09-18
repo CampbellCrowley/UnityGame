@@ -76,6 +76,9 @@ public class SettingsController : MonoBehaviour {
     GameData.showCursor = false;
     Destroy(gameObject);
   }
+  public void MainMenu() {
+    GameData.MainMenu();
+  }
   void OnDestroy() { GameData.SaveSettings(); }
 }
 

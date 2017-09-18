@@ -331,6 +331,8 @@ public class TerrainGenerator : MonoBehaviour {
   bool preLoadingDone = false;
   bool preLoadingChunks = false;
 
+  bool started = false;
+
   float threadTTL = 5f; // seconds
   float threadStart = -1f;
   Thread thread;
@@ -345,12 +347,31 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
 
   void Start() {
+    started = true;
     Debug.Log("Terrain Generator Start!");
     GameData.AddLoadingScreen();
+
+    if (terrains.Count > 0) {
+      Debug.LogError("Start was called but terrains already exist!");
+      return;
+    }
+
+    if (GameData.Seed != 0) {
+      Seed = GameData.Seed;
+    } else {
+      GameData.Seed = Seed;
+    }
+    if (GameData.PerlinSeedModifier != 0) {
+      PerlinSeedModifier = GameData.PerlinSeedModifier;
+    } else {
+      GameData.PerlinSeedModifier = PerlinSeedModifier;
+    }
 
     loadingSpawn = true;
     wasDoneLoadingSpawn = false;
     doneLoadingSpawn = false;
+    preLoadingDone = false;
+    preLoadingChunks = false;
 
     rg = GetComponent<RockGenerator>();
     if (rg != null) {
@@ -365,6 +386,8 @@ public class TerrainGenerator : MonoBehaviour {
     } else {
       Debug.LogWarning("Failed to find CityG!");
     }
+
+    player = null;
 
     terrains.Clear();
     if (waterTile != null)
@@ -509,6 +532,15 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   void Update() {
+    if (GameData.Seed != Seed ||
+        GameData.PerlinSeedModifier != PerlinSeedModifier) {
+      Debug.LogError("Detected Seed Change! This is not allowed! (" + started +
+                     ")\nGD: " + GameData.Seed + ", " +
+                     GameData.PerlinSeedModifier + ", TG: " + Seed + ", " +
+                     PerlinSeedModifier);
+      GameData.MainMenu();
+      return;
+    }
     checkDoneLoadingSpawn();
 
     if(GenMode.PreLoadChunks && !preLoadingDone && !preLoadingChunks) {
@@ -1401,7 +1433,14 @@ public class TerrainGenerator : MonoBehaviour {
       // in.
       roughness *= 65f / heightmapWidth;
 
-      terrains.Add(new Terrains());
+      if (terrains.Count > 0) {
+        terrains[0] = new Terrains();
+        Debug.LogError(
+            "Terrains Exist but requested new spawn chunk! This is not " +
+            "supported!");
+      } else {
+        terrains.Add(new Terrains());
+      }
       terrains[0].x = 0;
       terrains[0].z = 0;
       terrains[0].terrData = GetComponent<Terrain>().terrainData;
@@ -1618,7 +1657,8 @@ public class TerrainGenerator : MonoBehaviour {
   void UnloadTerrainChunk(int loc) {
     if (loc == 0) return; // Spawn chunk may not be unloaded.
     Destroy(terrains[loc].gameObject);
-    Destroy(terrains[loc].waterTile);
+    // All objects should be parented to this gameObject, and should be
+    // destroyed with it.
     terrains.RemoveAt(loc);
     if (GetTerrainWithCoord(lastTerrUpdated.x, lastTerrUpdated.z) == loc) {
       lastTerrUpdateLoc = -1;
@@ -2740,8 +2780,7 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
- public
-  void SaveAllChunks() {
+  public void SaveAllChunks() {
     if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
       return;
     for (int i = 0; i < terrains.Count; i++) {
@@ -2884,22 +2923,17 @@ public class TerrainGenerator : MonoBehaviour {
   }
   // Returns the height of the terrain at the player's current location in
   // global units.
- public
-  static float GetTerrainHeight() { return GetTerrainHeight(player); }
- public
-  static float GetTerrainHeight(InitPlayer player) {
+  public static float GetTerrainHeight() { return GetTerrainHeight(player); }
+  public static float GetTerrainHeight(InitPlayer player) {
     return GetTerrainHeight(player.gameObject);
   }
- public
-  static float GetTerrainHeight(GameObject player) {
+  public static float GetTerrainHeight(GameObject player) {
     return GetTerrainHeight(player.transform.position);
   }
- public
-  static float GetTerrainHeight(float x, float z) {
+  public static float GetTerrainHeight(float x, float z) {
     return GetTerrainHeight(new Vector3(x, 0, z));
   }
- public
-  static float GetTerrainHeight(Vector3 position) {
+  public static float GetTerrainHeight(Vector3 position) {
     int xCenter = Mathf.RoundToInt((position.x - terrWidth / 2) / terrWidth);
     int yCenter = Mathf.RoundToInt((position.z - terrLength / 2) / terrLength);
     int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
@@ -2911,24 +2945,17 @@ public class TerrainGenerator : MonoBehaviour {
     }
     return 0;
   }
- public
-  float GetTerrainWidth() { return terrWidth; }
- public
-  float GetTerrainLength() { return terrLength; }
- public
-  float GetTerrainMaxHeight() { return terrHeight; }
- public
-  static Vector3 GetPointOnTerrain(Vector3 position) {
+  public float GetTerrainWidth() { return terrWidth; }
+  public float GetTerrainLength() { return terrLength; }
+  public float GetTerrainMaxHeight() { return terrHeight; }
+  public static Vector3 GetPointOnTerrain(Vector3 position) {
     return new Vector3(position.x, GetTerrainHeight(position), position.z);
- }
- public
-  void movePlayerToTop() { movePlayerToTop(player); }
- public
-  void movePlayerToTop(GameObject player) {
+  }
+  public void movePlayerToTop() { movePlayerToTop(player); }
+  public void movePlayerToTop(GameObject player) {
     movePlayerToTop(player.GetComponent<InitPlayer>());
   }
- public
-  void movePlayerToTop(InitPlayer player) {
+  public void movePlayerToTop(InitPlayer player) {
     // Make sure the player stays above the terrain
     if (player != null) {
       player.updatePosition(player.transform.position.x,
@@ -2937,24 +2964,22 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
- public void ForceUnloadAll() {
-   foreach (Terrains t in terrains) { t.currentTTL = 1; }
- }
+  public void ForceUnloadAll() {
+    foreach (Terrains t in terrains) { t.currentTTL = 1; }
+  }
 
- public
-  bool anyChunksDividing() {
+  public bool anyChunksDividing() {
     for (int i = 0; i < terrains.Count; i++) {
       if (terrains[i].isDividing) return true;
     }
     return false;
   }
- public void ChangeGrassDensity(float density) {
+  public void ChangeGrassDensity(float density) {
    foreach (Terrains t in terrains) {
      t.gameObject.GetComponent<Terrain>().detailObjectDensity = density;
    }
- }
- public
-  void checkDoneLoadingSpawn() {
+  }
+  public void checkDoneLoadingSpawn() {
     TerrainGenerator.wasDoneLoadingSpawn = TerrainGenerator.doneLoadingSpawn;
     if (TerrainGenerator.doneLoadingSpawn) return;
     if ((terrains.Count <= 1 && GenMode.PreLoadChunks) || anyChunksDividing()) {
@@ -2974,5 +2999,15 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("Done loading spawn!");
     TerrainGenerator.doneLoadingSpawn = true;
     TerrainGenerator.loadingSpawn = false;
+  }
+
+  public void DestroyEverything() {
+    for(int i=0; i<terrains.Count; i++) {
+      UnloadTerrainChunk(i);
+    }
+    lastTerrUpdated = new Terrains();
+    lastTerrUpdateLoc = -1;
+    terrains.Clear();
+    Destroy(gameObject);
   }
 }

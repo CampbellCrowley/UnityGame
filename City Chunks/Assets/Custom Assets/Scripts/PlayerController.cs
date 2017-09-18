@@ -328,7 +328,8 @@ public class PlayerController : Photon.MonoBehaviour {
     if (!TerrainGenerator.doneLoadingSpawn && !spawned && waitForSpawnLoading) {
       levelStartTime = Time.time;
       cam.userInput = false;
-      cam.cam.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
+      if (cam.Initialized())
+        cam.cam.transform.rotation = Quaternion.Euler(70f, 30f, 0f);
       cameraSpawnRotation = cam.cam.transform.rotation;
       spawnLocation = transform.position;
     } else if (cinematicsFinished && !spawned) {
@@ -500,7 +501,7 @@ public class PlayerController : Photon.MonoBehaviour {
         temp.y = colliderStartPosition - (playerHeight - crouchedHeight) / 2f;
         collider_.center = temp;
       }
-    } else if (GetComponent<Collider>() != null) {
+    } else if (collider_ != null) {
       collider_.height = playerHeight;
       if (colliderStartPosition != 0) {
         Vector3 temp = collider_.center;

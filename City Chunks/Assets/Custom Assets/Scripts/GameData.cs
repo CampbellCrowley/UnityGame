@@ -62,6 +62,8 @@ public class GameData : MonoBehaviour {
   public static string previousLoadingMessage = "Readying the pigeons.";
   public static string loadingMessage = "Readying the pigeons.";
   public static bool LoadingScreenExists = false;
+  public static int Seed = 0;
+  public static float PerlinSeedModifier = 0;
   public static QuitReason quitReason = QuitReason.UNEXPECTED;
 
   private static float loadEndTime = -1;
@@ -72,6 +74,10 @@ public class GameData : MonoBehaviour {
 
   public static void AddLoadingScreen() {
     if (LoadingScreenExists) return;
+    CloseChat();
+    TogglePaused(true);
+    loadingMessage = "Readying the pigeons.";
+    loadingPercent = 1f;
     Debug.Log("Additively loading loading screen scene.");
     loading = true;
     SceneManager.LoadScene("Loading", LoadSceneMode.Additive);
@@ -128,6 +134,8 @@ public class GameData : MonoBehaviour {
     else SceneManager.LoadScene("Menu");
     GameData.health = 100;
     RemoveLoadingScreen();
+    TerrainGenerator tg = FindObjectOfType<TerrainGenerator>();
+    if (tg != null) tg.DestroyEverything();
   }
 
   public static bool isUsernameDefault() {
