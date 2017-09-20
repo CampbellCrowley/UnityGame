@@ -17,12 +17,14 @@ public class CityGenerator : SubGenerator {
   public float citySize = 0.05f;
   [Range(0f,1f)]
   public float cityHeight = 0.04f;
-  [Header("Debug Options")]
-  public bool debugAll = false;
-  public bool debugPerlin = false;
-  public bool debugFlat = false;
-  public bool debugDisableTerrain = false;
-  public bool debugThreshold = false;
+  [System.Serializable]public class DebugOptions {
+    public bool All = false;
+    public bool Perlin = false;
+    public bool Flat = false;
+    public bool DisableTerrain = false;
+    public bool Threshold = false;
+  }
+  public  DebugOptions dbgOpts = new DebugOptions();
 
   private float divisionWidth = 0f;
 
@@ -74,7 +76,7 @@ public class CityGenerator : SubGenerator {
                     noiseRoughness);
 
     float threshold = 1f - (citySize * (1f - Mathf.Pow(terrain.biome, 3f)));
-    if (debugThreshold) {
+    if (dbgOpts.Threshold) {
       Debug.DrawLine(
           new Vector3(chunkXPos, threshold * 1000f, chunkZPos),
           new Vector3(chunkXPos + tg.GetTerrainWidth(), threshold * 1000f,
@@ -95,7 +97,7 @@ public class CityGenerator : SubGenerator {
 
     for (int x = 0; x < pointMap.GetLength(0); x++) {
       for (int z = 0; z < pointMap.GetLength(1); z++) {
-        if (debugAll || pointMap[x, z] > threshold) {
+        if (dbgOpts.All || pointMap[x, z] > threshold) {
           int buildingNum = Random.Range(1, numGroundFloors);
           int buildingID = -1;
           int count = 0;
@@ -127,7 +129,7 @@ public class CityGenerator : SubGenerator {
               chunkZPos + (roadWidth / 2f) + (buildingWidth / 2f) +
               (float)x / (float)pointMap.GetLength(0) * tg.GetTerrainWidth();
 
-          if (debugThreshold) {
+          if (dbgOpts.Threshold) {
             Debug.DrawLine(
                 new Vector3(buildingX, pointMap[x, z] * 1000f, buildingZ),
                 new Vector3(buildingX + buildingWidth, pointMap[x, z] * 1000f,
@@ -143,14 +145,14 @@ public class CityGenerator : SubGenerator {
               TerrainGenerator.GetTerrainHeight(buildingDoorX, buildingDoorZ) +
               buildingPrefabs[buildingID].doorPosition.y;
           if (buildingY == 0f - buildingPrefabs[buildingID].doorPosition.y &&
-              !(debugFlat || debugAll)) {
+              !(dbgOpts.Flat || dbgOpts.All)) {
             continue;
           }
-          if (debugFlat) buildingY = 0f;
+          if (dbgOpts.Flat) buildingY = 0f;
 
           int numFloors =
               Mathf.CeilToInt((pointMap[x, z] - threshold) / divisionWidth);
-          if (debugAll && numFloors <= 0) numFloors = 1;
+          if (dbgOpts.All && numFloors <= 0) numFloors = 1;
 
           Vector3 checkPos = new Vector3(buildingX, buildingY, buildingZ) +
                              buildingPrefabs[buildingID].centerOffset;
@@ -201,7 +203,7 @@ public class CityGenerator : SubGenerator {
                 buildingPrefabs[floorID].gameObject,
                 new Vector3(
                     buildingX - buildingPrefabs[floorID].centerOffset.x,
-                    (debugPerlin ? pointMap[x, z] * 1000f : buildingY) +
+                    (dbgOpts.Perlin ? pointMap[x, z] * 1000f : buildingY) +
                         floorHeight - buildingPrefabs[floorID].centerOffset.y,
                     buildingZ - buildingPrefabs[floorID].centerOffset.z),
                 Quaternion.identity);
@@ -215,10 +217,10 @@ public class CityGenerator : SubGenerator {
             } else {
               last.transform.parent = ground.transform;
             }
-            terrain.BuildingInstances.Add(last.GetComponent<Building>());
+            terrain.ObjectInstances[ID].Add(last);
           }
 
-          if (!debugDisableTerrain) {
+          if (!dbgOpts.DisableTerrain) {
             int heightmapX = Mathf.FloorToInt(
                 (buildingX - chunkXPos - buildingWidth / 2f) /
                 tg.GetTerrainWidth() * (float)terrain.terrData.heightmapWidth);
@@ -256,6 +258,5 @@ public class CityGenerator : SubGenerator {
         }
       }
     }
-    terrain.cityQueue = false;
   }
 }

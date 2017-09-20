@@ -100,8 +100,6 @@ using System.Threading;
   public float DeltaRockUpdate = 0;
   [Tooltip("Previous amount of time updating cities took in milliseconds.")]
   public float DeltaCityUpdate = 0;
-  [Tooltip("Previous amount of time updating the delayed heightmap modifications took in milliseconds.")]
-  public float DeltaLODUpdate = 0;
   [Tooltip("Previous amount of time updating neighbors took in milliseconds.")]
   public float DeltaUpdate = 0;
   [Tooltip("Previous amount of time unloading chunks took in milliseconds.")]
@@ -132,10 +130,8 @@ using System.Threading;
   public float[, ] terrPerlinPoints;
   [Tooltip("List of trees currently on this chunk.")]
   public List<GameObject> TreeInstances = new List<GameObject>();
-  [Tooltip("List of rocks currently on this chunk.")]
-  public List<GameObject> RockInstances = new List<GameObject>();
-  [Tooltip("List of buildings currently on this chunk.")]
-  public List<Building> BuildingInstances = new List<Building>();
+  [Tooltip("Array of list of objects that sub-generators created.")]
+  public List<GameObject>[] ObjectInstances;
   [Tooltip("The water GameObject attatched to this chunk.")]
   public GameObject waterTile;
   [Tooltip("Whether this terrain chunk is ready for its splatmap to be updated.")]
@@ -150,12 +146,8 @@ using System.Threading;
   public bool detailQueue = false;
   [Tooltip("Whether this terrain chunk is ready to be updated with points in terrPoints. True if points need to be flushed to terrainData.")]
   public bool terrQueue = false;
-  [Tooltip("Whether this terrain chunk is ready for its delayed hightmap modifications to be updated.")]
-  public bool LODQueue = false;
-  [Tooltip("Whether this terrain chunk is ready for its rocks to be updated.")]
-  public bool rockQueue = false;
-  [Tooltip("Whether this terrain chunk is ready for its cities to be updated.")]
-  public bool cityQueue = false;
+  [Tooltip("Array of sub-generators that the chunk is ready to run.")]
+  public bool[] subGeneratorQueue;
   [Tooltip("True if the heightmap is still being generated.")]
   public bool isDividing = false;
   [Tooltip("True if the heightmap has been generated.")]
@@ -176,6 +168,25 @@ using System.Threading;
 
   public override string ToString() {
     return string.Format("Terrain({0}, {1})", x, z);
+  }
+
+  public void InitializeSubGenerators(int num) {
+    subGeneratorQueue = new bool[num];
+    ObjectInstances = new List<GameObject>[num];
+    for (int i = 0; i < ObjectInstances.Length; i++) {
+      ObjectInstances[i] = new List<GameObject>();
+    }
+  }
+
+  public void queueSubGenerators(bool state = true) {
+    for (int i = 0; i < subGeneratorQueue.Length; i++) {
+      subGeneratorQueue[i] = state;
+    }
+  }
+  public int numSGQueued() {
+    int num = 0;
+    foreach(bool sg in subGeneratorQueue) if (sg) num++;
+    return num;
   }
 }
 [Serializable] public class Textures {
@@ -215,10 +226,11 @@ using System.Threading;
 public class TerrainGenerator : MonoBehaviour {
   public const float EmptyPoint = -100f;
   public static string worldID = "ERROR";
+  private static TerrainGenerator tg;
 
   [Header("Terrains (Auto-populated)")]
   [Tooltip("The list of all currently loaded chunks.")]
-  private static List<Terrains> terrains = new List<Terrains>();
+  public List<Terrains> terrains = new List<Terrains>();
 
   [Header("Game Objects")]
   [Tooltip("Water Tile to instantiate with the terrain when generating a new chunk.")]
@@ -339,7 +351,7 @@ public class TerrainGenerator : MonoBehaviour {
   IEnumerator divideEnumerator;
   System.Random rand;
 
-  SubGenerator rg, cg;
+  SubGenerator[] subGenerators;
 
 #if DEBUG_HUD_LOADED || DEBUG_HUD_LOADING
   // List of chunks loaded as a list of coordinates.
@@ -350,6 +362,7 @@ public class TerrainGenerator : MonoBehaviour {
     started = true;
     Debug.Log("Terrain Generator Start!");
     GameData.AddLoadingScreen();
+    tg = this;
 
     if (terrains.Count > 0) {
       Debug.LogError("Start was called but terrains already exist!");
@@ -373,18 +386,10 @@ public class TerrainGenerator : MonoBehaviour {
     preLoadingDone = false;
     preLoadingChunks = false;
 
-    rg = GetComponent<RockGenerator>();
-    if (rg != null) {
-      rg.Initialize(this);
-    } else {
-      Debug.LogWarning("Failed to find RockG!");
-    }
-
-    cg = GetComponent<CityGenerator>();
-    if (cg != null) {
-      cg.Initialize(this);
-    } else {
-      Debug.LogWarning("Failed to find CityG!");
+    subGenerators = FindObjectsOfType<SubGenerator>();
+    Debug.Log("Found " + subGenerators.Length + " sub-generators.");
+    for (int i = 0; i < subGenerators.Length; i++) {
+      subGenerators[i].Initialize(this, i);
     }
 
     player = null;
@@ -457,18 +462,14 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
     terrains[0].terrData.SetHeights(0, 0, MixHeights(0));
 #if DEBUG_START
-    Debug.Log("Possibly creating spawn chunk cities");
+    Debug.Log("Running SubGenerators.");
 #endif
-    if (cg != null) cg.Go(terrains[0]);
+    foreach (SubGenerator sg in subGenerators) { sg.Go(terrains[0]); }
 #if DEBUG_START
     Debug.Log("Adding Trees to spawn chunk");
 #endif
     UpdateTreePrototypes(terrains[0].terrData);
     UpdateTrees(terrains[0]);
-#if DEBUG_START
-    Debug.Log("Possibly creating spawn chunk rocks");
-#endif
-    if (rg != null) rg.Go(terrains[0]);
 #if DEBUG_START
     Debug.Log("Adding Grass to spawn chunk");
 #endif
@@ -577,9 +578,7 @@ public class TerrainGenerator : MonoBehaviour {
 
     ApplyHeightmap(ref done, ref iTime);
 
-    UpdateAllRocks(ref done, ref iTime);
-
-    UpdateAllCities(ref done, ref iTime);
+    UpdateAllSubGenerators(ref done, ref iTime);
 
     UpdateAllTrees(ref done, ref iTime);
 
@@ -634,18 +633,18 @@ public class TerrainGenerator : MonoBehaviour {
         num = Mathf.RoundToInt(Mathf.Pow(GameData.LoadDistance / terrWidth, 2) *
                                Mathf.PI);
       }
-      // int num = 77;
-      int count = 9;
+      int sg = subGenerators.Length;
+      int count = 8 + sg;
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].isDividing) total += 1.0f / count;
         else if (terrains[i].waterQueue) total += 2.0f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
-        else if (terrains[i].cityQueue) total += 3.5f / count;
-        else if (terrains[i].treeQueue) total += 4.5f / count;
-        else if (terrains[i].rockQueue) total += 5.5f / count;
-        else if (terrains[i].splatQueue) total += 6.5f / count;
-        else if (terrains[i].texQueue) total += 7.5f / count;
-        else if (terrains[i].detailQueue) total += 8.5f / count;
+        else if (terrains[i].numSGQueued() > 0)
+          total += (2.5f + terrains[i].numSGQueued()) / count;
+        else if (terrains[i].treeQueue) total += (4.5f + sg) / count;
+        else if (terrains[i].splatQueue) total += (5.5f + sg) / count;
+        else if (terrains[i].texQueue) total += (6.5f + sg) / count;
+        else if (terrains[i].detailQueue) total += (7.5f + sg) / count;
         else if (terrains[i].terrReady) total += 1.0f;
         else num--;
       }
@@ -726,6 +725,7 @@ public class TerrainGenerator : MonoBehaviour {
         terrains[i].terrQueue = true;
         terrains[i].waterQueue = true;
         terrains[i].justLoadedFromDisk = false;
+        terrains[i].queueSubGenerators(false);
       }
     }
 
@@ -888,10 +888,8 @@ public class TerrainGenerator : MonoBehaviour {
               terrains[tileCnt].splatQueue = true;
               terrains[tileCnt].texQueue = true;
               terrains[tileCnt].treeQueue = true;
-              terrains[tileCnt].rockQueue = true;
-              terrains[tileCnt].cityQueue = true;
               terrains[tileCnt].detailQueue = true;
-              terrains[tileCnt].LODQueue = true;
+              terrains[tileCnt].queueSubGenerators();
               break;
             }
 
@@ -904,17 +902,12 @@ public class TerrainGenerator : MonoBehaviour {
           terrains[tileCnt].splatQueue = true;
           terrains[tileCnt].texQueue = true;
           terrains[tileCnt].treeQueue = true;
-          terrains[tileCnt].rockQueue = true;
-          terrains[tileCnt].cityQueue = true;
           terrains[tileCnt].detailQueue = true;
-          // terrains[tileCnt].LODQueue = true;
-          terrains[tileCnt].LODQueue = false;
+          terrains[tileCnt].queueSubGenerators();
           TerrUpdatePoints = TerrTemplatePoints;
         }
 
         // Set the terrain heightmap to the defined points.
-        // terrains[tileCnt].terrData.SetHeightsDelayLOD(0, 0,
-        // TerrUpdatePoints);
         terrains[tileCnt].terrData.SetHeights(0, 0, TerrUpdatePoints);
 
         // Push all changes to the terrain.
@@ -939,36 +932,6 @@ public class TerrainGenerator : MonoBehaviour {
     if (heightmapApplied) {
       done = heightmapApplied;
       times.DeltaHeightmapApplied = (Time.realtimeSinceStartup - iTime2) * 1000;
-    }
-  }
-
-  void UpdateAllLOD(ref bool done, ref float iTime) {
-    bool LODUpdated = false;
-    float iTime2 = -1;
-    if (!done) {
-      for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].LODQueue && !terrains[i].loadingFromDisk) {
-          if (iTime == -1) iTime = Time.realtimeSinceStartup;
-          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
-          terrains[i]
-              .gameObject.GetComponent<Terrain>()
-              .ApplyDelayedHeightmapModification();
-          terrains[i].LODQueue = false;
-          LODUpdated = true;
-          break;
-        }
-      }
-      if (GameData.loading)
-        GameData.loadingMessage = "Turning that FPS back up...";
-      // GameData.loadingMessage = GameData.previousLoadingMessage;
-    }
-#if DEBUG_HUD_LOADING
-    if (LODUpdated) LoadedChunkList += "Updating LOD\n";
-    else LoadedChunkList += "\n";
-#endif
-    if (LODUpdated) {
-      done = LODUpdated;
-      times.DeltaLODUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
 
@@ -1051,56 +1014,41 @@ public class TerrainGenerator : MonoBehaviour {
     }
   }
 
-  void UpdateAllRocks(ref bool done, ref float iTime) {
-    bool rocksUpdated = false;
+  void UpdateAllSubGenerators(ref bool done, ref float iTime) {
+    bool subGeneratorsUpdated = false;
     float iTime2 = -1;
-    if (!done && rg != null) {
+    if (!done && subGenerators.Length > 0) {
+      int SGIndex = -1;
+      int TIndex = -1;
       for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].rockQueue && !terrains[i].loadingFromDisk) {
-          if (iTime == -1) iTime = Time.realtimeSinceStartup;
-          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
-          rg.Go(terrains[i]);
-          terrains[i].rockQueue = false;
-          rocksUpdated = true;
-          break;
+        if (terrains[i].loadingFromDisk) continue;
+        for (int j = 0; j < terrains[i].subGeneratorQueue.Length; j++) {
+          if (terrains[i].subGeneratorQueue[j] &&
+              subGenerators[j].priority > SGIndex && subGenerators[j].enabled) {
+            TIndex = i;
+            SGIndex = j;
+          }
         }
       }
       if (GameData.loading)
-        GameData.loadingMessage = "Stuck between two hard places...";
-    }
-#if DEBUG_HUD_LOADING
-    if (rocksUpdated) LoadedChunkList += "Updating Rocks\n";
-    else LoadedChunkList += "\n";
-#endif
-    if (rocksUpdated) {
-      done = rocksUpdated;
-      times.DeltaRockUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
-    }
-  }
-
-  void UpdateAllCities(ref bool done, ref float iTime) {
-    bool citiesUpdated = false;
-    float iTime2 = -1;
-    if (!done && cg != null) {
-      for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].cityQueue && !terrains[i].loadingFromDisk) {
-          if (iTime == -1) iTime = Time.realtimeSinceStartup;
-          if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
-          cg.Go(terrains[i]);
-          terrains[i].cityQueue = false;
-          citiesUpdated = true;
-          break;
+        GameData.loadingMessage = "Probably doing thing #" + SGIndex + " of " +
+                                  subGenerators.Length + " things...";
+      if (SGIndex != -1 && TIndex != -1) {
+        if (iTime == -1) iTime = Time.realtimeSinceStartup;
+        if (iTime2 == -1) iTime2 = Time.realtimeSinceStartup;
+        if (subGenerators[SGIndex].Go(terrains[TIndex])) {
+          subGeneratorsUpdated = true;
         }
+        terrains[TIndex].subGeneratorQueue[SGIndex] = false;
       }
-      if (GameData.loading) GameData.loadingMessage = "Giving life a home...";
     }
 #if DEBUG_HUD_LOADING
-    if (citiesUpdated) LoadedChunkList += "Updating Cities\n";
+    if (subGeneratorsUpdated) LoadedChunkList += "Running SubGenerators\n";
     else LoadedChunkList += "\n";
 #endif
-    if (citiesUpdated) {
-      done = citiesUpdated;
-      times.DeltaCityUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
+    if (subGeneratorsUpdated) {
+      done = subGeneratorsUpdated;
+      times.DeltaRockUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
 
@@ -1447,6 +1395,7 @@ public class TerrainGenerator : MonoBehaviour {
       terrains[0].gameObject = this.gameObject;
       terrains[0].terrPoints = new float[ terrWidth, terrLength ];
       terrains[0].terrPerlinPoints = new float[ terrWidth, terrLength ];
+      terrains[0].InitializeSubGenerators(subGenerators.Length);
       terrains[0].gameObject.name = "Terrain(" + cntX + "," + cntZ + ")";
 #if DEBUG_MISC
       Debug.Log("Added Terrain (0,0){" + terrains.Count - 1 + "}");
@@ -1538,6 +1487,8 @@ public class TerrainGenerator : MonoBehaviour {
           new float[ terrWidth, terrLength ];
       terrains[terrains.Count - 1].terrPerlinPoints =
           new float[ terrWidth, terrLength ];
+      terrains[terrains.Count - 1].InitializeSubGenerators(
+          subGenerators.Length);
     }
     LoadChunk(cntX, cntZ);
     times.DeltaGenerate = (Time.realtimeSinceStartup - iTime) * 1000;
@@ -2695,6 +2646,7 @@ public class TerrainGenerator : MonoBehaviour {
                             (PeakMultiplier == 0 ? 1f : PeakMultiplier),
                         2f) *
               maxNumTrees);
+    int CGID = getSGID("CityGenerator");
     terrain.TreeInstances.Clear();
     List<TreeInstance> newTrees =
         new List<TreeInstance>(terrain.terrData.treeInstances);
@@ -2719,12 +2671,14 @@ public class TerrainGenerator : MonoBehaviour {
         if (terrain.terrData.GetSteepness(X, Z) > 30f) continue;
         Vector3 treePos = new Vector3((X + terrain.x) * terrWidth, Y + 0.5f,
                                       (Z + terrain.z) * terrLength);
-        for (int j = 0; j < terrain.BuildingInstances.Count; j++) {
-          if (terrain.BuildingInstances[j]
-                  .GetComponent<Collider>()
-                  .bounds.Contains(treePos)) {
-            overlaps = true;
-            break;
+        if (CGID != -1) {
+          for (int j = 0; j < terrain.ObjectInstances[CGID].Count; j++) {
+            if (terrain.ObjectInstances[CGID]
+                                       [j].GetComponent<Collider>()
+                                           .bounds.Contains(treePos)) {
+              overlaps = true;
+              break;
+            }
           }
         }
         if (overlaps) continue;
@@ -2746,12 +2700,14 @@ public class TerrainGenerator : MonoBehaviour {
         if (Y <= TerrainGenerator.waterHeight) continue;
         if (terrain.terrData.GetSteepness(X, Z) > 30f) continue;
         Vector3 treePos = new Vector3(X, Y, Z);
-        for (int j = 0; j < terrain.BuildingInstances.Count; j++) {
-          if (terrain.BuildingInstances[j]
-                  .GetComponent<Collider>()
-                  .bounds.Contains(treePos)) {
-            overlaps = true;
-            break;
+        if (CGID != -1) {
+          for (int j = 0; j < terrain.ObjectInstances[CGID].Count; j++) {
+            if (terrain.ObjectInstances[CGID]
+                                       [j].GetComponent<Collider>()
+                                           .bounds.Contains(treePos)) {
+              overlaps = true;
+              break;
+            }
           }
         }
         if (overlaps) continue;
@@ -2809,7 +2765,7 @@ public class TerrainGenerator : MonoBehaviour {
   }
 
   // Give array index from coordinates.
-  private static int GetTerrainWithCoord(int x, int z) {
+  private int GetTerrainWithCoord(int x, int z) {
     for (int i = 0; i < terrains.Count; i++) {
       if (terrains[i].x == x && terrains[i].z == z) {
         return i;
@@ -2925,7 +2881,7 @@ public class TerrainGenerator : MonoBehaviour {
   // global units.
   public static float GetTerrainHeight() { return GetTerrainHeight(player); }
   public static float GetTerrainHeight(InitPlayer player) {
-    return GetTerrainHeight(player.gameObject);
+    return GetTerrainHeight(player.gameObject.transform.position);
   }
   public static float GetTerrainHeight(GameObject player) {
     return GetTerrainHeight(player.transform.position);
@@ -2936,10 +2892,10 @@ public class TerrainGenerator : MonoBehaviour {
   public static float GetTerrainHeight(Vector3 position) {
     int xCenter = Mathf.RoundToInt((position.x - terrWidth / 2) / terrWidth);
     int yCenter = Mathf.RoundToInt((position.z - terrLength / 2) / terrLength);
-    int terrLoc = GetTerrainWithCoord(xCenter, yCenter);
+    int terrLoc = tg.GetTerrainWithCoord(xCenter, yCenter);
     if (terrLoc != -1) {
       float TerrainHeight =
-          terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
+          tg.terrains[terrLoc].gameObject.GetComponent<Terrain>().SampleHeight(
               position);
       return TerrainHeight;
     }
@@ -2990,8 +2946,7 @@ public class TerrainGenerator : MonoBehaviour {
       if (!terrains[i].terrReady || !terrains[i].hasDivided ||
           terrains[i].terrQueue || terrains[i].texQueue ||
           terrains[i].treeQueue || terrains[i].detailQueue ||
-          terrains[i].LODQueue || terrains[i].waterQueue ||
-          terrains[i].splatQueue) {
+          terrains[i].waterQueue || terrains[i].splatQueue) {
         TerrainGenerator.doneLoadingSpawn = false;
         return;
       }
@@ -2999,6 +2954,13 @@ public class TerrainGenerator : MonoBehaviour {
     Debug.Log("Done loading spawn!");
     TerrainGenerator.doneLoadingSpawn = true;
     TerrainGenerator.loadingSpawn = false;
+  }
+
+  public int getSGID(string name) {
+    for (int i = 0; i < subGenerators.Length; i++) {
+      if (subGenerators[i].Name == name) return i;
+    }
+    return -1;
   }
 
   public void DestroyEverything() {

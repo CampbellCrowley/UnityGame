@@ -48,10 +48,9 @@ public class RockGenerator : SubGenerator {
           ri.transform.localScale.z *
               Random.Range(minScaleMultiplier.z, maxScaleMultiplier.z));
 
-      terrain.RockInstances.Add(ri);
+      terrain.ObjectInstances[ID].Add(ri);
 
       ri.transform.parent = terrain.gameObject.transform;
     }
-    terrain.rockQueue = false;
   }
 }
