@@ -61,6 +61,7 @@
      <Compile Include="Assets\Custom Assets\Scripts\Generators\RockGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\SubGeneratorInterface.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\TerrainGenerator.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\TreeGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\InitPlayer.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LevelController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\LevelSettingsController.cs" />

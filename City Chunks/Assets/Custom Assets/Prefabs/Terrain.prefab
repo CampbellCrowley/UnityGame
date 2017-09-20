@@ -98,6 +98,7 @@ GameObject:
   - component: {fileID: 114051156322707394}
   - component: {fileID: 114662922555873120}
   - component: {fileID: 114947725650925712}
+  - component: {fileID: 114589604846667474}
   m_Layer: 9
   m_Name: Terrain
   m_TagString: Untagged
@@ -571,8 +572,6 @@ MonoBehaviour:
   terrains: []
   waterTile: {fileID: 1157762573286944}
   miniMapIcon: {fileID: 1498293061919050}
-  maxNumTrees: 400
-  useTerrainTrees: 1
   useSeed: 1
   Seed: 971
   PerlinSeedModifier: 0.1868254
@@ -597,7 +596,6 @@ MonoBehaviour:
     DeltaSplatUpdate: 0
     DeltaDetailUpdate: 0
     DeltaTextureUpdate: 0
-    DeltaTreeUpdate: 0
     DeltaRockUpdate: 0
     DeltaCityUpdate: 0
     DeltaUpdate: 0
@@ -1627,7 +1625,6 @@ MonoBehaviour:
     DeltaSplatUpdate: 0
     DeltaDetailUpdate: 0
     DeltaTextureUpdate: 0
-    DeltaTreeUpdate: 0
     DeltaRockUpdate: 0
     DeltaCityUpdate: 0
     DeltaUpdate: 0
@@ -2672,10 +2669,26 @@ MonoBehaviour:
     Rock:
     - {fileID: 2800000, guid: 7d7d59aaca791d54c9726e6b4e1feb61, type: 3}
     Snow: {fileID: 2800000, guid: d9327a0e08e4ab54284a5f31a7e7db5a, type: 3}
+--- !u!114 &114589604846667474
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1290914141351588}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ae08c608d024b5e499f6f55f4fb1a5bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enabled: 1
+  priority: 0
+  maxNumTrees: 400
+  useTerrainTrees: 1
   TerrainTrees:
   - {fileID: 114418, guid: be878d9ea17907f4a8068678a5ce7908, type: 2}
   - {fileID: 114418, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 2}
   - {fileID: 114418, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 2}
+  - {fileID: 114418, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 2}
 --- !u!114 &114620519548961050
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -2701,6 +2714,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enabled: 1
+  priority: 2
   SpawnableRocks:
   - {fileID: 100000, guid: ca90c396dc4ab9745a326c1d3ea0fdb2, type: 2}
   - {fileID: 100000, guid: ed611a3ded592db4082a86450ac3e55f, type: 2}
@@ -2749,6 +2763,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enabled: 1
+  priority: 1
   buildingPrefabs:
   - {fileID: 114586112273499868, guid: be3379250b1bb0e4e82d8d078126d76e, type: 2}
   - {fileID: 114586112273499868, guid: 08280ee5cc9554b438330932378e8a75, type: 2}
@@ -2759,11 +2774,12 @@ MonoBehaviour:
   noiseRoughness: 0.7
   citySize: 0.2
   cityHeight: 0.96
-  debugAll: 0
-  debugPerlin: 0
-  debugFlat: 0
-  debugDisableTerrain: 0
-  debugThreshold: 0
+  dbgOpts:
+    All: 0
+    Perlin: 0
+    Flat: 0
+    DisableTerrain: 0
+    Threshold: 0
 --- !u!114 &114981835579692678
 MonoBehaviour:
   m_ObjectHideFlags: 1
