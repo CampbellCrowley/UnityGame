@@ -14,7 +14,7 @@ public class RockGenerator : SubGenerator {
   [Tooltip("May rocks be rotated randomly?")]
   public bool randomRotations = true;
 
-  protected override void Initialized() { Debug.Log("Rock Generator Initialized!"); }
+  protected override void Initialized() {}
 
   protected override void Generate(Terrains terrain) {
     float[, ] modifier = new float[2, 2];

@@ -99,6 +99,7 @@ GameObject:
   - component: {fileID: 114662922555873120}
   - component: {fileID: 114947725650925712}
   - component: {fileID: 114589604846667474}
+  - component: {fileID: 114020860741654570}
   m_Layer: 9
   m_Name: Terrain
   m_TagString: Untagged
@@ -491,6 +492,21 @@ MeshFilter:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1457828804559652}
   m_Mesh: {fileID: 4300002, guid: 681e41ee1260343b395ca58745c94870, type: 3}
+--- !u!114 &114020860741654570
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1290914141351588}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 778c9d520c9086647808aace5613b38c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enabled: 1
+  priority: 69
+  Notes: Grass Generator uses the details defined in the Terrain options. There are
+    no settings to configure.
 --- !u!114 &114051156322707394
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -2681,7 +2697,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enabled: 1
-  priority: 0
+  priority: 60
   maxNumTrees: 400
   useTerrainTrees: 1
   TerrainTrees:
@@ -2714,7 +2730,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enabled: 1
-  priority: 2
+  priority: 70
   SpawnableRocks:
   - {fileID: 100000, guid: ca90c396dc4ab9745a326c1d3ea0fdb2, type: 2}
   - {fileID: 100000, guid: ed611a3ded592db4082a86450ac3e55f, type: 2}
@@ -2763,7 +2779,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enabled: 1
-  priority: 1
+  priority: 65
   buildingPrefabs:
   - {fileID: 114586112273499868, guid: be3379250b1bb0e4e82d8d078126d76e, type: 2}
   - {fileID: 114586112273499868, guid: 08280ee5cc9554b438330932378e8a75, type: 2}

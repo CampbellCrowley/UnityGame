@@ -15,9 +15,15 @@ class TreeGenerator : SubGenerator {
   private List<TreePrototype> prototypeBuffer = new List<TreePrototype>();
 
   protected override void Initialized() {
-    Debug.Log("Tree Generator Initialized!");
     prototypeBuffer.Clear();
     if (TerrainTrees.Length == 0) enabled = false;
+    for (int i = 0; i < TerrainTrees.Length; i++) {
+      if (TerrainTrees[i].GetComponent<LODGroup>() == null) {
+        TreePrototype newTreePrototype = new TreePrototype();
+        newTreePrototype.prefab = TerrainTrees[i];
+        prototypeBuffer.Add(newTreePrototype);
+      }
+    }
   }
 
   protected override void Generate(Terrains terrain) {
@@ -28,16 +34,6 @@ class TreeGenerator : SubGenerator {
   }
 
   void UpdateTreePrototypes(TerrainData terrainData) {
-    if (prototypeBuffer.Count == 0) {
-      for (int i = 0; i < TerrainTrees.Length; i++) {
-        if (TerrainTrees[i].GetComponent<LODGroup>() == null) {
-          TreePrototype newTreePrototype = new TreePrototype();
-          newTreePrototype.prefab = TerrainTrees[i];
-          prototypeBuffer.Add(newTreePrototype);
-        }
-      }
-    }
-
     terrainData.treePrototypes = prototypeBuffer.ToArray();
     terrainData.RefreshPrototypes();
   }

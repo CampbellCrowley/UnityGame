@@ -35,7 +35,6 @@ public class CityGenerator : SubGenerator {
   private RockGenerator rg;
 
   protected override void Initialized() {
-    Debug.Log("City Generator Initialized");
     divisionWidth = (1f - cityHeight);
     rg = GetComponent<RockGenerator>();
 

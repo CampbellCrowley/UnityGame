@@ -58,6 +58,7 @@
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\CityGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\CloudController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Generators\GrassGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\RockGenerator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\SubGeneratorInterface.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\TerrainGenerator.cs" />
@@ -399,9 +400,6 @@
      <None Include="Assets\PostProcessing\Editor Resources\Monitors\WaveformCompute.compute" />
      <None Include="Assets\Photon Unity Networking\changelog.txt" />
      <None Include="Assets\MORPH3D\Vendor\Unity\Shaders\Skin\Volund_StandardSpecularCharacter.shader" />
- <Reference Include="UnityEngine.Advertisements">
- <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/Advertisements/UnityEngine.Advertisements.dll</HintPath>
- </Reference>
  <Reference Include="UnityEngine.UI">
  <HintPath>C:/Program Files/Unity/Editor/Data/UnityExtensions/Unity/GUISystem/UnityEngine.UI.dll</HintPath>
  </Reference>

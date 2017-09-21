@@ -136,8 +136,6 @@ using System.Threading;
   public bool texQueue = false;
   [Tooltip("Whether this terrain chunk is ready for its water tile to be updated.")]
   public bool waterQueue = false;
-  [Tooltip("Whether this terrain chunk is ready for its grass and other details to be updated.")]
-  public bool detailQueue = false;
   [Tooltip("Whether this terrain chunk is ready to be updated with points in terrPoints. True if points need to be flushed to terrainData.")]
   public bool terrQueue = false;
   [Tooltip("Array of sub-generators that the chunk is ready to run.")]
@@ -271,8 +269,6 @@ public class TerrainGenerator : MonoBehaviour {
   [SerializeField] public Textures TerrainTextures;
   [Tooltip("The normals that correspond to the terrain textures.")]
   [SerializeField] public TextureNormals TerrainTextureNormals;
-
-  private DetailPrototype[] TerrainGrassPrototypes;
 
   public const string version = "v0.0.6";
 
@@ -456,18 +452,12 @@ public class TerrainGenerator : MonoBehaviour {
 #endif
     foreach (SubGenerator sg in subGenerators) { sg.Go(terrains[0]); }
 #if DEBUG_START
-    Debug.Log("Adding Grass to spawn chunk");
-#endif
-    UpdateDetailPrototypes(terrains[0].terrData);
-    UpdateGrassDetail(terrains[0].terrData);
-#if DEBUG_START
     Debug.Log("Texturing spawn chunk");
 #endif
     UpdateTexture(terrains[0]);
     terrains[0].terrQueue = false;
     terrains[0].splatQueue = false;
     terrains[0].texQueue = false;
-    terrains[0].detailQueue = false;
     terrains[0].terrReady = true;
 #if DEBUG_START
     Debug.Log("Attempting to save spawn chunk to disk");
@@ -568,8 +558,6 @@ public class TerrainGenerator : MonoBehaviour {
 
     UpdateAllTextures(ref done, ref iTime);
 
-    UpdateAllDetails(ref done, ref iTime);
-
     UpdateAllLoadedChunks(ref done, ref iTime);
 
     UpdateAllNeighbors();
@@ -616,16 +604,15 @@ public class TerrainGenerator : MonoBehaviour {
                                Mathf.PI);
       }
       int sg = subGenerators.Length;
-      int count = 7 + sg;
+      int count = 6 + sg;
       for (int i = 0; i < terrains.Count; i++) {
         if (terrains[i].isDividing) total += 1.0f / count;
         else if (terrains[i].waterQueue) total += 2.0f / count;
         else if (terrains[i].terrQueue) total += 2.5f / count;
         else if (terrains[i].numSGQueued() > 0)
-          total += (2.5f + terrains[i].numSGQueued()) / count;
+          total += (2.5f + sg - terrains[i].numSGQueued()) / count;
         else if (terrains[i].splatQueue) total += (4.5f + sg) / count;
         else if (terrains[i].texQueue) total += (5.5f + sg) / count;
-        else if (terrains[i].detailQueue) total += (6.5f + sg) / count;
         else if (terrains[i].terrReady) total += 1.0f;
         else num--;
       }
@@ -698,7 +685,6 @@ public class TerrainGenerator : MonoBehaviour {
       } else if (!terrains[i].loadingFromDisk &&
                  terrains[i].justLoadedFromDisk && terrains[i].loadedFromDisk) {
         terrains[i].texQueue = false;
-        terrains[i].detailQueue = false;
         terrains[i].isDividing = false;
         terrains[i].hasDivided = true;
         terrains[i].terrReady = true;
@@ -867,7 +853,6 @@ public class TerrainGenerator : MonoBehaviour {
               terrains[tileCnt].terrQueue = false;
               terrains[tileCnt].splatQueue = true;
               terrains[tileCnt].texQueue = true;
-              terrains[tileCnt].detailQueue = true;
               terrains[tileCnt].queueSubGenerators();
               break;
             }
@@ -880,7 +865,6 @@ public class TerrainGenerator : MonoBehaviour {
           terrains[tileCnt].terrQueue = false;
           terrains[tileCnt].splatQueue = true;
           terrains[tileCnt].texQueue = true;
-          terrains[tileCnt].detailQueue = true;
           terrains[tileCnt].queueSubGenerators();
           TerrUpdatePoints = TerrTemplatePoints;
         }
@@ -975,7 +959,9 @@ public class TerrainGenerator : MonoBehaviour {
         if (terrains[i].loadingFromDisk) continue;
         for (int j = 0; j < terrains[i].subGeneratorQueue.Length; j++) {
           if (terrains[i].subGeneratorQueue[j] &&
-              subGenerators[j].priority > SGIndex && subGenerators[j].enabled) {
+              (SGIndex == -1 ||
+               subGenerators[j].priority > subGenerators[SGIndex].priority) &&
+              subGenerators[j].enabled) {
             TIndex = i;
             SGIndex = j;
           }
@@ -1000,54 +986,6 @@ public class TerrainGenerator : MonoBehaviour {
     if (subGeneratorsUpdated) {
       done = subGeneratorsUpdated;
       times.DeltaRockUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
-    }
-  }
-
-  void UpdateAllGrass(ref bool done, ref float iTime) {
-    bool grassUpdated = false;
-    float iTime2=-2;
-    if(!done) {
-      for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].detailQueue && !terrains[i].loadingFromDisk) {
-          terrains[i].detailQueue = false;
-          grassUpdated = true;
-          break;
-        }
-      }
-      if (GameData.loading) GameData.loadingMessage = "Watching grass grow...";
-    }
-#if DEBUG_HUD_LOADING
-    if (grassUpdated) LoadedChunkList += "Updating Grass\n";
-    else LoadedChunkList += "\n";
-#endif
-    if (grassUpdated) {
-      done = grassUpdated;
-      times.DeltaDetailUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
-    }
-  }
-
-  void UpdateAllDetails(ref bool done, ref float iTime) {
-    bool detailsUpdated = false;
-    float iTime2 = -1;
-    if (!done) {
-      for (int i = 0; i < terrains.Count; i++) {
-        if (terrains[i].detailQueue && !terrains[i].loadingFromDisk) {
-          UpdateDetailPrototypes(terrains[i].terrData);
-          UpdateGrassDetail(terrains[i].terrData);
-          terrains[i].detailQueue = false;
-          detailsUpdated = true;
-          break;
-        }
-      }
-      if (GameData.loading) GameData.loadingMessage = "Watching grass grow...";
-    }
-#if DEBUG_HUD_LOADING
-    if (detailsUpdated) LoadedChunkList += "Updating Details\n";
-    else LoadedChunkList += "\n";
-#endif
-    if (detailsUpdated) {
-      done = detailsUpdated;
-      times.DeltaDetailUpdate = (Time.realtimeSinceStartup - iTime2) * 1000;
     }
   }
 
@@ -1208,7 +1146,6 @@ public class TerrainGenerator : MonoBehaviour {
           "WU(" + times.DeltaWaterUpdate + "ms),\n" +
         "Splats(" + times.DeltaSplatUpdate + "ms) -- " +
           "Tex("+ times.DeltaTextureUpdate + "ms) -- " +
-          "Grass(" + times.DeltaGrassUpdate + "ms),\n" +
         "Heightmap Application(" + times.DeltaHeightmapApplied + "ms)<--" +
           "Generation(" + times.DeltaGenerateHeightmap + "ms),\n" +
         "Fractal(" + times.DeltaFractal + "ms)<--" +
@@ -1232,7 +1169,6 @@ public class TerrainGenerator : MonoBehaviour {
         "Tex("+ previousTimes.DeltaTextureUpdate + "ms),\n" +
         "Stuff(" + previousTimes.DeltaSplatUpdate + "ms)<--" +
           "Splat(" + previousTimes.DeltaSplatUpdate + "ms) -- " +
-          "Grass(" + previousTimes.DeltaGrassUpdate + "ms),\n" +
         "Heightmap Application(" + previousTimes.DeltaHeightmapApplied + "ms)<--" +
           "Generation(" + previousTimes.DeltaGenerateHeightmap + "ms),\n" +
         "Fractal(" + previousTimes.DeltaFractal + "ms)<--" +
@@ -1256,7 +1192,6 @@ public class TerrainGenerator : MonoBehaviour {
     previousTimes.DeltaTextureUpdate     = times.DeltaTextureUpdate;
     previousTimes.DeltaSplatUpdate       = times.DeltaSplatUpdate;
     previousTimes.DeltaSplatUpdate       = times.DeltaSplatUpdate;
-    previousTimes.DeltaGrassUpdate       = times.DeltaGrassUpdate;
     previousTimes.DeltaHeightmapApplied  = times.DeltaHeightmapApplied;
     previousTimes.DeltaGenerateHeightmap = times.DeltaGenerateHeightmap;
     previousTimes.DeltaFractal           = times.DeltaFractal;
@@ -2536,48 +2471,6 @@ public class TerrainGenerator : MonoBehaviour {
     terrain.gameObject.GetComponent<Terrain>().Flush();
   }
 
-  void UpdateGrassDetail(TerrainData terrainData) {
-    float iTime = Time.realtimeSinceStartup;
-    int[,] map = new int[terrainData.detailWidth, terrainData.detailHeight];
-    int terrID = GetTerrainWithData(terrainData);
-    Terrain t = terrains[terrID].gameObject.GetComponent<Terrain>();
-    float max = 16f * (1f - terrains[terrID].biome);
-
-    for (int x = 0; x < terrainData.detailWidth; x++) {
-      for (int z = 0; z < terrainData.detailHeight; z++) {
-        float height = terrainData.GetInterpolatedHeight(
-            (float)x / (float)(terrainData.detailWidth - 1),
-            (float)z / (float)(terrainData.detailHeight - 1));
-        if (height <= waterHeight || height >= snowHeight) {
-          map[ z, x ] = 0;
-        } else {
-          map[ z, x ] =
-              (int)((1 - (terrainData.GetSteepness(
-                              (float)x / (float)terrainData.detailWidth,
-                              (float)z / (float)terrainData.detailHeight) /
-                          60f)) *
-                    max);
-        }
-      }
-    }
-
-    for (int i = 0; i < terrainData.detailPrototypes.Length; i++) {
-      terrainData.SetDetailLayer(0, 0, i, map);
-    }
-    t.Flush();
-
-    times.DeltaGrassUpdate = (Time.realtimeSinceStartup - iTime) * 1000;
-  }
-
-  void UpdateDetailPrototypes(TerrainData terrainData) {
-    if (terrains[0].terrData != terrainData) {
-      terrainData.detailPrototypes = TerrainGrassPrototypes;
-      terrainData.RefreshPrototypes();
-    } else {
-      TerrainGrassPrototypes = terrainData.detailPrototypes;
-    }
-  }
-
   public void SaveAllChunks() {
     if (GetComponent<SaveLoad>() == null || !GetComponent<SaveLoad>().enabled)
       return;
@@ -2601,7 +2494,6 @@ public class TerrainGenerator : MonoBehaviour {
         !SaveLoad.TerrainExists(X, Z, worldID))
       return;
     UpdateSplat(terrains[terrID].terrData);
-    UpdateDetailPrototypes(terrains[terrID].terrData);
     SaveLoad.ReadTerrain(terrains[terrID], worldID);
   }
 
@@ -2786,8 +2678,7 @@ public class TerrainGenerator : MonoBehaviour {
     for (int i = 1; i < terrains.Count; i++) {
       if (!terrains[i].terrReady || !terrains[i].hasDivided ||
           terrains[i].terrQueue || terrains[i].texQueue ||
-          terrains[i].detailQueue || terrains[i].waterQueue ||
-          terrains[i].splatQueue) {
+          terrains[i].waterQueue || terrains[i].splatQueue) {
         TerrainGenerator.doneLoadingSpawn = false;
         return;
       }

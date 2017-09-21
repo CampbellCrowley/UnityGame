@@ -7,7 +7,7 @@ public abstract class SubGenerator : MonoBehaviour {
   public new bool enabled = true;
   [Tooltip("SubGenerators will be run in the order of highest priority to lowest.")]
   [Range(0, 100)]
-  public int priority = 0;
+  public int priority = 50;
   private string myName;
   private int id = -1;
   private bool firstError = false;
@@ -18,6 +18,7 @@ public abstract class SubGenerator : MonoBehaviour {
     myName = this.GetType().Name;
     firstError = true;
     Initialized();
+    Debug.Log(Name + " initialized!");
   }
   protected abstract void Initialized();
   public bool Go(Terrains terrain) {
