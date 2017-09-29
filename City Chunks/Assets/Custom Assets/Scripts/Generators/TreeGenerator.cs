@@ -4,6 +4,7 @@ using UnityEngine;
 using System.Collections.Generic;
 
 class TreeGenerator : SubGenerator {
+  public const string version  = "tr2";
   [Tooltip("Maximum number of trees per chunk to be generated.")]
   public int maxNumTrees = 500;
   [Tooltip("Are trees allowed to be generated using the terrain instances?")]

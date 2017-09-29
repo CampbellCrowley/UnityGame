@@ -190,6 +190,7 @@ public class TerrainGenerator : MonoBehaviour {
   [Tooltip("Minimap icon to instantiate with the terrain when generating a new chunk.")]
   public GameObject miniMapIcon;
   [Tooltip("Whether or not to use the pre-determined seed (true) or use Unity's random seed (false).")]
+  [Header("Seeds")]
   public bool useSeed = true;
   [Tooltip("The predetermined seed to use if Use Seed is false.")]
   public int Seed = 971;
@@ -224,7 +225,7 @@ public class TerrainGenerator : MonoBehaviour {
   public float yShift = 0.0f;
   [Header("Visuals")]
 
-  public const string version = "v0.0.6";
+  public const string version = "tg6";
 
   // True allows for things to continue even if this does not exists in the
   // scene. Gets set to false at the beginning of Start().
@@ -348,7 +349,8 @@ public class TerrainGenerator : MonoBehaviour {
       }
     }
     if (Seed == 0) Seed = 1;
-    worldID = (Seed * PerlinSeedModifier).ToString() + version + "-";
+    worldID =
+        (Seed * PerlinSeedModifier).ToString() + GameData.longVersion + "-";
 #if DEBUG_START
     if (GenMode.Perlin) {
       Debug.Log("Seed(" + Seed + ")*PerlinSeedModifier(" + PerlinSeedModifier +
@@ -2372,7 +2374,8 @@ public class TerrainGenerator : MonoBehaviour {
   }
   public void ChangeGrassDensity(float density) {
    foreach (Terrains t in terrains) {
-     t.gameObject.GetComponent<Terrain>().detailObjectDensity = density;
+     if (t.gameObject)
+       t.gameObject.GetComponent<Terrain>().detailObjectDensity = density;
    }
   }
   public void checkDoneLoadingSpawn() {

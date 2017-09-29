@@ -9,7 +9,7 @@ public class ConsistencyChecker : MonoBehaviour {
   System.Random rand;
   private static bool checkComplete = false;
   private string[] lastUnityVersions = {"2017.1.1f1", "2017.1.1xf1Linux"};
-  private const string lastAppVersion = "v0.0.6m4c1";
+  private const string lastAppVersion = "v0.0.6tg6m4c1g1r1tex2tr2";
   private const string lastPUNVersion = "1.86";
 
   void Start() {
@@ -22,21 +22,21 @@ public class ConsistencyChecker : MonoBehaviour {
     }
 
     Debug.Log("Unity Version: " + Application.unityVersion + "\nApp Version: " +
-              Application.version + "\nGameData Version: " + GameData.version +
-              "\nBuild GUID: " + Application.buildGUID + "\nPUN Version: " +
-              PhotonNetwork.versionPUN);
+              Application.version + "\nGameData Version: " +
+              GameData.longVersion + "\nBuild GUID: " + Application.buildGUID +
+              "\nPUN Version: " + PhotonNetwork.versionPUN);
     if (Application.buildGUID == "") {
       Debug.Log("This is not a valid build");
     }
 
-    if (Application.version != GameData.version) {
+    if (Application.version != GameData.longVersion) {
       Debug.LogError("Version mismatch. Version must be updated in Edit->" +
                      "Player->Version and GameData.cs");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     } else if (checkUnityVersions()) {
       Debug.LogWarning("Version mismatch. Unity.");
       // GameData.quit(QuitReason.VERSIONMISMATCH);
-    } else if (GameData.version != lastAppVersion) {
+    } else if (GameData.longVersion != lastAppVersion) {
       Debug.LogError("Version mismatch. GameData.");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     } else if (PhotonNetwork.versionPUN != lastPUNVersion) {

@@ -3,6 +3,7 @@
 using UnityEngine;
 
 public class RockGenerator : SubGenerator {
+  public const string version = "r1";
   [Tooltip("Array of rocks to spawn.")]
   public GameObject[] SpawnableRocks;
   [Tooltip("Maximum number of rocks per chunk.")]

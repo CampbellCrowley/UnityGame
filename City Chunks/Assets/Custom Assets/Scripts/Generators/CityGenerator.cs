@@ -6,25 +6,33 @@ public class CityGenerator : SubGenerator {
   public const string version = "c1";
   // TODO: Generate roads
   // TODO: Remove grass where buildings and roads are.
+  [Tooltip("Array of buildings to spawn.")]
   public Building[] buildingPrefabs;
   // Lower is higher resolition/more points per chunk.
+  [Tooltip("Lower number is higher resolution/more points per chunk to check for spawning a building.")]
   public float searchResolution = 10f;
+  [Tooltip("Maximum number of floors a building is allowed to have.")]
   public int maxNumFloors = 100;
+  [Tooltip("How wide are roads.")]
   public float roadWidth = 12.857f;
+  [Tooltip("The roughness of the perlin noise used for determining spawn locations.")]
   [Range(0f,1f)]
   public float noiseRoughness = 0.2f;
+  [Tooltip("Modifies average city size.")]
   [Range(0f,1f)]
   public float citySize = 0.05f;
+  [Tooltip("Modifies the average number of floors per building.")]
   [Range(0f,1f)]
   public float cityHeight = 0.04f;
-  [System.Serializable]public class DebugOptions {
+  [System.Serializable]
+  public class DebugOptions {
     public bool All = false;
     public bool Perlin = false;
     public bool Flat = false;
     public bool DisableTerrain = false;
     public bool Threshold = false;
   }
-  public  DebugOptions dbgOpts = new DebugOptions();
+  public DebugOptions dbgOpts = new DebugOptions();
 
   private float divisionWidth = 0f;
 

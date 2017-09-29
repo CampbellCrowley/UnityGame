@@ -195,19 +195,19 @@ MonoBehaviour:
   antialiasing:
     method: 0
     fxaaSettings:
-      preset: 0
+      preset: 2
     taaSettings:
-      jitterSpread: 0
-      sharpen: 0
-      stationaryBlending: 0
-      motionBlending: 0
+      jitterSpread: 0.75
+      sharpen: 0.3
+      stationaryBlending: 0.95
+      motionBlending: 0.85
   controlAmbientOcclusion: 0
   enableAmbientOcclusion: 0
   ambientOcclusion:
-    intensity: 0
-    radius: 0
-    sampleCount: 0
-    downsampling: 0
+    intensity: 1.26
+    radius: 0.79
+    sampleCount: 16
+    downsampling: 1
     forceForwardCompatibility: 0
     ambientOnly: 0
     highPrecision: 0
@@ -217,55 +217,55 @@ MonoBehaviour:
     reflection:
       blendType: 0
       reflectionQuality: 0
-      maxDistance: 0
-      iterationCount: 0
-      stepSize: 0
-      widthModifier: 0
-      reflectionBlur: 0
-      reflectBackfaces: 0
+      maxDistance: 100
+      iterationCount: 256
+      stepSize: 3
+      widthModifier: 0.5
+      reflectionBlur: 1
+      reflectBackfaces: 1
     intensity:
-      reflectionMultiplier: 0
-      fadeDistance: 0
-      fresnelFade: 0
-      fresnelFadePower: 0
+      reflectionMultiplier: 1
+      fadeDistance: 100
+      fresnelFade: 1
+      fresnelFadePower: 1
     screenEdgeMask:
-      intensity: 0
+      intensity: 0.03
   controlDepthOfField: 0
   enableDepthOfField: 0
   depthOfField:
-    focusDistance: 0.1
-    aperture: 0
-    focalLength: 0
-    useCameraFov: 0
-    kernelSize: 0
+    focusDistance: 265.41
+    aperture: 1.4
+    focalLength: 50
+    useCameraFov: 1
+    kernelSize: 1
   controlMotionBlur: 0
   enableMotionBlur: 0
   motionBlur:
-    shutterAngle: 0
-    sampleCount: 0
+    shutterAngle: 270
+    sampleCount: 10
     frameBlending: 0
   controlEyeAdaptation: 0
   enableEyeAdaptation: 0
   eyeAdaptation:
-    lowPercent: 0
-    highPercent: 0
-    minLuminance: 0
-    maxLuminance: 0
-    keyValue: 0
-    dynamicKeyValue: 0
+    lowPercent: 45
+    highPercent: 95
+    minLuminance: -5
+    maxLuminance: 1
+    keyValue: 0.25
+    dynamicKeyValue: 1
     adaptationType: 0
-    speedUp: 0
-    speedDown: 0
-    logMin: 0
-    logMax: 0
+    speedUp: 2
+    speedDown: 1
+    logMin: -8
+    logMax: 4
   controlBloom: 0
   enableBloom: 0
   bloom:
     bloom:
-      intensity: 0
-      threshold: 0
-      softKnee: 0
-      radius: 0
+      intensity: 1.39
+      threshold: 1.59
+      softKnee: 1
+      radius: 3.94
       antiFlicker: 0
     lensDirt:
       texture: {fileID: 0}
@@ -275,24 +275,24 @@ MonoBehaviour:
   colorGrading:
     tonemapping:
       tonemapper: 0
-      neutralBlackIn: 0
-      neutralWhiteIn: 0
+      neutralBlackIn: 0.02
+      neutralWhiteIn: 10
       neutralBlackOut: 0
-      neutralWhiteOut: 0
-      neutralWhiteLevel: 0
-      neutralWhiteClip: 0
+      neutralWhiteOut: 10
+      neutralWhiteLevel: 5.3
+      neutralWhiteClip: 10
     basic:
-      postExposure: 0
+      postExposure: 1.85
       temperature: 0
       tint: 0
       hueShift: 0
-      saturation: 0
-      contrast: 0
+      saturation: 1
+      contrast: 1
     channelMixer:
-      red: {x: 0, y: 0, z: 0}
-      green: {x: 0, y: 0, z: 0}
-      blue: {x: 0, y: 0, z: 0}
-      currentEditingChannel: 0
+      red: {x: 1, y: 0, z: 0}
+      green: {x: 0, y: 1, z: 0}
+      blue: {x: 0, y: 0, z: 1}
+      currentEditingChannel: 2
     colorWheels:
       mode: 0
       log:
@@ -307,43 +307,91 @@ MonoBehaviour:
       master:
         curve:
           serializedVersion: 2
-          m_Curve: []
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 0
+            tangentMode: 0
           m_PreInfinity: 2
           m_PostInfinity: 2
-          m_RotationOrder: 4
+          m_RotationOrder: 0
         m_Loop: 0
         m_ZeroValue: 0
-        m_Range: 0
+        m_Range: 1
       red:
         curve:
           serializedVersion: 2
-          m_Curve: []
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 0
+            tangentMode: 0
           m_PreInfinity: 2
           m_PostInfinity: 2
-          m_RotationOrder: 4
+          m_RotationOrder: 0
         m_Loop: 0
         m_ZeroValue: 0
-        m_Range: 0
+        m_Range: 1
       green:
         curve:
           serializedVersion: 2
-          m_Curve: []
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
         m_Loop: 0
         m_ZeroValue: 0
-        m_Range: 0
+        m_Range: 1
       blue:
         curve:
           serializedVersion: 2
-          m_Curve: []
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
         m_Loop: 0
         m_ZeroValue: 0
-        m_Range: 0
+        m_Range: 1
       hueVShue:
         curve:
           serializedVersion: 2
@@ -351,9 +399,9 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-        m_Loop: 0
-        m_ZeroValue: 0
-        m_Range: 0
+        m_Loop: 1
+        m_ZeroValue: 0.5
+        m_Range: 1
       hueVSsat:
         curve:
           serializedVersion: 2
@@ -361,9 +409,9 @@ MonoBehaviour:
           m_PreInfinity: 2
           m_PostInfinity: 2
           m_RotationOrder: 4
-        m_Loop: 0
-        m_ZeroValue: 0
-        m_Range: 0
+        m_Loop: 1
+        m_ZeroValue: 0.5
+        m_Range: 1
       satVSsat:
         curve:
           serializedVersion: 2
@@ -372,8 +420,8 @@ MonoBehaviour:
           m_PostInfinity: 2
           m_RotationOrder: 4
         m_Loop: 0
-        m_ZeroValue: 0
-        m_Range: 0
+        m_ZeroValue: 0.5
+        m_Range: 1
       lumVSsat:
         curve:
           serializedVersion: 2
@@ -382,42 +430,42 @@ MonoBehaviour:
           m_PostInfinity: 2
           m_RotationOrder: 4
         m_Loop: 0
-        m_ZeroValue: 0
-        m_Range: 0
+        m_ZeroValue: 0.5
+        m_Range: 1
       e_CurrentEditingCurve: 0
-      e_CurveY: 0
-      e_CurveR: 0
+      e_CurveY: 1
+      e_CurveR: 1
       e_CurveG: 0
       e_CurveB: 0
   controlUserLut: 0
   enableUserLut: 0
   userLut:
     lut: {fileID: 0}
-    contribution: 0
+    contribution: 1
   controlChromaticAberration: 0
   enableChromaticAberration: 0
   chromaticAberration:
-    spectralTexture: {fileID: 0}
+    spectralTexture: {fileID: 2800000, guid: 318cbcd94840f1d48aca4d86234dc2e7, type: 3}
     intensity: 0
   controlGrain: 0
   enableGrain: 0
   grain:
-    colored: 0
-    intensity: 0
-    size: 0
-    luminanceContribution: 0
+    colored: 1
+    intensity: 0.254
+    size: 0.963
+    luminanceContribution: 0.899
   controlVignette: 0
   enableVignette: 0
   vignette:
     mode: 0
-    color: {r: 0, g: 0, b: 0, a: 0}
-    center: {x: 0, y: 0}
-    intensity: 0
-    smoothness: 0
-    roundness: 0
+    color: {r: 0, g: 0, b: 0, a: 1}
+    center: {x: 0.5, y: 0.5}
+    intensity: 0.267
+    smoothness: 0.455
+    roundness: 1
     mask: {fileID: 0}
-    opacity: 0
-    rounded: 0
+    opacity: 1
+    rounded: 1
 --- !u!114 &114127912790660370
 MonoBehaviour:
   m_ObjectHideFlags: 1

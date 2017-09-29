@@ -2,6 +2,7 @@
 // Author: Campbell Crowley (github@campbellcrowley.com)
 using UnityEngine;
 using UnityEngine.PostProcessing.Utilities;
+using UnityEngine.PostProcessing;
 
 public class LevelSettingsController : MonoBehaviour {
 
@@ -26,8 +27,20 @@ public class LevelSettingsController : MonoBehaviour {
     controller.enableMotionBlur = GameData.motionBlur;
     controller.enableBloom = GameData.bloomAndFlares;
     controller.enableColorGrading = GameData.colorGrading;
+#if !UNITY_2017_2_0_OR_NEWER
+    if (Application.platform == RuntimePlatform.Android) {
+      Debug.LogWarning(
+          "Disabling post processing on Android device since this is known " +
+          "to cause crashes.");
+      PostProcessingBehaviour[] behaviours =
+          GameObject.FindObjectsOfType<PostProcessingBehaviour>();
+      foreach (PostProcessingBehaviour ppb in behaviours) {
+        ppb.enabled = false;
+      }
+    }
+#endif
   }
-  void Update() {
+  void LateUpdate() {
     if (controller == null) {
       controller = GameObject.FindObjectOfType<PostProcessingController>();
       if (controller == null) return;
@@ -36,11 +49,28 @@ public class LevelSettingsController : MonoBehaviour {
       controller.controlMotionBlur = true;
       controller.controlBloom = true;
       controller.controlColorGrading = true;
+#if !UNITY_2017_2_0_OR_NEWER
+      if (Application.platform == RuntimePlatform.Android) {
+        Debug.LogWarning(
+            "Disabling post processing on Android device since this is known " +
+            "to cause crashes.");
+        PostProcessingBehaviour[] behaviours =
+            GameObject.FindObjectsOfType<PostProcessingBehaviour>();
+        foreach (PostProcessingBehaviour ppb in behaviours) {
+          ppb.enabled = false;
+        }
+      }
+#endif
     }
     controller.enableVignette = GameData.vignette;
     controller.enableDepthOfField = GameData.dof;
     controller.enableMotionBlur = GameData.motionBlur;
     controller.enableBloom = GameData.bloomAndFlares;
     controller.enableColorGrading = GameData.colorGrading;
+#if !UNITY_2017_2_0_OR_NEWER
+    if (Application.platform == RuntimePlatform.Android) {
+      controller.enableEyeAdaptation = false;
+    }
+#endif
   }
 }

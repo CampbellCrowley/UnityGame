@@ -20,9 +20,9 @@ Material:
     m_TexEnvs: []
     m_Floats:
     - _AtmosphereThickness: 1
-    - _Exposure: 1
+    - _Exposure: 8
     - _SunDisk: 2
-    - _SunSize: 0.04
+    - _SunSize: 0.07
     m_Colors:
-    - _GroundColor: {r: 1, g: 1, b: 1, a: 1}
+    - _GroundColor: {r: 0.26338744, g: 0.3897059, b: 0.120350346, a: 1}
     - _SkyTint: {r: 1, g: 1, b: 1, a: 1}

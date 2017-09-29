@@ -6,8 +6,15 @@ using UnityEngine.UI;
 public class VersionGetter : MonoBehaviour {
   Text text;
 
+  public enum versions {
+    SHORT,
+    LONG
+  }
+  public versions version = versions.SHORT;
+
   void Start() {
     text = GetComponent<Text>();
-    text.text = GameData.version;
+    if (version == versions.SHORT) text.text = GameData.version;
+    if (version == versions.LONG) text.text = GameData.longVersion;
   }
 }

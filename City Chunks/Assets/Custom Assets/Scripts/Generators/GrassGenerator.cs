@@ -1,6 +1,7 @@
 using UnityEngine;
 
 class GrassGenerator : SubGenerator {
+  public const string version = "g1";
 
   [TextArea]
   public string Notes = "Grass Generator uses the details defined in the " +

@@ -1,6 +1,7 @@
 using UnityEngine;
 
 class TextureGenerator : SubGenerator {
+  public const string version = "tex2";
   [System.Serializable]
   public class Textures {
     public int Length = 4;

@@ -34,7 +34,7 @@ public class NetworkManager : Photon.MonoBehaviour {
     // if (PlayerPrefs.HasKey(playerNamePrefKey)) {
     //   GameData.username = PlayerPrefs.GetString(playerNamePrefKey);
     // }
-    PhotonNetwork.ConnectUsingSettings(GameData.version);
+    PhotonNetwork.ConnectUsingSettings(GameData.longVersion);
   }
   void OnGUI() {
     if (GameData.isPaused) return;
@@ -49,7 +49,7 @@ public class NetworkManager : Photon.MonoBehaviour {
       GUI.Label(new Rect(xposCentered, yposCentered, 250, 30),
                 PhotonNetwork.connectionStateDetailed.ToString());
       if (PhotonNetwork.connectionStateDetailed.ToString() == "PeerCreated") {
-        PhotonNetwork.ConnectUsingSettings(GameData.version);
+        PhotonNetwork.ConnectUsingSettings(GameData.longVersion);
       }
 
       GUI.contentColor = Color.black;
@@ -58,7 +58,7 @@ public class NetworkManager : Photon.MonoBehaviour {
           PhotonNetwork.offlineMode = true;
         }
         if (GUI.Button(new Rect(xpos, ypos + 155, 250, 75), "Retry Connecting")) {
-          PhotonNetwork.ConnectUsingSettings(GameData.version);
+          PhotonNetwork.ConnectUsingSettings(GameData.longVersion);
         }
       }
       if (PhotonNetwork.offlineMode &&
@@ -153,6 +153,7 @@ public class NetworkManager : Photon.MonoBehaviour {
       GameData.username = NameList.GetName();
     }
     SetPlayerName(GameData.username);
+    GameData.Seed = UnityEngine.Random.Range(1, 100000);
     PhotonNetwork.CreateRoom(GameData.username + "`" + GameData.Seed + "`" +
                              name + Guid.NewGuid().ToString("N"));
   }

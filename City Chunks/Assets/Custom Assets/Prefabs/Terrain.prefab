@@ -94,12 +94,13 @@ GameObject:
   - component: {fileID: 4304805672521822}
   - component: {fileID: 218660715152221632}
   - component: {fileID: 154429921693052090}
-  - component: {fileID: 114445322001266864}
   - component: {fileID: 114051156322707394}
+  - component: {fileID: 114445322001266864}
   - component: {fileID: 114662922555873120}
   - component: {fileID: 114947725650925712}
   - component: {fileID: 114589604846667474}
   - component: {fileID: 114020860741654570}
+  - component: {fileID: 114137075431432002}
   m_Layer: 9
   m_Name: Terrain
   m_TagString: Untagged
@@ -518,6 +519,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 368c7f56c49fba4428302a9aef1e1ecc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &114137075431432002
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1290914141351588}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7be0d589890628458b8eeda215f02f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enabled: 1
+  priority: 20
+  TerrainTextures:
+    Length: 4
+    Grass:
+    - {fileID: 2800000, guid: e939889a01ba73f4c9f41bb8d6d79d5f, type: 3}
+    Sand:
+    - {fileID: 2800000, guid: cd4f831376722b54bbadd59ef7c6c744, type: 3}
+    Rock:
+    - {fileID: 2800000, guid: 1d1ca9b1ff6a5ce4bbac09d301d51462, type: 3}
+    Snow: {fileID: 2800000, guid: 3ea4cf41e7da8854b8f60cf297168edc, type: 3}
+  TerrainTextureNormals:
+    Length: 4
+    Grass:
+    - {fileID: 2800000, guid: 764d3e4236eef804e831508161d4411f, type: 3}
+    Sand:
+    - {fileID: 2800000, guid: bf5346a62bd7d0b43a30d8188cf4163e, type: 3}
+    Rock:
+    - {fileID: 2800000, guid: 7d7d59aaca791d54c9726e6b4e1feb61, type: 3}
+    Snow: {fileID: 2800000, guid: d06c19850ee13bf4086860fd02cf417d, type: 3}
 --- !u!114 &114226181828018874
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -609,9 +641,7 @@ MonoBehaviour:
     DeltaHeightmapApplied: 0
     DeltaGenerateHeightmap: 0
     DeltaGrassUpdate: 0
-    DeltaSplatUpdate: 0
     DeltaDetailUpdate: 0
-    DeltaTextureUpdate: 0
     DeltaRockUpdate: 0
     DeltaCityUpdate: 0
     DeltaUpdate: 0
@@ -1638,9 +1668,7 @@ MonoBehaviour:
     DeltaHeightmapApplied: 0
     DeltaGenerateHeightmap: 0
     DeltaGrassUpdate: 0
-    DeltaSplatUpdate: 0
     DeltaDetailUpdate: 0
-    DeltaTextureUpdate: 0
     DeltaRockUpdate: 0
     DeltaCityUpdate: 0
     DeltaUpdate: 0
@@ -2657,7 +2685,7 @@ MonoBehaviour:
     SmoothHeightmap: 1
     Perlin: 1
     Distort: 0
-    mixtureAmount: 0.5
+    mixtureAmount: 0
     HeightmapSpeed: 0
     multiThreading: 1
     PreLoadChunks: 1
@@ -2667,24 +2695,6 @@ MonoBehaviour:
   PerlinHeight: 1
   BiomeRoughness: 0.05
   yShift: 0
-  TerrainTextures:
-    Length: 4
-    Grass:
-    - {fileID: 2800000, guid: e939889a01ba73f4c9f41bb8d6d79d5f, type: 3}
-    Sand:
-    - {fileID: 2800000, guid: cd4f831376722b54bbadd59ef7c6c744, type: 3}
-    Rock:
-    - {fileID: 2800000, guid: 1d1ca9b1ff6a5ce4bbac09d301d51462, type: 3}
-    Snow: {fileID: 2800000, guid: 3ea4cf41e7da8854b8f60cf297168edc, type: 3}
-  TerrainTextureNormals:
-    Length: 4
-    Grass:
-    - {fileID: 2800000, guid: 764d3e4236eef804e831508161d4411f, type: 3}
-    Sand:
-    - {fileID: 2800000, guid: bf5346a62bd7d0b43a30d8188cf4163e, type: 3}
-    Rock:
-    - {fileID: 2800000, guid: 7d7d59aaca791d54c9726e6b4e1feb61, type: 3}
-    Snow: {fileID: 2800000, guid: d9327a0e08e4ab54284a5f31a7e7db5a, type: 3}
 --- !u!114 &114589604846667474
 MonoBehaviour:
   m_ObjectHideFlags: 1

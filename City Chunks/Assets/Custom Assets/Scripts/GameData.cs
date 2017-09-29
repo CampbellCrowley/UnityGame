@@ -14,8 +14,11 @@ public enum QuitReason {
 };
 
 public class GameData : MonoBehaviour {
-  public const string version = TerrainGenerator.version + NetworkManager.version +
-                          CityGenerator.version;
+  public const string version = "v0.0.6";
+  public const string longVersion = version + TerrainGenerator.version +
+                              NetworkManager.version + CityGenerator.version +
+                              GrassGenerator.version + RockGenerator.version +
+                              TextureGenerator.version + TreeGenerator.version;
 
   public static GameData Instance;
 
