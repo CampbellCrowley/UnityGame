@@ -9,7 +9,7 @@ https://goo.gl/4ShZqV
 
 # Welcome to the City Chunks readme!
 #### This Commit Version: v0.0.6
-Unity Version: 2017.1.1f1
+Unity Version: 2017.1.2f1
 
 ## Installation / Setup
 Windows x64 executable of v0.0.5m_2 available [here](https://dev.campbellcrowley.com/game/CityChunksv0.0.5m_2.zip).

@@ -8,7 +8,8 @@ public class ConsistencyChecker : MonoBehaviour {
 
   System.Random rand;
   private static bool checkComplete = false;
-  private string[] lastUnityVersions = {"2017.1.1f1", "2017.1.1xf1Linux"};
+  // Last unity versions this version was tested on.
+  private string[] lastUnityVersions = {"2017.1.2f1"};
   private const string lastAppVersion = "v0.0.6tg6m4c1g1r1tex2tr2";
   private const string lastPUNVersion = "1.86";
 

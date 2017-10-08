@@ -38,11 +38,11 @@ public class NetworkManager : Photon.MonoBehaviour {
   }
   void OnGUI() {
     if (GameData.isPaused) return;
-    int xposCentered = Screen.width / 2 - 125;
-    int yposCentered = Screen.height / 2 - 100;
+    // int xposCentered = Screen.width / 2 - 125;
+    // int yposCentered = Screen.height / 2 - 100;
     int xpos = 10;
     int ypos = 20;
-    int spacing = 50;
+    // int spacing = 50;
 
     if (!PhotonNetwork.connected) {
       // GUI.contentColor = Color.black;

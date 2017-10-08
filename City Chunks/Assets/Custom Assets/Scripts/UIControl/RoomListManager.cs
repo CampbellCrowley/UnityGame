@@ -3,6 +3,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+#pragma warning disable 0649 // Field is never assigned
 
 class RoomListManager : MonoBehaviour {
   public Row rowTemplate;

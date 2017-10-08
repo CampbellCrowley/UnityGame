@@ -5,13 +5,13 @@ using UnityEngine.EventSystems;
 
 [RequireComponent(typeof(EventSystem))]
 class EventSystemManager : MonoBehaviour {
-  public GameObject firstSelectedGameObject;
   private GameObject previousSelectedGameObject;
 
   void Start() {
     if (EventSystem.current == null) GetComponent<EventSystem>().enabled = true;
     previousSelectedGameObject = EventSystem.current.currentSelectedGameObject;
-    EventSystem.current.SetSelectedGameObject(firstSelectedGameObject);
+    EventSystem.current.SetSelectedGameObject(
+        GetComponent<EventSystem>().firstSelectedGameObject);
   }
   void OnDestroy() {
     if (previousSelectedGameObject != null)

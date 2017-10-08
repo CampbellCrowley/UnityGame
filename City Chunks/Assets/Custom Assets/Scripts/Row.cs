@@ -2,6 +2,7 @@
 // Author: Campbell Crowley (github@campbellcrowley.com)
 using UnityEngine;
 using UnityEngine.UI;
+#pragma warning disable 0649 // Field is never assigned
 
 class Row : MonoBehaviour {
   [HideInInspector] public string description = "";
