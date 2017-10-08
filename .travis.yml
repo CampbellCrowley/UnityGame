@@ -3,9 +3,9 @@ osx_image: xcode8.1
 rvm:
 - 2.2
 before_install:
-- chmod a+x ./install.sh
-- chmod a+x ./build.sh
+- chmod a+x ./City\ Chunks/install.sh
+- chmod a+x ./City\ Chunks/build.sh
 install:
-- ./install.sh
+- ./City\ Chunks/install.sh
 script:
-- ./build.sh
+- ./City\ Chunks/build.sh
