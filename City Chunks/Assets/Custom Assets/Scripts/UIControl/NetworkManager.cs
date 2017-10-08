@@ -11,7 +11,7 @@ public class NetworkManager : Photon.MonoBehaviour {
   private const string playerNamePrefKey = "Username";
 
   private const string roomName = "Game";
-  RoomInfo[] roomsList;
+  public static RoomInfo[] roomsList;
 
   public static NetworkManager NMInstance;
 
@@ -45,9 +45,9 @@ public class NetworkManager : Photon.MonoBehaviour {
     int spacing = 50;
 
     if (!PhotonNetwork.connected) {
-      GUI.contentColor = Color.black;
-      GUI.Label(new Rect(xposCentered, yposCentered, 250, 30),
-                PhotonNetwork.connectionStateDetailed.ToString());
+      // GUI.contentColor = Color.black;
+      // GUI.Label(new Rect(xposCentered, yposCentered, 250, 30),
+      //           PhotonNetwork.connectionStateDetailed.ToString());
       if (PhotonNetwork.connectionStateDetailed.ToString() == "PeerCreated") {
         PhotonNetwork.ConnectUsingSettings(GameData.longVersion);
       }
@@ -65,59 +65,16 @@ public class NetworkManager : Photon.MonoBehaviour {
           GUI.Button(new Rect(xpos, ypos, 250, 150), "Go back Online"))
         PhotonNetwork.offlineMode = false;
     } else if (PhotonNetwork.room == null) {
-      GameData.username =
-          GUI.TextField(new Rect(xposCentered + 25, yposCentered, 200, 30),
-                        GameData.username);
-      GUI.contentColor = Color.black;
-      GUI.Label(
-          new Rect(xposCentered + 25 + 200 + 5, yposCentered - 7, 200, 45),
-          "Leaving this as \"Username\" will assign a random name");
-      GUI.contentColor = Color.white;
-
-      yposCentered += spacing;
-
-      if (GUI.Button(new Rect(xposCentered, yposCentered, 250, 30),
-                     "Create Room")) {
-        CreateRoom(roomName);
-      }
-
-      yposCentered += spacing * 2;
-
-      // Join Room
-      if (roomsList != null && roomsList.Length > 0) {
-        for (int i = 0; i < roomsList.Length; i++) {
-          if (GUI.Button(
-                  new Rect(xposCentered + 25, yposCentered + (30 * i), 200, 27),
-                  "Join " +
-                      roomsList[i].Name.Substring(
-                          0, roomsList[i].Name.IndexOf('`')))) {
-            JoinRoom(roomsList[i].Name);
-          }
-        }
-      } else {
-        GUI.enabled = false;
-        GUI.Button(new Rect(xposCentered + 25, yposCentered, 200, 27),
-                   "No rooms available");
-        GUI.enabled = true;
-      }
-
       GUI.contentColor = Color.black;
       if (PhotonNetwork.offlineMode &&
           GUI.Button(new Rect(xpos, ypos, 250, 150), "Go back Online"))
         PhotonNetwork.offlineMode = false;
     } else {
       GUI.contentColor = GameData.isPaused ? Color.white : Color.black;
-      if (GameData.isPaused &&
-          GUI.Button(new Rect(xposCentered + 25, Screen.height - ypos - 150, 200, 40),
-                     "Return to Main Menu")) {
-        GameData.isPaused = false;
-        FindObjectOfType<TerrainGenerator>().SaveAllChunks();
-        LeaveRoom();
-      } else {
+      if (!GameData.isPaused) {
         GUI.Label(new Rect(xpos, ypos - 20, 300, 20), PhotonNetwork.room.Name);
-        if(PhotonNetwork.isMasterClient) {
-          GUI.Label(new Rect(xpos, ypos, 300, 20),
-                    "You are the master client");
+        if (PhotonNetwork.isMasterClient) {
+          GUI.Label(new Rect(xpos, ypos, 300, 20), "You are the master client");
         }
         string playerList = "";
         foreach (PhotonPlayer players in PhotonNetwork.playerList) {

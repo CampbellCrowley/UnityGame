@@ -123,9 +123,6 @@ public class GameData : MonoBehaviour {
     }
   }
 
-  public static void PlayGame() {
-    Debug.Log("Play Game!");
-  }
   public static void MainMenu() {
     Debug.Log("Menu!");
     GameData.Vehicle = null;
