@@ -107,9 +107,11 @@ class TreeGenerator : SubGenerator {
         Vector3 treePos = new Vector3(X, Y, Z);
         if (CGID != -1) {
           for (int j = 0; j < terrain.ObjectInstances[CGID].Count; j++) {
-            if (terrain.ObjectInstances[CGID]
-                                       [j].GetComponent<Collider>()
-                                           .bounds.Contains(treePos)) {
+            Bounds building = terrain.ObjectInstances[CGID][j]
+                                  .GetComponent<Collider>()
+                                  .bounds;
+            Bounds check = new Bounds(building.center, building.size * 1.5f);
+            if (check.Contains(treePos)) {
               overlaps = true;
               break;
             }

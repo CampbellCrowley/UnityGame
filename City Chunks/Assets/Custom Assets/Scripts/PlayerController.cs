@@ -1,14 +1,15 @@
-// Copyright (c) Campbell Crowley. All rights reserved.
+// Copyright (c) Campbell Crowley. Portions from Unity Standard Assets.
 // Author: Campbell Crowley (github@campbellcrowley.com)
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.PostProcessing.Utilities;
-// #pragma warning disable 0414 // Private field is assigned but never used
 
 [RequireComponent(typeof (MyCameraController))]
 public class PlayerController : Photon.MonoBehaviour {
-  [System.Serializable] public class Sounds {
+  [System.Serializable]
+  public class Sounds {
     public AudioPlayer Player;
     public AudioClip JumpSound;
     public AudioClip LandSound;
@@ -17,77 +18,106 @@ public class PlayerController : Photon.MonoBehaviour {
     public AudioClip LevelFail;
     public AudioClip[] FootSteps;
   }
+  [System.Serializable]
+  public class MovementSettings {
+    public float ForwardSpeed = 8.0f;  // Speed when walking forward
+    public float BackwardSpeed = 4.0f;  // Speed when walking backwards
+    public float StrafeSpeed = 4.0f;  // Speed when walking sideways
+    public float RunMultiplier = 2.0f;  // Speed when sprinting
+    public float JumpForce = 30f;
+    public AnimationCurve SlopeCurveModifier = new AnimationCurve(
+         new Keyframe(-90.0f, 1.0f), new Keyframe(0.0f, 1.0f),
+         new Keyframe(90.0f, 0.0f));
+    [HideInInspector] public float CurrentTargetSpeed = 8f;
 
-  [Header ("Movement")]
-  public float moveSpeed = 5f;
-  public float jumpMultiplier = 5f;
-  public float jumpFrequency = 0.25f;
-  [Tooltip ("Percent per second")]
-  public float staminaDepletionRate = 0.1f;
-  [Tooltip ("Seconds")]
-  public float staminaRechargeDelay = 3.0f;
-  public float staminaRechargeMultiplier = 1.5f;
-  public float playerHeight = 1.5f;
-  public float crouchedHeight = 1.0f;
+    private bool isSprinting;
+    [HideInInspector] public bool godMode = false;
+
+    public void UpdateDesiredTargetSpeed(Vector2 input) {
+      // if (animator == null) animator = GetComponent<Animator>();
+      if (input == Vector2.zero) return;
+      if (input.x > 0 || input.x < 0) {
+        // strafe
+        CurrentTargetSpeed = StrafeSpeed;
+      }
+      if (input.y < 0) {
+        // backwards
+        CurrentTargetSpeed = BackwardSpeed;
+      }
+      if (input.y > 0) {
+        // forwards
+        // handled last as if strafing and moving forward at the same time
+        // forwards speed should take precedence
+        CurrentTargetSpeed = ForwardSpeed;
+      }
+      if (Input.GetAxis("Sprint") > 0.1) {
+        CurrentTargetSpeed *= RunMultiplier;
+        isSprinting = true;
+      } else {
+        isSprinting = false;
+      }
+      if (godMode) CurrentTargetSpeed *= 30f;
+    }
+    public bool Running {
+      get { return isSprinting; }
+    }
+  }
+  [System.Serializable]
+  public class AdvancedSettings {
+    // distance for checking if the controller is grounded
+    public float groundCheckDistance = 0.01f;
+    // stops the character
+    public float stickToGroundHelperDistance = 0.5f;
+    // can the user control the direction that is being moved in the air
+    public bool airControl;
+    public float shellOffset;
+  }
+
+  public MovementSettings movementSettings = new MovementSettings();
+  public AdvancedSettings advancedSettings = new AdvancedSettings();
+
   [Header ("OSDs/HUD")]
-  public GUIText collectedCounter;
-  [Tooltip ("LifeOSD")]
-  public GUIText lifeCounter;
-  public GUIText timer;
-  public GUIText stamina;
-  [Tooltip ("LevelOSD")]
-  public GUIText levelDisplay;
   [Tooltip ("UsernameOSD")]
   public GUIText usernameOSD;
-  public float staminaCountBars = 20f;
   public GUIText debug;
-  [Header ("MiniMap")]
-  public Camera MiniMapCamera;
-  public Vector3 miniMapRelativePosition;
-  public bool miniMapRelativeY = false;
   [Header ("Look and Sound")]
-  public bool useRenderSettingsFog = true;
+  public bool useRenderSettingsFog = false;
   public float footstepSize = 0.5f;
   public float footstepSizeCrouched = 0.7f;
-  public float footstepSizeSprinting = 0.3f;
   public Sounds sounds;
   [Header ("Misc.")]
-  public float GameTime = 10f;
   public GameObject RagdollTemplate;
-  public bool isDead = false;
-  public bool spawned = false;
   public float flyDownTime = 6.0f;
   public float flyDownEndTime = 1.5f;
-  public float deltaSendTime = 0.0f;
-  public float deltaReceiveTime = 0.0f;
   public bool waitForSpawnLoading = true;
 
+  [HideInInspector] public bool isDead = false;
+  [HideInInspector] public bool spawned = false;
   [HideInInspector] public bool isLocalPlayer = false;
 
   Animator anim;
-  Cinematic cinematic;
-  // Color startColor;
   CapsuleCollider collider_;
+  Cinematic cinematic;
   GameObject Ragdoll;
   MyCameraController cam;
-  // PostProcessingController PPC;
   Quaternion startCameraRotation, cameraSpawnRotation;
   Rigidbody rbody;
   SkinnedMeshRenderer[] meshRenderers;
   TextMesh nameplate;
   Transform lastFloorTransform;
   Transform Head;
+  Vector3 groundContactNormal;
   Vector3 spawnLocation;
   Vector3 lastFloorTransformPosition;
-  bool isGrounded = true;
-  bool isCrouched = false;
-  bool isSprinting = false;
-  bool isUnderwater = false;
-  bool isJumping = false;
-  bool godMode = false;
-  bool cinematicsFinished = false;
-  bool camFirstPerson = true;
   bool camDistanceSnap = false;
+  bool camFirstPerson = true;
+  bool cinematicsFinished = false;
+  bool isCrouched = false;
+  bool isGrounded = false;
+  bool isUnderwater = false;
+  bool jump = false;
+  bool jumping = false;
+  bool wasGrounded = false;
   float moveHorizontal = 0f;
   float moveVertical = 0f;
   float spawnCameraDistance = 1500f;
@@ -95,23 +125,15 @@ public class PlayerController : Photon.MonoBehaviour {
   float turn = 0f;
   float forward = 0f;
   float moveAngle = 0f;
-  float endTime = 0f;
-  float staminaRemaining = 1.0f;
   float levelStartTime = 0f;
   float lastGroundedTime = 0f;
-  float lastSprintTime = 0f;
-  float lastJumpSoundTimejump = 0.0f;
-  float lastJumpTime = 0.0f;
-  float lastFootstepTime = 0.0f;
-  float lastSprintInput = 0.0f;
   float timeInVehicle = 0.0f;
   float deathTime = 0.0f;
-  float colliderStartPosition = 0f;
 
   void Awake() {
     isLocalPlayer = false;
 
-    if (photonView.isMine) {
+    if (photonView.isMine || !PhotonNetwork.connected) {
       LevelController.LocalPlayerInstance = gameObject;
       PhotonNetwork.playerName = GameData.username;
       cam = GetComponent<MyCameraController>();
@@ -141,11 +163,6 @@ public class PlayerController : Photon.MonoBehaviour {
     collider_ = GetComponent<CapsuleCollider>();
     anim = GetComponent<Animator>();
     rbody = GetComponent<Rigidbody>();
-    // startColor = RenderSettings.fogColor;
-
-    if (GetComponent<CapsuleCollider>() != null) {
-      colliderStartPosition = collider_.center.y;
-    }
 
     meshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
 
@@ -164,32 +181,10 @@ public class PlayerController : Photon.MonoBehaviour {
     camFirstPerson = cam.firstPerson;
     camDistanceSnap = cam.distanceSnap;
 
-    // PPC = GameObject.FindObjectOfType<PostProcessingController>();
-
-    if (MiniMapCamera != null) { MiniMapCamera = Instantiate (MiniMapCamera); }
-
-    GameObject temp;
-
-    if (lifeCounter != null) {
-      lifeCounter = Instantiate(lifeCounter);
-    } else {
-      temp = GameObject.Find ("LifeOSD");
-
-      if (temp != null) { lifeCounter = temp.GetComponent<GUIText>(); }
-    }
-
-    if (levelDisplay != null) {
-      levelDisplay = Instantiate(levelDisplay);
-    } else {
-      temp = GameObject.Find ("LevelOSD");
-
-      if (temp != null) { levelDisplay = temp.GetComponent<GUIText>(); }
-    }
-
     if (usernameOSD != null) {
       usernameOSD = Instantiate(usernameOSD);
     } else {
-      temp = GameObject.Find ("UsernameOSD");
+      GameObject temp = GameObject.Find ("UsernameOSD");
 
       if (temp != null) { usernameOSD = temp.GetComponent<GUIText>(); }
     }
@@ -200,32 +195,29 @@ public class PlayerController : Photon.MonoBehaviour {
     nameplate.GetComponent<MeshRenderer>().enabled = false;
 
     levelStartTime = Time.time;
-    lastGroundedTime = Time.time;
-    lastSprintTime = Time.time;
-    lastJumpSoundTimejump = Time.time;
-    lastJumpTime = jumpFrequency;
-    lastFootstepTime = Time.time;
   }
 
   void Update() {
     isLocalPlayer = photonView.isMine || !PhotonNetwork.connected;
 
     if (cam == null) cam = GetComponent<MyCameraController>();
-    if (cam != null && cam.cam != null) {
-      if (!GameData.loading && !cam.cam.activeSelf) {
-        cam.cam.SetActive(true);
-      } else if (GameData.loading && cam.cam.activeSelf) {
-        cam.cam.SetActive(false);
-      }
-    }
+    // if (cam != null && cam.cam != null) {
+    //   if (!GameData.loading && !cam.cam.activeSelf) {
+    //     cam.cam.SetActive(true);
+    //   } else if (GameData.loading && cam.cam.activeSelf) {
+    //     cam.cam.SetActive(false);
+    //   }
+    // }
 
     rbody = GetComponent<Rigidbody>();
 
     if (!GameData.loading && UnityEngine.Camera.main != null) {
       if (nameplate == null) nameplate = GetComponentInChildren<TextMesh>();
       if (nameplate != null) {
-        nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
-        nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
+        // nameplate.transform.LookAt(UnityEngine.Camera.main.transform.position);
+        // nameplate.transform.rotation *= Quaternion.Euler(0, 180f, 0);
+        nameplate.transform.rotation =
+            UnityEngine.Camera.main.transform.rotation;
 
         if (photonView.owner != null) {
           nameplate.text = photonView.owner.NickName;
@@ -247,15 +239,7 @@ public class PlayerController : Photon.MonoBehaviour {
     // Death
     if (isDead) {
       if (Time.realtimeSinceStartup - deathTime >= 8f) {
-        if (GameData.health > 0) {
-          UnDead();
-        } else {
-          if (GameData.tries > 0) {
-            UnDead();
-          } else {
-            GameData.MainMenu();
-          }
-        }
+        UnDead();
       } else {
         Time.timeScale = Mathf.Lerp(
             0.1f, 0.5f, (Time.realtimeSinceStartup - deathTime) / 8f);
@@ -265,64 +249,18 @@ public class PlayerController : Photon.MonoBehaviour {
 
     // Inputs and Player Controls
     float interact = 0f;
-    float sprintInput = 0f;
-    bool wasUnderwater = false;
-    RaycastHit hitinfo = new RaycastHit();
-    isGrounded =
-      Physics.Raycast (transform.position + Vector3.up*0.05f, Vector3.down, out hitinfo, 0.2f);
 
     if (isLocalPlayer && !GameData.isPaused && !GameData.isChatOpen) {
-      moveHorizontal = Input.GetAxis ("Horizontal");
-      moveVertical = Input.GetAxis ("Vertical");
       interact = Input.GetAxis ("Interact");
 
-      if (Input.GetButtonDown ("GodMode")) { godMode = !godMode; }
+      if (Input.GetButtonDown("GodMode")) {
+        movementSettings.godMode = !movementSettings.godMode;
+      }
 
       isCrouched = Input.GetAxis ("Crouch") > 0.1;
-      isJumping = Input.GetAxis ("Jump") > 0.1 && isGrounded && !isCrouched &&
-                  lastJumpTime >= jumpFrequency;
-      sprintInput = Input.GetAxis ("Sprint");
-      isSprinting =
-        (sprintInput > 0.1 && !isCrouched) || (isSprinting && !isGrounded);
-      wasUnderwater = isUnderwater;
-      isUnderwater = transform.position.y < TerrainGenerator.waterHeight;
 
       if (Input.GetButtonDown ("Toggle Third Person")) { ToggleThirdPerson(); }
-    }
-
-    if (wasUnderwater && !isUnderwater) { lastGroundedTime = Time.time; }
-
-    if (isUnderwater) { isGrounded = false; }
-
-    lastJumpTime += Time.deltaTime;
-
-    if (isJumping) { lastJumpTime = 0.0f; }
-
-    // Standing on platform
-    // This is necessary to ensure the player moves with the platform they are
-    // standing on. The position obtained from this is used to offset the
-    // player's position.
-    if (lastFloorTransform == null ||
-        (hitinfo.transform != null &&
-         hitinfo.transform.name != lastFloorTransform.name)) {
-      lastFloorTransform = hitinfo.transform;
-
-      if (lastFloorTransform != null) {
-        lastFloorTransformPosition = lastFloorTransform.position;
-      }
-    }
-
-    if (isGrounded && hitinfo.transform != null) {
-      transform.position +=
-          hitinfo.transform.position - lastFloorTransformPosition;
-      lastFloorTransform = hitinfo.transform;
-      lastFloorTransformPosition = lastFloorTransform.position;
-    }
-
-    // Debug HUD
-    if (debug != null) {
-      debug.text = "Horizontal: " + moveHorizontal + "\nVertical: " +
-                   moveVertical + "\nTime: " + Time.time;
+      if (Input.GetButtonDown("Jump") && !jump) { jump = true; }
     }
 
     if (!TerrainGenerator.doneLoadingSpawn && !spawned && waitForSpawnLoading) {
@@ -346,25 +284,11 @@ public class PlayerController : Photon.MonoBehaviour {
     // Vehicles
     timeInVehicle += Time.deltaTime;
 
-    // if (GameData.Vehicle != null && GameData.Vehicle.fuelRemaining < 0) {
-    //   ExitVehicle();
-    // }
-
     if (GameData.Vehicle != null) {
       // TODO: Remove this and let VehicleController get its own inputs.
-      GameData.Vehicle.UpdateInputs(moveVertical, moveHorizontal,
-                                    0 /* lookVertical */,
-                                    0 /* lookHorizontal */, sprintInput,
-                                    cam.cam.GetComponent<Camera>());
       transform.position =
         GameData.Vehicle.gameObject.transform.position + Vector3.up * 0.25f;
       transform.rotation = GameData.Vehicle.gameObject.transform.rotation;
-
-      if (MiniMapCamera != null) {
-        Vector3 mapPos = transform.position + miniMapRelativePosition;
-        if (!miniMapRelativeY) mapPos.y = miniMapRelativePosition.y;
-        MiniMapCamera.transform.position = mapPos;
-      }
 
       if (GameData.Vehicle.fuelRemaining < 100) {
         usernameOSD.text +=
@@ -375,19 +299,12 @@ public class PlayerController : Photon.MonoBehaviour {
                   " Fuel Remaining");
       }
 
-      moveHorizontal = 0;
-      moveVertical = 0;
-      // lookHorizontal = 0;
-      // lookVertical = 0;
       rbody.velocity = Vector3.zero;
-      isCrouched = true;
-      isGrounded = true;
-      isJumping = false;
 
       if (timeInVehicle < 1.0f) {
         GameData.Vehicle.UpdateInputs(
             moveVertical, moveHorizontal, 0 /* lookHorizontal */,
-            0 /* lookVertical */, sprintInput, cam.cam.GetComponent<Camera>());
+            0 /* lookVertical */, 0f, cam.cam.GetComponent<Camera>());
       }
 
       if (interact > 0.5 && timeInVehicle > 0.5f) {
@@ -457,20 +374,7 @@ public class PlayerController : Photon.MonoBehaviour {
                        (Time.time - levelStartTime) / flyDownTime);
       }
 
-      // if (GameData.Vehicle != null) {
-      //   timeInVehicle += Time.deltaTime;
-      //   transform.position = GameData.Vehicle.gameObject.transform.position;
-
-      //   if (interact > 0.5 && timeInVehicle > 0.5f) { GameData.Vehicle = null; }
-      // }
-
-      moveHorizontal = 0;
-      moveVertical = 0;
-      // lookHorizontal = 0;
-      // lookVertical = 0;
       rbody.velocity = Vector3.zero;
-      isCrouched = false;
-      isJumping = false;
     } else {
       if (Time.time - levelStartTime <
           flyDownTime + flyDownEndTime + Time.deltaTime &&
@@ -493,210 +397,16 @@ public class PlayerController : Photon.MonoBehaviour {
       }
     }
 
-    // Collider
-    if (isCrouched && collider_ != null) {
-      collider_.height = crouchedHeight;
-      if (colliderStartPosition != 0) {
-        Vector3 temp = collider_.center;
-        temp.y = colliderStartPosition - (playerHeight - crouchedHeight) / 2f;
-        collider_.center = temp;
-      }
-    } else if (collider_ != null) {
-      collider_.height = playerHeight;
-      if (colliderStartPosition != 0) {
-        Vector3 temp = collider_.center;
-        temp.y = colliderStartPosition;
-        collider_.center = temp;
-      }
-    }
-
-    // Stamina
-    if (isSprinting) { lastSprintTime = Time.time; }
-
-    if (Time.time - lastSprintTime >= staminaRechargeDelay) {
-      staminaRemaining +=
-        staminaDepletionRate * Time.deltaTime * staminaRechargeMultiplier;
-
-      if (staminaRemaining > 1.0) { staminaRemaining = 1.0f; }
-    }
-
-    if (staminaRemaining <= 0) {
-      isSprinting = false;
-      sprintInput = lastSprintInput -= Time.deltaTime;
-    } else if (isGrounded && isSprinting &&
-               (moveHorizontal != 0 || moveVertical != 0)) {
-      staminaRemaining -= staminaDepletionRate * Time.deltaTime;
-    }
-
-    lastSprintInput = sprintInput;
-
-    // Start countdown once player moves.
-    // if (! (moveHorizontal == 0 && moveVertical == 0 && !isJumping)
-    //     && endTime == 0f)
-    // { endTime = Time.time + GameTime; }
-
-    // if (GameData.health <= 0)
-    // { Dead(); }
-
-    // HUD
-    if (!GameData.isPaused) {
-      if (collectedCounter != null) {
-        collectedCounter.text =
-          "Bombs Remaining: " + GameData.collectedCollectibles;
-      }
-
-      if (lifeCounter != null) {
-        lifeCounter.text =
-          GameData.health + " Health, " + GameData.tries + " Tries";
-      }
-
-      if (GameData.Vehicle == null) {
-        if (stamina != null) {
-          stamina.text = "Stamina: ";
-
-          for (int i = 0; i < (int)(staminaRemaining * staminaCountBars); i++) {
-            stamina.text += "|";
-          }
-
-          for (int i = (int)(staminaCountBars * staminaRemaining);
-               i < staminaCountBars; i++) {
-            stamina.text += "!";
-          }
-        }
-      } else if (stamina != null) {
-        stamina.text = "";
-      }
-
-      if (timer != null) {
-        float timeRemaining = Mathf.Round ( (endTime - Time.time) * 10f) / 10f;
-
-        if (endTime == 0f) { timeRemaining = GameTime; }
-
-        string timeRemaining_ = "";
-
-        if (timeRemaining > 0) {
-          timeRemaining_ += timeRemaining;
-        } else {
-          timeRemaining_ += "0.0";
-        }
-
-        if (timeRemaining % 1 == 0 && timeRemaining > 0) {
-          timeRemaining_ += ".0";
-        }
-
-        timer.text = timeRemaining_;
-
-        if (!isDead && timeRemaining <= 0.7f * 4f) {
-          Time.timeScale = timeRemaining / 4f + 0.3f;
-          Time.fixedDeltaTime = 0.02f * Time.timeScale;
-        }
-
-        if (!isDead && timeRemaining <= 0) {
-          GameData.health--;
-          Dead();
-        }
-      }
-    } else {
-      if (collectedCounter != null) {
-        collectedCounter.text = "";
-      }
-
-      if (lifeCounter != null) {
-        lifeCounter.text = "";
-      }
-
-      if (stamina != null) {
-        stamina.text = "";
-      }
-
-      if (timer != null) {
-        endTime += Time.deltaTime;
-        timer.text = "";
-      }
-
-      if (usernameOSD != null) {
-        usernameOSD.text = "";
-      }
-    }
-
-    if (levelDisplay != null) {
-      levelDisplay.text = "Level: " + GameData.getLevel();
-    }
-
-    if (GameData.Vehicle != null) {
-      return;
-    }
-
-    // Movement
-    Vector3 movement =
-        moveHorizontal * Vector3.right + moveVertical * Vector3.forward;
-    movement = Vector3.ClampMagnitude(movement, 1.0f);
-
-    if (isCrouched) {
-      forward = movement.magnitude;
-      movement *= moveSpeed * 0.6f;
-    } else {
-      forward = movement.magnitude / Mathf.Lerp(2.0f, 1.0f, sprintInput);
-      movement *= moveSpeed * Mathf.Lerp(1.0f, 2.5f, sprintInput);
-    }
-
-    if (godMode) {
-      movement += Input.GetAxis("Jump") * Vector3.up;
-      movement -= Input.GetAxis("Crouch") * Vector3.up;
-      movement *= 30f;
-    } else {
-      if (isUnderwater) {
-        if (transform.position.y < TerrainGenerator.waterHeight - 0.8f) {
-          movement +=
-              Mathf.Clamp(
-                  rbody.velocity.y +
-                      2.0f * Time.deltaTime *
-                          (TerrainGenerator.waterHeight - transform.position.y),
-                  -moveSpeed *
-                      ((TerrainGenerator.waterHeight - transform.position.y) /
-                       2.5f),
-                  moveSpeed *
-                      ((TerrainGenerator.waterHeight - transform.position.y) /
-                       2.5f)) *
-              Vector3.up;
-        } else {
-          movement +=
-              (rbody.velocity.y - 9.81f * 3f * Time.deltaTime) * Vector3.up;
-        }
-      } else {
-        rbody.velocity = new Vector3(
-            rbody.velocity.x,
-            ((isJumping ? (moveSpeed * jumpMultiplier)
-                        : (rbody.velocity.y - 9.81f * 4f * Time.deltaTime))),
-            rbody.velocity.z);
-        movement += rbody.velocity.y * Vector3.up;
-      }
-    }
-
-    movement =
-        Quaternion.Euler(0, cam.cam.transform.eulerAngles.y, 0) * movement;
-
-    if (movement.magnitude <= 0.015) {
-      movement = Vector3.zero;
-    }
-
-    rbody.velocity = movement;
+    if (GameData.Vehicle != null) return;
 
     // Camera
     if (isLocalPlayer) {
-      if (MiniMapCamera != null) {
-        Vector3 mapPos = transform.position + miniMapRelativePosition;
-        if (!miniMapRelativeY) mapPos.y = miniMapRelativePosition.y;
-        MiniMapCamera.transform.position = mapPos;
-      }
-
       cam.UpdateTransform(Time.deltaTime);
 
       if (isDead && Ragdoll != null) {
         Transform[] children = Ragdoll.GetComponentsInChildren<Transform>();
         Transform target = transform;
-        target.position +=
-            Vector3.up * (isCrouched ? crouchedHeight : playerHeight);
+        target.position += Vector3.up * 2.0f;
 
         foreach (Transform target_ in children) {
           if (target_.name.Contains("Head_M")) {
@@ -735,83 +445,125 @@ public class PlayerController : Photon.MonoBehaviour {
           transform.rotation = rotation;
         }
       }
-
-      // VFX
-      // float vignette = 0.0f;
-      // GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
-      // float enemydistance = 150f;
-
-      // for (int i = 0; i < enemies.Length; i++) {
-      //   float tempdist =
-      //       (enemies[i].transform.position - transform.position).magnitude;
-
-      //   if (tempdist < enemydistance) {
-      //     enemydistance = tempdist;
-      //   }
-      // }
-
-      // vignette = Mathf.Lerp(0.4f, .267f, enemydistance / 150f);
-
-      // if (PPC == null) {
-      //   PPC = GameObject.FindObjectOfType<PostProcessingController>();
-      // }
-
-      // if (PPC != null) {
-      //   PPC.vignette.intensity = vignette;
-      // }
-
-      // if (useRenderSettingsFog) {
-      //   if (cam.cam.transform.position.y > TerrainGenerator.waterHeight) {
-      //     RenderSettings.fogStartDistance = 2000 * (1 - (vignette / 0.45f));
-      //     RenderSettings.fogEndDistance = 2000 * (1 - (vignette / 0.45f));
-      //     RenderSettings.fogColor =
-      //         Color.Lerp(startColor, Color.red, (vignette / 0.45f));
-      //   } else {  // Underwater
-      //     RenderSettings.fogStartDistance =
-      //         Mathf.Lerp(RenderSettings.fogStartDistance, 0f, 0.5f);
-      //     RenderSettings.fogEndDistance =
-      //         Mathf.Lerp(RenderSettings.fogEndDistance, 30f, 0.5f);
-      //     RenderSettings.fogColor = (Color.blue + Color.white) / 2;
-      //   }
-      // }
     }
+  }
 
-    // Sound
-    if (isGrounded && Time.time - lastGroundedTime >= 0.10f &&
-        sounds.Player != null) {
-      PlaySound(sounds.LandSound);
-    }
+  void FixedUpdate() {
+    if (GameData.Vehicle != null) return;
+    GroundCheck();
+    Vector2 input = GetInput();
 
-    if (isJumping && Time.time - lastJumpSoundTimejump >= 0.4f &&
-        sounds.Player != null) {
-      PlaySound(sounds.JumpSound);
-      lastJumpSoundTimejump = Time.time;
-    }
+    if ((Mathf.Abs(input.x) > float.Epsilon ||
+         Mathf.Abs(input.y) > float.Epsilon) &&
+        (advancedSettings.airControl || isGrounded)) {
+      Vector3 desiredMove =
+          cam.cam.transform.forward * input.y + cam.transform.right * input.x;
+      desiredMove =
+          Vector3.ProjectOnPlane(desiredMove, groundContactNormal).normalized;
 
-    if (isGrounded && (moveVertical != 0 || moveHorizontal != 0)) {
-      if ((isSprinting &&
-           Time.time - lastFootstepTime >= footstepSizeSprinting) ||
-          (isCrouched &&
-           Time.time - lastFootstepTime >= footstepSizeCrouched) ||
-          (!isSprinting && !isCrouched &&
-           Time.time - lastFootstepTime >= footstepSize)) {
-        lastFootstepTime = Time.time;
-
-        float volume = 0.5f;
-        if (isCrouched) {
-          volume = 0.2f;
-        } else if (isSprinting) {
-          volume = 0.8f;
-        }
-
-        if (sounds.FootSteps.Length > 0) {
-          PlaySound(sounds.FootSteps[Random.Range(0, sounds.FootSteps.Length)],
-                    volume);
-        }
+      desiredMove.x = desiredMove.x * movementSettings.CurrentTargetSpeed;
+      desiredMove.z = desiredMove.z * movementSettings.CurrentTargetSpeed;
+      desiredMove.y = desiredMove.y * movementSettings.CurrentTargetSpeed;
+      if (rbody.velocity.sqrMagnitude < (movementSettings.CurrentTargetSpeed *
+                                         movementSettings.CurrentTargetSpeed)) {
+        rbody.AddForce(desiredMove * SlopeMultiplier() * 7f, ForceMode.Impulse);
       }
     }
 
-    if (isGrounded) lastGroundedTime = Time.time;
+    if (isGrounded) {
+      // rbody.drag = 5f;
+
+      anim.SetInteger("Jumping", 0);
+      if (jump) {
+        // rbody.drag = 0.0f;
+        rbody.velocity =
+            new Vector3(rbody.velocity.x, 0f, rbody.velocity.z);
+        rbody.AddForce(
+            new Vector3(0f, movementSettings.JumpForce * rbody.mass, 0f),
+            ForceMode.Impulse);
+        anim.SetInteger("Jumping", 1);
+        anim.SetTrigger("JumpTrigger");
+        jumping = true;
+      }
+
+      if (!jumping &&
+          Mathf.Abs(input.x) < float.Epsilon&& Mathf.Abs(input.y) <
+              float.Epsilon&& rbody.velocity.magnitude < 0.5f) {
+        rbody.Sleep();
+      }
+    } else {
+      // rbody.drag = 0.0f;
+      if (wasGrounded && !jumping) {
+        StickToGroundHelper();
+        anim.SetInteger("Jumping", 0);
+      } else if (rbody.velocity.y < 0) {
+        anim.SetInteger("Jumping", 2);
+      }
+    }
+
+    Vector3 inverseTransform =
+        transform.InverseTransformDirection(rbody.velocity);
+    if (debug != null) debug.text = inverseTransform + "";
+
+    anim.SetBool("Moving", rbody.velocity != Vector3.zero);
+    // anim.SetBool("Strafing",
+    //              Mathf.Abs(inverseTransform.x) > Mathf.Abs(inverseTransform.z));
+    anim.SetFloat("Velocity X",
+                  inverseTransform.x / (movementSettings.RunMultiplier *
+                                        movementSettings.StrafeSpeed));
+    anim.SetFloat("Velocity Z",
+                  inverseTransform.z / (movementSettings.RunMultiplier *
+                                        movementSettings.ForwardSpeed));
+
+    jump = false;
+  }
+
+  Vector2 GetInput() {
+    Vector2 input = new Vector2{x = Input.GetAxis("Horizontal"),
+                                y = Input.GetAxis("Vertical")};
+    movementSettings.UpdateDesiredTargetSpeed(input);
+    return input;
+  }
+
+  float SlopeMultiplier() {
+    float angle = Vector3.Angle(groundContactNormal, Vector3.up);
+    return movementSettings.SlopeCurveModifier.Evaluate(angle);
+  }
+
+  void StickToGroundHelper() {
+    RaycastHit hitInfo;
+    if (Physics.SphereCast(
+            transform.position,
+            collider_.radius * (1.0f - advancedSettings.shellOffset),
+            Vector3.down, out hitInfo,
+            ((collider_.height / 2f) - collider_.radius) +
+                advancedSettings.stickToGroundHelperDistance,
+            Physics.AllLayers, QueryTriggerInteraction.Ignore)) {
+      if (Mathf.Abs(Vector3.Angle(hitInfo.normal, Vector3.up)) < 85f) {
+        rbody.velocity = Vector3.ProjectOnPlane(rbody.velocity, hitInfo.normal);
+      }
+    }
+  }
+  void GroundCheck() {
+    wasGrounded = isGrounded;
+    RaycastHit hitInfo;
+    if (Physics.SphereCast(
+            transform.position + (Vector3.down * advancedSettings.shellOffset),
+            collider_.radius * (1.0f - advancedSettings.shellOffset),
+            Vector3.down, out hitInfo,
+            ((collider_.height / 2f) - collider_.radius) +
+                advancedSettings.groundCheckDistance,
+            Physics.AllLayers, QueryTriggerInteraction.Ignore)) {
+      isGrounded = true;
+      groundContactNormal = hitInfo.normal;
+      lastGroundedTime = Time.time;
+    } else {
+      isGrounded = false;
+      groundContactNormal = Vector3.up;
+    }
+    if (!wasGrounded && isGrounded && jumping) {
+      jumping = false;
+    }
   }
 
   void ToggleThirdPerson() {
@@ -869,7 +621,6 @@ public class PlayerController : Photon.MonoBehaviour {
         renderer.enabled = false;
       }
 
-      collider_.enabled = false;
       anim.enabled = false;
       // cam.cam.transform.eulerAngles = new Vector3(85f, 0, 0);
     }
@@ -888,7 +639,6 @@ public class PlayerController : Photon.MonoBehaviour {
     cam.UpdateTarget(Head);
     rbody.isKinematic = false;
     Destroy (Ragdoll);
-    collider_.enabled = true;
     anim.enabled = true;
   }
 
@@ -897,7 +647,6 @@ public class PlayerController : Photon.MonoBehaviour {
 
     GameData.Vehicle = vehicle;
     timeInVehicle = 0.0f;
-    collider_.enabled = false;
 
     if (isLocalPlayer) {
       foreach (SkinnedMeshRenderer r in meshRenderers) {
@@ -909,7 +658,6 @@ public class PlayerController : Photon.MonoBehaviour {
     if (GameData.Vehicle == null) return;
 
     timeInVehicle = 0.0f;
-    GetComponent<Collider>().enabled = true;
     transform.position = GameData.Vehicle.transform.position + Vector3.up * 2f;
     transform.rotation = Quaternion.Euler(
         0, GameData.Vehicle.transform.rotation.eulerAngles.y, 0);
@@ -923,45 +671,8 @@ public class PlayerController : Photon.MonoBehaviour {
     GameData.Vehicle = null;
   }
 
-  void OnAnimatorIK() {
-    if (!photonView.isMine && PhotonNetwork.connected) { return; }
-
-    if (anim == null) anim = GetComponent<Animator>();
-    if (anim == null) return;
-
-    if (rbody == null) rbody = GetComponent<Rigidbody>();
-    if (rbody == null) return;
-
-    if (Mathf.Abs(rbody.velocity.x) > 0.015f ||
-        Mathf.Abs(rbody.velocity.z) > 0.015f) {
-      turn = (moveAngle - anim.bodyRotation.eulerAngles.y) / 180f;
-
-      while (turn < -1) turn += 2;
-      while (turn > 1) turn -= 2;
-    } else {
-      turn = 0f;
-    }
-
-    anim.SetFloat("Forward", forward);
-    anim.SetFloat("Turn", turn);
-
-    if (!isUnderwater) {
-      anim.SetFloat("Jump", -9 + (Time.time - lastGroundedTime) * 9f);
-      anim.SetFloat("JumpLeg", -1 + (Time.time - lastGroundedTime) * 4f);
-    } else {
-      anim.SetFloat("Jump", Mathf.Abs((Time.time * 200f % 200f - 100) / 200f));
-      anim.SetFloat("JumpLeg",
-                    Mathf.Abs((Time.time * 200f % 400f - 200) / 400f));
-    }
-
-    anim.SetBool("OnGround", isCrouched || godMode ||
-                                 (Time.time - lastGroundedTime <= 0.07f));
-    anim.SetBool("Crouch", isCrouched);
-  }
-
   void OnTriggerEnter (Collider other) {
-    if (other.gameObject.CompareTag("Collectible") &&
-        (endTime > Time.time || timer == null)) {
+    if (other.gameObject.CompareTag("Collectible")) {
       Destroy(other.gameObject);
       GameData.collectedCollectibles += 10;
       PlaySound(sounds.CollectibleSound);
@@ -989,5 +700,26 @@ public class PlayerController : Photon.MonoBehaviour {
   }
   void onDestroy() {
     GameData.showCursor = true;
+  }
+
+  // Animation Events
+  void Hit() {}
+
+  void FootL() {}
+
+  void FootR() {}
+
+  void Jump() {}
+
+  void Land() {}
+
+  void Rolling() {
+    /*if (!isRolling && isGrounded) {
+      if (Input.GetAxis("Dash") > .5 || Input.GetAxis("Dash") < -.5) {
+        StartCoroutine(_DirectionalRoll(
+            Input.GetAxis("Dash") * Input.GetAxis("Vertical"),
+            Input.GetAxis("Dash") * Input.GetAxis("Vertical")));
+      }
+    }*/
   }
 }

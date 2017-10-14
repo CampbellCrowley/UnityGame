@@ -251,6 +251,7 @@ PlayerSettings:
       m_Icon: {fileID: 2800000, guid: 8f634f5ff3f950342979c86d72996cac, type: 3}
       m_Width: 128
       m_Height: 128
+      m_Kind: 0
   m_BuildTargetBatching: []
   m_BuildTargetGraphicsAPIs: []
   m_BuildTargetVRSettings:

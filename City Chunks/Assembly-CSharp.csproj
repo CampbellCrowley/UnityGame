@@ -73,10 +73,12 @@
      <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingTextController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MenuObjectController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\MiniMapCameraPositionController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MiniMapIconController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\MyCameraController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\NameList.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\NPCController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\OldPlayerController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\PlayerController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\PlayFabAuthenticator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Row.cs" />

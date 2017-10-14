@@ -2681,16 +2681,16 @@ MonoBehaviour:
     avgEnd: -1
   GenMode:
     DisplaceDivide: 1
-    midOffset: 1
+    midOffset: 0
     SmoothHeightmap: 1
     Perlin: 1
     Distort: 0
-    mixtureAmount: 0
+    mixtureAmount: 0.5
     HeightmapSpeed: 0
     multiThreading: 1
     PreLoadChunks: 1
   roughness: 0.3
-  PeakMultiplier: 1
+  PeakMultiplier: 0.8
   PerlinRoughness: 0.1
   PerlinHeight: 1
   BiomeRoughness: 0.05
@@ -2845,8 +2845,8 @@ Terrain:
   m_TreeMaximumFullLODCount: 30
   m_DetailObjectDistance: 250
   m_DetailObjectDensity: 1
-  m_HeightmapPixelError: 30
-  m_SplatMapDistance: 200
+  m_HeightmapPixelError: 7
+  m_SplatMapDistance: 300
   m_HeightmapMaximumLOD: 0
   m_CastShadows: 1
   m_DrawHeightmap: 1

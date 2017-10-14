@@ -89,7 +89,9 @@ public class NetworkManager : Photon.MonoBehaviour {
   private static void SetPlayerName(string name) {
     name = name.Replace('`', '\'');
     PhotonNetwork.playerName = name;
-    ChatManager.AuthVal.UserId = name;
+    if (ChatManager.AuthVal != null) {
+      ChatManager.AuthVal.UserId = name;
+    }
     PlayerPrefs.SetString(playerNamePrefKey, name);
   }
   void OnReceivedRoomListUpdate() { roomsList = PhotonNetwork.GetRoomList(); }

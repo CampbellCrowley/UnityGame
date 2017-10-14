@@ -8,12 +8,11 @@ public class CityGenerator : SubGenerator {
   // TODO: Remove grass where buildings and roads are.
   [Tooltip("Array of buildings to spawn.")]
   public Building[] buildingPrefabs;
-  // Lower is higher resolition/more points per chunk.
   [Tooltip("Lower number is higher resolution/more points per chunk to check for spawning a building.")]
   public float searchResolution = 10f;
-  [Tooltip("Maximum number of floors a building is allowed to have.")]
+  [Tooltip("Maximum number of floors a building is allowed to have. (Large numbers may still be impossible to achieve)")]
   public int maxNumFloors = 100;
-  [Tooltip("How wide are roads.")]
+  [Tooltip("How wide are roads. (m)")]
   public float roadWidth = 12.857f;
   [Tooltip("The roughness of the perlin noise used for determining spawn locations.")]
   [Range(0f,1f)]
@@ -139,8 +138,9 @@ public class CityGenerator : SubGenerator {
           if (dbgOpts.Threshold) {
             Debug.DrawLine(
                 new Vector3(buildingX, pointMap[x, z] * 1000f, buildingZ),
-                new Vector3(buildingX + buildingWidth, pointMap[x, z] * 1000f,
-                            buildingZ + buildingWidth),
+                new Vector3(buildingX + buildingWidth + roadWidth,
+                            pointMap[x, z] * 1000f,
+                            buildingZ + buildingWidth + roadWidth),
                 Color.yellow, 10000f);
           }
 
@@ -163,10 +163,10 @@ public class CityGenerator : SubGenerator {
 
           Vector3 checkPos = new Vector3(buildingX, buildingY, buildingZ) +
                              buildingPrefabs[buildingID].centerOffset;
-          Vector3 checkDim =
-              new Vector3(buildingPrefabs[buildingID].dimensions.x / 2f,
-                          buildingPrefabs[buildingID].dimensions.y / 2f,
-                          buildingPrefabs[buildingID].dimensions.z / 2f);
+          Vector3 checkDim = new Vector3(
+              buildingPrefabs[buildingID].dimensions.x / 2f + roadWidth,
+              buildingPrefabs[buildingID].dimensions.y / 2f,
+              buildingPrefabs[buildingID].dimensions.z / 2f + roadWidth);
 
           int mask = 1 << buildingPrefabs[buildingID].gameObject.layer;
           bool overlapping = Physics.CheckBox(
