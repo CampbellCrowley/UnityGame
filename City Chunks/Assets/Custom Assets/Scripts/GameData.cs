@@ -45,6 +45,12 @@ public class GameData : MonoBehaviour {
   }
   void Start() {
     LoadSettings();
+    if (PlayerPrefs.HasKey("QuitReason")) {
+      Debug.Log("Previous quit reason: " + PlayerPrefs.GetString("QuitReason"));
+    } else {
+      Debug.Log("Previous quit reason: UNSET");
+    }
+    PlayerPrefs.SetString("QuitReason", QuitReason.UNEXPECTED.ToString());
     if (MusicPlayer != null && !music) {
       MusicPlayer.volume = 0.0f;
     }
@@ -56,6 +62,7 @@ public class GameData : MonoBehaviour {
   public static bool showCursor = true;
   public static bool isChatOpen = false;
   public static bool isPaused = false;
+  public static bool isWeaponUIOpen = false;
   public static VehicleController Vehicle;
   public static string username = "Username";
   public static int numEnemies = 0;
@@ -150,6 +157,7 @@ public class GameData : MonoBehaviour {
   public static void quit(QuitReason reason = QuitReason.NORMAL) {
     Debug.Log("Exiting Game (QuitReason: " + reason + ")");
     quitReason = reason;
+    PlayerPrefs.SetString("QuitReason", quitReason.ToString());
     if (quitReason != QuitReason.NORMAL) {
       if (quitReason == QuitReason.VERSIONMISMATCH) {
         Debug.LogError(
@@ -190,23 +198,30 @@ public class GameData : MonoBehaviour {
         Time.time - loadEndTime - Time.deltaTime < 1 && loadEndTime != -1) {
       loading = false;
     }
-    if (loadingMessage == "Readying the pigeons.") {
-      loadingPercent = Mathf.PingPong(Time.time / 8, 1);
-    }
+    // For debug
+    // if (loadingMessage == "Readying the pigeons.") {
+    //   loadingPercent = Mathf.PingPong(Time.time / 8, 1);
+    // }
     if (chatManager == null) chatManager = FindObjectOfType<ChatManager>();
     if (Input.GetButtonDown("Pause")) {
+      if (isWeaponUIOpen) {
+        PlayerWeaponController pwc = GetComponent<PlayerWeaponController>();
+        if (pwc != null) pwc.HideUI();
+      }
+
       if (isChatOpen) {
         CloseChat();
       } else if (!TerrainGenerator.loadingSpawn) {
         TogglePaused();
       }
-    } else if (Input.GetButtonDown("OpenChat") && getLevel() != 0 &&
-               !isPaused) {
+    } else if (!isWeaponUIOpen && Input.GetButtonDown("OpenChat") &&
+               getLevel() != 0 && !isPaused) {
       OpenChat();
     } else if (isPaused && Input.GetButtonDown("Menu") && getLevel() != 0) {
       MainMenu();
     }
-    Cursor.visible = showCursor || isPaused || getLevel() == 0;
+    Cursor.visible =
+        showCursor || isWeaponUIOpen || isPaused || getLevel() == 0;
     Cursor.lockState =
         Cursor.visible ? CursorLockMode.None : CursorLockMode.Locked;
 

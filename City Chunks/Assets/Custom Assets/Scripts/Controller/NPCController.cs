@@ -6,11 +6,6 @@ using System.Collections;
 using UnityEditor.Events;
 #endif
 
-public enum Weapon {
-  UNARMED = 0,
-  RELAX = 8
-}
-
 public class NPCController : MonoBehaviour {
   Rigidbody rb;
   protected Animator animator;
@@ -69,7 +64,8 @@ public class NPCController : MonoBehaviour {
   Vector3 newVelocity;
 
   // Weapon and Shield
-  [HideInInspector] public Weapon weapon;
+  [HideInInspector] public Weapon.WeaponType weaponType;
+  [HideInInspector] public Weapon.GunType gunType;
   int rightWeapon = 0;
   int leftWeapon = 0;
   [HideInInspector] public bool isRelax = false;
@@ -461,7 +457,7 @@ public class NPCController : MonoBehaviour {
   // 3 = Dual
   public void Attack(int attackSide) {
     if (canAction) {
-      if (weapon == Weapon.UNARMED) {
+      if (weaponType == Weapon.WeaponType.UNARMED) {
         int maxAttacks = 3;
         int attackNumber = 0;
         if (attackSide == 1 || attackSide == 3) {
@@ -512,7 +508,7 @@ public class NPCController : MonoBehaviour {
   // 2 = Right
   // 3 = Dual
   public void CastAttack(int attackSide) {
-    if (weapon == Weapon.UNARMED) {
+    if (weaponType == Weapon.WeaponType.UNARMED) {
       int maxAttacks = 3;
       if (attackSide == 1) {
         int attackNumber = Random.Range(0, maxAttacks);

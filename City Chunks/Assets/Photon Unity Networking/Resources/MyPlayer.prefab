@@ -393,6 +393,7 @@ GameObject:
   - component: {fileID: 114216104685786378}
   - component: {fileID: 114452814610168550}
   - component: {fileID: 114030483257030466}
+  - component: {fileID: 114284887152268400}
   m_Layer: 12
   m_Name: MyPlayer
   m_TagString: Player
@@ -2281,7 +2282,7 @@ Transform:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1339628593904990}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 151.50706, y: 392.00986, z: -19.119734}
+  m_LocalPosition: {x: 147.03642, y: 575.8212, z: 89.6918}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 4681803526525352}
@@ -2916,6 +2917,23 @@ MonoBehaviour:
   instantiationId: -1
   currentMasterID: -1
   isRuntimeInstantiated: 0
+--- !u!114 &114284887152268400
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1339628593904990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a73bee3287ad8549b956a3ae9c91248, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  currentWeapon: {fileID: 0}
+  allWeapons:
+  - {fileID: 114959664849962154, guid: a005b19378931514dad8dabb5ce9d7ad, type: 2}
+  - {fileID: 114777799608858330, guid: 550e6834feb10944593e20efbb0c99de, type: 2}
+  - {fileID: 114317802525962172, guid: 6858aae00489a80449376ea37b06e460, type: 2}
+  weaponUI: {fileID: 114409464791526388, guid: 1dcb7f974941b4644995fa9a70bda632, type: 2}
 --- !u!114 &114415969603440652
 MonoBehaviour:
   m_ObjectHideFlags: 1

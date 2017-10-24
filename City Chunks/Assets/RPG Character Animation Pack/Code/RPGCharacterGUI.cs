@@ -39,7 +39,7 @@ public class RPGCharacterGUI : MonoBehaviour{
 					if(GUI.Button(new Rect(130, 85, 100, 30), "Attack R")){
 						rpgCharacter.Attack(2);
 					}
-					if(rpgCharacter.weapon == Weapon.UNARMED){
+					if(rpgCharacter.weaponType == Weapon.WeaponType.UNARMED){
 						if(GUI.Button(new Rect(25, 115, 100, 30), "Left Kick")){
 							rpgCharacter.AttackKick(1);
 						}

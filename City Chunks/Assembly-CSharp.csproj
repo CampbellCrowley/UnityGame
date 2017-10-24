@@ -83,6 +83,10 @@
      <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingLightController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Loading\LoadingTextController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\NameList.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\NPCController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\OldPlayerController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\PlayerController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\PlayerWeaponController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\PlayFabAuthenticator.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\ChangeSeedController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\ChatManager.cs" />
@@ -97,11 +101,22 @@
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\SettingsUI\ResolutionSelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\SettingsUI\SettingsController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\VersionGetter.cs" />
+<<<<<<< HEAD
+=======
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\WeaponUI.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\UIControl\WeaponUIOption.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Underwater.cs" />
+>>>>>>> fbb5d9f... Begin adding weapons
      <Compile Include="Assets\Custom Assets\Scripts\Utility\ConsistencyChecker.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\CustomDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\JoystickDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\SaveLoad.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\TimeTesting.cs" />
+<<<<<<< HEAD
+=======
+     <Compile Include="Assets\Custom Assets\Scripts\VehicleController.cs" />
+     <Compile Include="Assets\Custom Assets\Scripts\Weapon.cs" />
+>>>>>>> fbb5d9f... Begin adding weapons
      <Compile Include="Assets\Day Night Cycle\Scripts\DayNightController.cs" />
      <Compile Include="Assets\Day Night Cycle\Scripts\DemoScripts\RoatateCamera.cs" />
      <Compile Include="Assets\MORPH3D\Vendor\Unity\Shaders\Hair\HairRenderer.cs" />

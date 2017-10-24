@@ -70,7 +70,7 @@ public class RPGCharacterControllerFREE : MonoBehaviour{
 
 	//Weapon and Shield
 	[HideInInspector]
-	public Weapon weapon;
+	public Weapon.WeaponType weaponType;
 	int rightWeapon = 0;
 	int leftWeapon = 0;
 	[HideInInspector]
@@ -431,7 +431,7 @@ public class RPGCharacterControllerFREE : MonoBehaviour{
 	//3 = Dual
 	public void Attack(int attackSide){
 		if(canAction){
-			if(weapon == Weapon.UNARMED){
+			if(weaponType == Weapon.WeaponType.UNARMED){
 				int maxAttacks = 3;
 				int attackNumber = 0;
 				if(attackSide == 1 || attackSide == 3){
@@ -483,7 +483,7 @@ public class RPGCharacterControllerFREE : MonoBehaviour{
 	//2 = Right
 	//3 = Dual
 	public void CastAttack(int attackSide){
-		if(weapon == Weapon.UNARMED){
+		if(weaponType == Weapon.WeaponType.UNARMED){
 			int maxAttacks = 3;
 			if(attackSide == 1){
 				int attackNumber = Random.Range(0, maxAttacks);

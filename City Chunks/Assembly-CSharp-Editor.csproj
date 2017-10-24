@@ -57,6 +57,7 @@
      <Compile Include="Assets\Editor\RemoteSettings\RemoteSettingsComponentEditor.cs" />
      <Compile Include="Assets\Editor\RemoteSettings\RemoteSettingsHolder.cs" />
      <Compile Include="Assets\Editor\RemoteSettings\RemoteSettingsManager.cs" />
+     <Compile Include="Assets\Editor\WeaponEditor.cs" />
      <Compile Include="Assets\MORPH3D\Content\Packages\Editor\MCSUpgrader.cs" />
      <Compile Include="Assets\MORPH3D\Scripts\Editor\CIClothingEditor.cs" />
      <Compile Include="Assets\MORPH3D\Scripts\Editor\M3DCharacterManagerEditor.cs" />
