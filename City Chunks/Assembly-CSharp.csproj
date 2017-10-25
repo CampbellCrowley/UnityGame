@@ -67,7 +67,6 @@
      <Compile Include="Assets\Custom Assets\Scripts\Controller\NPCController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Controller\OldPlayerController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Controller\PlayerController.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\Controller\PlayerWeaponController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Controller\VehicleController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\GameData.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Generators\CityGenerator.cs" />
@@ -98,8 +97,6 @@
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\SettingsUI\ResolutionSelector.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\SettingsUI\SettingsController.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\UIControl\VersionGetter.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\UIControl\WeaponUI.cs" />
-     <Compile Include="Assets\Custom Assets\Scripts\UIControl\WeaponUIOption.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\ConsistencyChecker.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\CustomDebug.cs" />
      <Compile Include="Assets\Custom Assets\Scripts\Utility\JoystickDebug.cs" />

@@ -448,6 +448,8 @@ public class PlayerController : Photon.MonoBehaviour {
 
   void FixedUpdate() {
     if (GameData.Vehicle != null) return;
+    if (collider_ == null) collider_ = GetComponent<CapsuleCollider>();
+    if (rbody == null) rbody = GetComponent<Rigidbody>();
     GroundCheck();
     Vector2 input = GetInput();
 
@@ -468,11 +470,14 @@ public class PlayerController : Photon.MonoBehaviour {
       }
     }
 
+    if (anim == null) GetComponent<Animator>();
     if (isGrounded) {
       // rbody.drag = 5f;
 
-      anim.SetInteger("Jumping", 0);
-      anim.SetBool("Crouched", false);
+      if (anim != null) {
+        anim.SetInteger("Jumping", 0);
+        anim.SetBool("Crouched", false);
+      }
       if (jump) {
         // rbody.drag = 0.0f;
         rbody.velocity =
@@ -480,8 +485,10 @@ public class PlayerController : Photon.MonoBehaviour {
         rbody.AddForce(
             new Vector3(0f, movementSettings.JumpForce * rbody.mass, 0f),
             ForceMode.Impulse);
-        anim.SetInteger("Jumping", 1);
-        anim.SetTrigger("JumpTrigger");
+        if (anim != null) {
+          anim.SetInteger("Jumping", 1);
+          anim.SetTrigger("JumpTrigger");
+        }
         jumping = true;
       }
 
@@ -494,10 +501,14 @@ public class PlayerController : Photon.MonoBehaviour {
       // rbody.drag = 0.0f;
       if (wasGrounded && !jumping) {
         StickToGroundHelper();
-        anim.SetInteger("Jumping", 0);
-        anim.SetBool("Crouched", isCrouched);
+        if (anim != null) {
+          anim.SetInteger("Jumping", 0);
+          anim.SetBool("Crouched", isCrouched);
+        }
       } else if (rbody.velocity.y < 0) {
-        anim.SetInteger("Jumping", 2);
+        if (anim != null) {
+          anim.SetInteger("Jumping", 2);
+        }
       }
     }
 
@@ -505,15 +516,18 @@ public class PlayerController : Photon.MonoBehaviour {
         transform.InverseTransformDirection(rbody.velocity);
     if (debug != null) debug.text = inverseTransform + "";
 
-    anim.SetBool("Moving", rbody.velocity != Vector3.zero);
-    // anim.SetBool("Strafing",
-    //              Mathf.Abs(inverseTransform.x) > Mathf.Abs(inverseTransform.z));
-    anim.SetFloat("Velocity X",
-                  inverseTransform.x / (movementSettings.RunMultiplier *
-                                        movementSettings.StrafeSpeed));
-    anim.SetFloat("Velocity Z",
-                  inverseTransform.z / (movementSettings.RunMultiplier *
-                                        movementSettings.ForwardSpeed));
+    if (anim != null) {
+      anim.SetBool("Moving", rbody.velocity != Vector3.zero);
+      // anim.SetBool("Strafing",
+      //              Mathf.Abs(inverseTransform.x) >
+      //              Mathf.Abs(inverseTransform.z));
+      anim.SetFloat("Velocity X",
+                    inverseTransform.x / (movementSettings.RunMultiplier *
+                                          movementSettings.StrafeSpeed));
+      anim.SetFloat("Velocity Z",
+                    inverseTransform.z / (movementSettings.RunMultiplier *
+                                          movementSettings.ForwardSpeed));
+    }
 
     jump = false;
   }
