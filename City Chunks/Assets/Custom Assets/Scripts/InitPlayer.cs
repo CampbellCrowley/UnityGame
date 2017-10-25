@@ -1,3 +1,5 @@
+// Copyright (c) Campbell Crowley. All rights reserved.
+// Author: Campbell Crowley (github@campbellcrowley.com)
 ﻿using UnityEngine;
 using System.Collections;
 
@@ -7,6 +9,12 @@ class InitPlayer : MonoBehaviour {
   [SerializeField] public float spawnHeight = 2;
  private
   bool spawned = false;
+ public
+  PlayerController controller;
+
+ public
+  void Awake() { controller = GetComponent<PlayerController>(); }
+
  public
   void go(float x, float y, float z) {
     if (!spawned) {

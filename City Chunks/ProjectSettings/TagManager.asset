@@ -8,6 +8,7 @@ TagManager:
   - Vehicle
   - LoadingScene
   - Sun
+  - Chat
   layers:
   - Default
   - TransparentFX
@@ -25,9 +26,9 @@ TagManager:
   - LoadingScene
   - Vegetation
   - Debug
-  - 
-  - 
-  - 
+  - Trees
+  - Building
+  - Rocks
   - 
   - 
   - 

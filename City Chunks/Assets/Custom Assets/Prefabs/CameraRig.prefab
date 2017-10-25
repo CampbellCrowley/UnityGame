@@ -29,10 +29,11 @@ GameObject:
   - component: {fileID: 12417986}
   - component: {fileID: 9203168}
   - component: {fileID: 8102032}
-  - component: {fileID: 114863113870941736}
   - component: {fileID: 114436776204122610}
+  - component: {fileID: 114111702762129126}
   - component: {fileID: 114971885509086764}
   - component: {fileID: 114155125966903428}
+  - component: {fileID: 114127912790660370}
   m_Layer: 0
   m_Name: CameraRig
   m_TagString: MainCamera
@@ -60,7 +61,7 @@ Transform:
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 154246}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 14.34, y: 5.52, z: -16.05}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 401470}
@@ -83,21 +84,21 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.5
-  far clip plane: 1200
+  near clip plane: 0.3
+  far clip plane: 2000
   field of view: 75
   orthographic: 0
   orthographic size: 5
   m_Depth: 1
   m_CullingMask:
     serializedVersion: 2
-    m_Bits: 4294967039
+    m_Bits: 4294966015
   m_RenderingPath: -1
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
-  m_HDR: 0
-  m_AllowMSAA: 1
+  m_HDR: 1
+  m_AllowMSAA: 0
   m_ForceIntoRT: 0
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
@@ -120,7 +121,7 @@ Camera:
     width: 1
     height: 1
   near clip plane: 0.3
-  far clip plane: 1000
+  far clip plane: 2000
   field of view: 75
   orthographic: 0
   orthographic size: 5
@@ -132,8 +133,8 @@ Camera:
   m_TargetTexture: {fileID: 0}
   m_TargetDisplay: 0
   m_TargetEye: 3
-  m_HDR: 0
-  m_AllowMSAA: 1
+  m_HDR: 1
+  m_AllowMSAA: 0
   m_ForceIntoRT: 0
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
@@ -178,6 +179,304 @@ Prefab:
   m_ParentPrefab: {fileID: 0}
   m_RootGameObject: {fileID: 154246}
   m_IsPrefabParent: 1
+--- !u!114 &114111702762129126
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 154246}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f66c5a3b888f31242899415e778d4804, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  controlAntialiasing: 0
+  enableAntialiasing: 0
+  antialiasing:
+    method: 0
+    fxaaSettings:
+      preset: 2
+    taaSettings:
+      jitterSpread: 0.75
+      sharpen: 0.3
+      stationaryBlending: 0.95
+      motionBlending: 0.85
+  controlAmbientOcclusion: 0
+  enableAmbientOcclusion: 0
+  ambientOcclusion:
+    intensity: 1.26
+    radius: 0.79
+    sampleCount: 16
+    downsampling: 1
+    forceForwardCompatibility: 0
+    ambientOnly: 0
+    highPrecision: 0
+  controlScreenSpaceReflection: 0
+  enableScreenSpaceReflection: 0
+  screenSpaceReflection:
+    reflection:
+      blendType: 0
+      reflectionQuality: 0
+      maxDistance: 100
+      iterationCount: 256
+      stepSize: 3
+      widthModifier: 0.5
+      reflectionBlur: 1
+      reflectBackfaces: 1
+    intensity:
+      reflectionMultiplier: 1
+      fadeDistance: 100
+      fresnelFade: 1
+      fresnelFadePower: 1
+    screenEdgeMask:
+      intensity: 0.03
+  controlDepthOfField: 0
+  enableDepthOfField: 0
+  depthOfField:
+    focusDistance: 265.41
+    aperture: 1.4
+    focalLength: 50
+    useCameraFov: 1
+    kernelSize: 1
+  controlMotionBlur: 0
+  enableMotionBlur: 0
+  motionBlur:
+    shutterAngle: 270
+    sampleCount: 10
+    frameBlending: 0
+  controlEyeAdaptation: 0
+  enableEyeAdaptation: 0
+  eyeAdaptation:
+    lowPercent: 45
+    highPercent: 95
+    minLuminance: -5
+    maxLuminance: 1
+    keyValue: 0.25
+    dynamicKeyValue: 1
+    adaptationType: 0
+    speedUp: 2
+    speedDown: 1
+    logMin: -8
+    logMax: 4
+  controlBloom: 0
+  enableBloom: 0
+  bloom:
+    bloom:
+      intensity: 1.39
+      threshold: 1.59
+      softKnee: 1
+      radius: 3.94
+      antiFlicker: 0
+    lensDirt:
+      texture: {fileID: 0}
+      intensity: 0
+  controlColorGrading: 0
+  enableColorGrading: 0
+  colorGrading:
+    tonemapping:
+      tonemapper: 0
+      neutralBlackIn: 0.02
+      neutralWhiteIn: 10
+      neutralBlackOut: 0
+      neutralWhiteOut: 10
+      neutralWhiteLevel: 5.3
+      neutralWhiteClip: 10
+    basic:
+      postExposure: 1.85
+      temperature: 0
+      tint: 0
+      hueShift: 0
+      saturation: 1
+      contrast: 1
+    channelMixer:
+      red: {x: 1, y: 0, z: 0}
+      green: {x: 0, y: 1, z: 0}
+      blue: {x: 0, y: 0, z: 1}
+      currentEditingChannel: 2
+    colorWheels:
+      mode: 0
+      log:
+        slope: {r: 1, g: 1, b: 1, a: 0}
+        power: {r: 1, g: 1, b: 1, a: 0}
+        offset: {r: 1, g: 1, b: 1, a: 0}
+      linear:
+        lift: {r: 1, g: 1, b: 1, a: 0}
+        gamma: {r: 1, g: 1, b: 1, a: 0}
+        gain: {r: 1, g: 1, b: 1, a: 0}
+    curves:
+      master:
+        curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 0
+            tangentMode: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 0
+        m_Loop: 0
+        m_ZeroValue: 0
+        m_Range: 1
+      red:
+        curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 0
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 0
+            tangentMode: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 0
+        m_Loop: 0
+        m_ZeroValue: 0
+        m_Range: 1
+      green:
+        curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        m_Loop: 0
+        m_ZeroValue: 0
+        m_Range: 1
+      blue:
+        curve:
+          serializedVersion: 2
+          m_Curve:
+          - serializedVersion: 2
+            time: 0
+            value: 0
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
+          - serializedVersion: 2
+            time: 1
+            value: 1
+            inSlope: 1
+            outSlope: 1
+            tangentMode: 0
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        m_Loop: 0
+        m_ZeroValue: 0
+        m_Range: 1
+      hueVShue:
+        curve:
+          serializedVersion: 2
+          m_Curve: []
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        m_Loop: 1
+        m_ZeroValue: 0.5
+        m_Range: 1
+      hueVSsat:
+        curve:
+          serializedVersion: 2
+          m_Curve: []
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        m_Loop: 1
+        m_ZeroValue: 0.5
+        m_Range: 1
+      satVSsat:
+        curve:
+          serializedVersion: 2
+          m_Curve: []
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        m_Loop: 0
+        m_ZeroValue: 0.5
+        m_Range: 1
+      lumVSsat:
+        curve:
+          serializedVersion: 2
+          m_Curve: []
+          m_PreInfinity: 2
+          m_PostInfinity: 2
+          m_RotationOrder: 4
+        m_Loop: 0
+        m_ZeroValue: 0.5
+        m_Range: 1
+      e_CurrentEditingCurve: 0
+      e_CurveY: 1
+      e_CurveR: 1
+      e_CurveG: 0
+      e_CurveB: 0
+  controlUserLut: 0
+  enableUserLut: 0
+  userLut:
+    lut: {fileID: 0}
+    contribution: 1
+  controlChromaticAberration: 0
+  enableChromaticAberration: 0
+  chromaticAberration:
+    spectralTexture: {fileID: 2800000, guid: 318cbcd94840f1d48aca4d86234dc2e7, type: 3}
+    intensity: 0
+  controlGrain: 0
+  enableGrain: 0
+  grain:
+    colored: 1
+    intensity: 0.254
+    size: 0.963
+    luminanceContribution: 0.899
+  controlVignette: 0
+  enableVignette: 0
+  vignette:
+    mode: 0
+    color: {r: 0, g: 0, b: 0, a: 1}
+    center: {x: 0.5, y: 0.5}
+    intensity: 0.267
+    smoothness: 0.455
+    roundness: 1
+    mask: {fileID: 0}
+    opacity: 1
+    rounded: 1
+--- !u!114 &114127912790660370
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 154246}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 310e16e1cb73ccb459c1391bb79e99ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &114155125966903428
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -201,38 +500,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   profile: {fileID: 11400000, guid: 74af7c73d61c67441bbc5303ee9c8c3a, type: 2}
---- !u!114 &114863113870941736
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 154246}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 372142912, guid: dc443db3e92b4983b9738c1131f555cb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SceneId:
-    m_Value: 0
-  m_AssetId:
-    i0: 182
-    i1: 226
-    i2: 119
-    i3: 43
-    i4: 174
-    i5: 109
-    i6: 213
-    i7: 244
-    i8: 219
-    i9: 90
-    i10: 252
-    i11: 178
-    i12: 40
-    i13: 1
-    i14: 252
-    i15: 252
-  m_ServerOnly: 0
-  m_LocalPlayerAuthority: 1
 --- !u!114 &114971885509086764
 MonoBehaviour:
   m_ObjectHideFlags: 1
