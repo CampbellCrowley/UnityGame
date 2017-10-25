@@ -1,12 +1,15 @@
-# UnityGame
+master: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=master)](https://travis-ci.org/CampbellCrowley/UnityGame)
+v0.0.6: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=v0.0.6)](https://travis-ci.org/CampbellCrowley/UnityGame)
+
+# City Chunks
 A game I'm making in Unity that currently includes unlimited terrain generation.
 
 Project Outline (Private)
 https://goo.gl/4ShZqV
 
-# Welcome to the City Chunks wiki!
-#### This Commit Version: v0.0.5m_2
-Unity Version: 5.6.2f2
+# Welcome to the City Chunks readme!
+#### This Commit Version: v0.0.6
+Unity Version: 2017.1.2f1
 
 ## Installation / Setup
 Windows x64 executable of v0.0.5m_2 available [here](https://dev.campbellcrowley.com/game/CityChunksv0.0.5m_2.zip).
@@ -18,24 +21,23 @@ Open the Unity project in the corresponding version of Unity (Newer may work, bu
 ## Usage
 ### Starting the game from an executable build:
 * Controls can be modified in the unity settings window in the "Input" tab.
-* Graphics quality and resolution can be modified here as well in the other tab.
+* Graphics quality and resolution can be modified here as well, in the other tab.
 ### Starting the game from the Unity editor:
-* Ensure the Menu scene is open before clicking play.
+* Click the play button, or press `ctrl + p` from either the Menu or Game scenes.
 * Game can also be exited by pressing `ctrl + p`.
 ### Playing the game once in the menu:
-* Press "H" or click the "Host Game" button to start a game.
-* Type the IP address of a hosted game to connect to an existing game, then click "Connect to host".
-  - Default ip and port: dev.campbellcrowley.com:7777
-  - Another example: 192.168.1.2:7777
-  - Port will be 7777 unless port forwarding changes this.
-* Press "S" to start a dedicated server without a player. Same as "H" but does not create a player or camera and does not render the scene or allow for input.
-* Press "X" while game is paused or click the button in the top left while in game, to exit to the main menu and close a server.
+* Wait for the game to authenticate with the servers or if you are offline, click the Offline button.
+* Click on Create Room to create a game lobby.
+* Click Join on an available room that someone else created.
 ### Default player controls are basic FPS controls:
 * WASD to move.
 * Shift to sprint.
 * Left Ctrl to crouch.
 * Space to jump.
 * Mouse movement to move camera.
+* V to switch between first and third person view.
+* Esc to open the menu.
+* T to open the chat.
 
 ## Issues
 The project is only regularly tested on Windows 10. Other OS's may be supported, but are not tested. If you have any issues using any OS, please leave a bug report detailing any errors and any information that may help us reproduce the issue. We will try to get to bugs, but there is no guarantee that we will be able to fix all of them.
@@ -46,4 +48,5 @@ Any issues with the Unity specifically, should not be directed to us, but instea
 
 ##
 Copyright 2017 by Campbell Crowley. All Rights Reserved.
+
 Contact Information: github@campbellcrowley.com.
