@@ -7,7 +7,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(Canvas))]
 class WeaponUI : MonoBehaviour {
 
-  public WeaponUIOption templateOption;
+  public WeaponUIOption templateOption = null;
   List<WeaponUIOption> options = new List<WeaponUIOption>();
   Canvas canvas;
   EventSystemManager esm;

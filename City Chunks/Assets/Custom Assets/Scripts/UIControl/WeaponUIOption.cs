@@ -6,9 +6,9 @@ using UnityEngine.EventSystems;
 
 [RequireComponent(typeof(UnityEngine.UI.Button))]
 class WeaponUIOption : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler {
-  public Text description;
-  public Text myName;
-  public Image image;
+  public Text description = null;
+  public Text myName = null;
+  public Image image = null;
   public Color normalColor = Color.white;
   public Color highlightedColor = Color.blue;
 

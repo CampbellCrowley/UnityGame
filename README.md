@@ -1,5 +1,5 @@
 master: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=master)](https://travis-ci.org/CampbellCrowley/UnityGame)
-v0.0.6: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=v0.0.6)](https://travis-ci.org/CampbellCrowley/UnityGame)
+v0.0.7-indev: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=v0.0.7-indev)](https://travis-ci.org/CampbellCrowley/UnityGame)
 
 # City Chunks
 A game I'm making in Unity that currently includes unlimited terrain generation.
@@ -8,7 +8,7 @@ Project Outline (Private)
 https://goo.gl/4ShZqV
 
 # Welcome to the City Chunks readme!
-#### This Commit Version: v0.0.6
+#### This Commit Version: v0.0.7-indev
 Unity Version: 2017.1.2f1
 
 ## Installation / Setup

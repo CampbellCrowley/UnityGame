@@ -3,8 +3,8 @@ using UnityEngine.UI;
 
 class PlayerWeaponController : MonoBehaviour {
   public Weapon currentWeapon;
-  public Weapon[] allWeapons;
-  public WeaponUI weaponUI;
+  public Weapon[] allWeapons = {};
+  public WeaponUI weaponUI = null;
 
   WeaponUI currentUIInstance;
   bool isUIOpen = false;
