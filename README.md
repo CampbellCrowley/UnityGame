@@ -1,5 +1,5 @@
 master: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=master)](https://travis-ci.org/CampbellCrowley/UnityGame)
-WIP: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=wip)](https://travis-ci.org/CampbellCrowley/UnityGame)
+WIP: [![Build Status](https://travis-ci.org/CampbellCrowley/UnityGame.svg?branch=WIP)](https://travis-ci.org/CampbellCrowley/UnityGame)
 
 # City Chunks
 A game I'm making in Unity that currently includes unlimited terrain generation.

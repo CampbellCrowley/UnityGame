@@ -148,12 +148,21 @@ public class GameData : MonoBehaviour {
   }
 
   public static void quit(QuitReason reason = QuitReason.NORMAL) {
-    Debug.LogWarning("Exiting Game (" + reason + ")");
+    Debug.Log("Exiting Game (QuitReason: " + reason + ")");
     quitReason = reason;
     if (quitReason != QuitReason.NORMAL) {
+      if (quitReason == QuitReason.VERSIONMISMATCH) {
+        Debug.LogError(
+            "If you are seeing this error outside of the editor, there " +
+            "may be a problem with this version of the game and not " +
+            "necessarily with your computer. Please contact the developer if " +
+            "you did not create this build yourself. (QuitReason)");
+      }
       CustomDebug.isEnabled = true;
       CustomDebug.pauseExecutionEnabled = true;
-      CustomDebug.Assert(false, quitReason + ": See log for more info.");
+      CustomDebug.Assert(
+          false, "Game quitting for reason: " + quitReason.ToString() +
+                     ". See log for more info. (Search for \"QuitReason\")");
     }
 #if UNITY_EDITOR
     UnityEditor.EditorApplication.isPlaying = false;
@@ -162,7 +171,12 @@ public class GameData : MonoBehaviour {
 #endif
   }
 
-  void OnApplicationQuit() { Debug.Log("Application Quitting"); }
+  void OnApplicationQuit() {
+    Debug.Log("Application Quitting");
+    if (quitReason != QuitReason.NORMAL)
+      Debug.LogError("Application quitting with non-normal status! (" +
+                     quitReason.ToString() + ")");
+  }
 
   void Update() {
 #if UNITY_EDITOR || UNITY_STANDALONE

@@ -26,25 +26,39 @@ public class ConsistencyChecker : MonoBehaviour {
               Application.version + "\nGameData Version: " +
               GameData.longVersion + "\nBuild GUID: " + Application.buildGUID +
               "\nPUN Version: " + PhotonNetwork.versionPUN);
-    if (Application.buildGUID == "") {
-      Debug.Log("This is not a valid build");
-    }
 
     if (Application.version != GameData.longVersion) {
       Debug.LogError("Version mismatch. Version must be updated in Edit->" +
-                     "Player->Version and GameData.cs");
+                     "Player->Version and GameData.cs. (QuitReason)");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     } else if (checkUnityVersions()) {
-      Debug.LogWarning("Version mismatch. Unity.");
-      // GameData.quit(QuitReason.VERSIONMISMATCH);
+      Debug.LogWarning(
+          "Version mismatch. Unity. The version of the Unity Editor was " +
+          "not tested with this version of the game. Things may behave " +
+          "differently or not work as expected. However the chance of this " +
+          "is slim, hence the reason this is only a warning.");
     } else if (GameData.longVersion != lastAppVersion) {
-      Debug.LogError("Version mismatch. GameData.");
+      Debug.LogError(
+          "Version mismatch. GameData. One or more of the generator " +
+          "modules is not at the expected version. Please either use the " +
+          "correct version of the modules, or change the expected version " +
+          "number.\nVersion must match App version, ConsistencyChecker " +
+          "version and GameData version. (QuitReason)");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     } else if (PhotonNetwork.versionPUN != lastPUNVersion) {
-      Debug.LogError("Version mismatch. PUN.");
+      Debug.LogError(
+          "Version mismatch. PUN. The version of Photon is different than " +
+          "the expected version. Please either use the correct version of " +
+          "Photon, or ensure this version will work, and update the expected " +
+          "version number. (QuitReason)");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     } else if (Application.version != lastAppVersion) {
-      Debug.LogError("Version mismatch. App.");
+      Debug.LogError(
+          "Version mismatch. App. One or more of the generator " +
+          "modules is not at the expected version. Please either use the " +
+          "correct version of the modules, or change the expected version " +
+          "number.\nVersion must match App version, ConsistencyChecker " +
+          "version and GameData version. (QuitReason)");
       GameData.quit(QuitReason.VERSIONMISMATCH);
     }
 
@@ -373,8 +387,9 @@ public class ConsistencyChecker : MonoBehaviour {
     for (int i = 0; i < expectedlist.Length; i++) {
       double nextRand = rand.NextDouble();
       if (!AboutEqual(expectedlist[i], nextRand)) {
-        Debug.LogError("RANDOM NUMBER MISMATCH[1] (" + i + ")\nReceived: " +
-                       nextRand);
+        Debug.LogError(
+            "RANDOM NUMBER MISMATCH[1] (" + i + ")\nReceived: " + nextRand +
+            ". Please contact the developer about this. (QuitReason)");
         return false;
       }
     }
@@ -692,8 +707,9 @@ public class ConsistencyChecker : MonoBehaviour {
     for (int i = 0; i < expectedlist.Length; i++) {
       double nextRand = UnityEngine.Random.value;
       if (!AboutEqual(expectedlist[i], nextRand)) {
-        Debug.LogError("RANDOM NUMBER MISMATCH[2] (" + i + ")\nReceived: " +
-                       nextRand);
+        Debug.LogError(
+            "RANDOM NUMBER MISMATCH[2] (" + i + ")\nReceived: " + nextRand +
+            ". Please contact the developer about this. (QuitReason)");
         return false;
       }
     }
