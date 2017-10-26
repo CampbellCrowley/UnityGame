@@ -12,7 +12,7 @@ https://goo.gl/4ShZqV
 Unity Version: 2017.1.2f1
 
 ## Installation / Setup
-Windows x64 executable of v0.0.5m_2 available [here](https://dev.campbellcrowley.com/game/CityChunksv0.0.5m_2.zip).
+Executable versions are available [here](https://drive.google.com/drive/folders/0B_RQVdcQeZZfVkZxZnZhWjA1ekk?usp=sharing).
 
 Unity can be downloaded from its website at [unity3d.com](https://store.unity.com) (Free version is sufficient).
 

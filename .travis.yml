@@ -9,3 +9,6 @@ install:
 - ./City\ Chunks/install.sh
 script:
 - ./City\ Chunks/build.sh
+cache:
+  directories:
+  - ./City\ Chunks/Library
