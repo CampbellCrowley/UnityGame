@@ -56,7 +56,6 @@ public class PlayerController : Photon.MonoBehaviour {
       } else {
         isSprinting = false;
       }
-      if (godMode) CurrentTargetSpeed *= 30f;
     }
     public bool Running {
       get { return isSprinting; }
@@ -451,11 +450,20 @@ public class PlayerController : Photon.MonoBehaviour {
     if (collider_ == null) collider_ = GetComponent<CapsuleCollider>();
     if (rbody == null) rbody = GetComponent<Rigidbody>();
     GroundCheck();
-    Vector2 input = GetInput();
+    Vector3 input = GetInput();
 
-    if ((Mathf.Abs(input.x) > float.Epsilon ||
-         Mathf.Abs(input.y) > float.Epsilon) &&
-        (advancedSettings.airControl || isGrounded)) {
+    if (movementSettings.godMode) {
+      Vector3 desiredMove = cam.cam.transform.forward * input.y +
+                            cam.transform.right * input.x;
+      desiredMove =
+          Vector3.ProjectOnPlane(desiredMove, groundContactNormal).normalized;
+      desiredMove.y = input.z;
+      desiredMove *= 30f * movementSettings.CurrentTargetSpeed;
+
+      rbody.velocity = desiredMove;
+    } else if ((Mathf.Abs(input.x) > float.Epsilon ||
+                Mathf.Abs(input.y) > float.Epsilon) &&
+               (advancedSettings.airControl || isGrounded)) {
       Vector3 desiredMove =
           cam.cam.transform.forward * input.y + cam.transform.right * input.x;
       desiredMove =
@@ -532,9 +540,11 @@ public class PlayerController : Photon.MonoBehaviour {
     jump = false;
   }
 
-  Vector2 GetInput() {
-    Vector2 input = new Vector2{x = Input.GetAxis("Horizontal"),
-                                y = Input.GetAxis("Vertical")};
+  Vector3 GetInput() {
+    Vector3 input =
+        new Vector3(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"), 0);
+    input.z = Input.GetAxis("Jump");
+    if (input.z <= 0) input.z = -Input.GetAxis("Crouch");
     movementSettings.UpdateDesiredTargetSpeed(input);
     return input;
   }
