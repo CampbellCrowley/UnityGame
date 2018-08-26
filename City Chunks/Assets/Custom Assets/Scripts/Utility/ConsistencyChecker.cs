@@ -9,9 +9,9 @@ public class ConsistencyChecker : MonoBehaviour {
   System.Random rand;
   private static bool checkComplete = false;
   // Last unity versions this version was tested on.
-  private string[] lastUnityVersions = {"2017.1.2f1"};
+  private string[] lastUnityVersions = {"2018.2.5f1"};
   private const string lastAppVersion = "v0.0.6tg6m4c1g1r1tex2tr2";
-  private const string lastPUNVersion = "1.86";
+  private const string lastPUNVersion = "1.91";
 
   void Start() {
     if (!Application.genuineCheckAvailable || !Application.genuine) {

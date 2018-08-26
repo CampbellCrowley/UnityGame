@@ -869,6 +869,8 @@ public class TerrainGenerator : MonoBehaviour {
               subGenerators[j].enabled) {
             TIndex = i;
             SGIndex = j;
+          } else if (!subGenerators[j].enabled) {
+            terrains[i].subGeneratorQueue[j] = false;
           }
         }
       }

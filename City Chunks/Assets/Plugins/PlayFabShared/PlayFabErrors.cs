@@ -11,6 +11,7 @@ namespace PlayFab
     {
         Unknown = 1,
         Success = 0,
+        UnkownError = 500,
         InvalidParams = 1000,
         AccountNotFound = 1001,
         AccountBanned = 1002,
@@ -305,13 +306,140 @@ namespace PlayFab
         RequestViewConstraintParamsNotAllowed = 1303,
         BadPartnerConfiguration = 1304,
         XboxBPCertificateFailure = 1305,
-        XboxXASSExchangeFailure = 1306
+        XboxXASSExchangeFailure = 1306,
+        InvalidEntityId = 1307,
+        StatisticValueAggregationOverflow = 1308,
+        EmailMessageFromAddressIsMissing = 1309,
+        EmailMessageToAddressIsMissing = 1310,
+        SmtpServerAuthenticationError = 1311,
+        SmtpServerLimitExceeded = 1312,
+        SmtpServerInsufficientStorage = 1313,
+        SmtpServerCommunicationError = 1314,
+        SmtpServerGeneralFailure = 1315,
+        EmailClientTimeout = 1316,
+        EmailClientCanceledTask = 1317,
+        EmailTemplateMissing = 1318,
+        InvalidHostForTitleId = 1319,
+        EmailConfirmationTokenDoesNotExist = 1320,
+        EmailConfirmationTokenExpired = 1321,
+        AccountDeleted = 1322,
+        PlayerSecretNotConfigured = 1323,
+        InvalidSignatureTime = 1324,
+        NoContactEmailAddressFound = 1325,
+        InvalidAuthToken = 1326,
+        AuthTokenDoesNotExist = 1327,
+        AuthTokenExpired = 1328,
+        AuthTokenAlreadyUsedToResetPassword = 1329,
+        MembershipNameTooLong = 1330,
+        MembershipNotFound = 1331,
+        GoogleServiceAccountInvalid = 1332,
+        GoogleServiceAccountParseFailure = 1333,
+        EntityTokenMissing = 1334,
+        EntityTokenInvalid = 1335,
+        EntityTokenExpired = 1336,
+        EntityTokenRevoked = 1337,
+        InvalidProductForSubscription = 1338,
+        XboxInaccessible = 1339,
+        SubscriptionAlreadyTaken = 1340,
+        SmtpAddonNotEnabled = 1341,
+        APIConcurrentRequestLimitExceeded = 1342,
+        XboxRejectedXSTSExchangeRequest = 1343,
+        VariableNotDefined = 1344,
+        TemplateVersionNotDefined = 1345,
+        FileTooLarge = 1346,
+        TitleDeleted = 1347,
+        TitleContainsUserAccounts = 1348,
+        TitleDeletionPlayerCleanupFailure = 1349,
+        EntityFileOperationPending = 1350,
+        NoEntityFileOperationPending = 1351,
+        EntityProfileVersionMismatch = 1352,
+        TemplateVersionTooOld = 1353,
+        MembershipDefinitionInUse = 1354,
+        PaymentPageNotConfigured = 1355,
+        FailedLoginAttemptRateLimitExceeded = 1356,
+        EntityBlockedByGroup = 1357,
+        RoleDoesNotExist = 1358,
+        EntityIsAlreadyMember = 1359,
+        DuplicateRoleId = 1360,
+        GroupInvitationNotFound = 1361,
+        GroupApplicationNotFound = 1362,
+        OutstandingInvitationAcceptedInstead = 1363,
+        OutstandingApplicationAcceptedInstead = 1364,
+        RoleIsGroupDefaultMember = 1365,
+        RoleIsGroupAdmin = 1366,
+        RoleNameNotAvailable = 1367,
+        GroupNameNotAvailable = 1368,
+        EmailReportAlreadySent = 1369,
+        EmailReportRecipientBlacklisted = 1370,
+        EventNamespaceNotAllowed = 1371,
+        EventEntityNotAllowed = 1372,
+        InvalidEntityType = 1373,
+        NullTokenResultFromAad = 1374,
+        InvalidTokenResultFromAad = 1375,
+        NoValidCertificateForAad = 1376,
+        InvalidCertificateForAad = 1377,
+        DuplicateDropTableId = 1378,
+        GameServerOk = 1379,
+        GameServerAccepted = 1380,
+        GameServerNoContent = 1381,
+        GameServerBadRequest = 1382,
+        GameServerUnauthorized = 1383,
+        GameServerForbidden = 1384,
+        GameServerNotFound = 1385,
+        GameServerConflict = 1386,
+        GameServerInternalServerError = 1387,
+        GameServerServiceUnavailable = 1388,
+        ExplicitContentDetected = 1389,
+        PIIContentDetected = 1390,
+        InvalidScheduledTaskParameter = 1391,
+        PerEntityEventRateLimitExceeded = 1392,
+        TitleDefaultLanguageNotSet = 1393,
+        EmailTemplateMissingDefaultVersion = 1394,
+        FacebookInstantGamesIdNotLinked = 1395,
+        InvalidFacebookInstantGamesSignature = 1396,
+        FacebookInstantGamesAuthNotConfiguredForTitle = 1397,
+        MatchmakingEntityInvalid = 2001,
+        MatchmakingPlayerAttributesInvalid = 2002,
+        MatchmakingCreateRequestMissing = 2003,
+        MatchmakingCreateRequestCreatorMissing = 2004,
+        MatchmakingCreateRequestCreatorIdMissing = 2005,
+        MatchmakingCreateRequestUserListMissing = 2006,
+        MatchmakingCreateRequestGiveUpAfterInvalid = 2007,
+        MatchmakingTicketIdMissing = 2008,
+        MatchmakingMatchIdMissing = 2009,
+        MatchmakingMatchIdIdMissing = 2010,
+        MatchmakingQueueNameMissing = 2011,
+        MatchmakingTitleIdMissing = 2012,
+        MatchmakingTicketIdIdMissing = 2013,
+        MatchmakingPlayerIdMissing = 2014,
+        MatchmakingJoinRequestUserMissing = 2015,
+        MatchmakingQueueConfigNotFound = 2016,
+        MatchmakingMatchNotFound = 2017,
+        MatchmakingTicketNotFound = 2018,
+        MatchmakingCreateTicketServerIdentityInvalid = 2019,
+        MatchmakingCreateTicketClientIdentityInvalid = 2020,
+        MatchmakingGetTicketUserMismatch = 2021,
+        MatchmakingJoinTicketServerIdentityInvalid = 2022,
+        MatchmakingJoinTicketUserIdentityMismatch = 2023,
+        MatchmakingCancelTicketServerIdentityInvalid = 2024,
+        MatchmakingCancelTicketUserIdentityMismatch = 2025,
+        MatchmakingGetMatchIdentityMismatch = 2026,
+        MatchmakingPlayerIdentityMismatch = 2027,
+        MatchmakingAlreadyJoinedTicket = 2028,
+        MatchmakingTicketAlreadyCompleted = 2029,
+        MatchmakingQueueNameInvalid = 2030,
+        MatchmakingQueueConfigInvalid = 2031,
+        MatchmakingMemberProfileInvalid = 2032,
+        WriteAttemptedDuringExport = 2033,
+        NintendoSwitchDeviceIdNotLinked = 2034,
+        MatchmakingNotEnabled = 2035
     }
 
     public delegate void ErrorCallback(PlayFabError error);
 
     public class PlayFabError
     {
+        public string ApiEndpoint;
         public int HttpCode;
         public string HttpStatus;
         public PlayFabErrorCode Error;
@@ -329,7 +457,7 @@ namespace PlayFab
                     sb.Append(" | ");
                 }
             }
-            return string.Format("PlayFabError({0}, {1}, {2} {3}", Error, ErrorMessage, HttpCode, HttpStatus) + (sb.Length > 0 ? " - Details: " + sb.ToString() + ")" : ")");
+            return string.Format("{0} PlayFabError({1}, {2}, {3} {4}", ApiEndpoint, Error, ErrorMessage, HttpCode, HttpStatus) + (sb.Length > 0 ? " - Details: " + sb.ToString() + ")" : ")");
         }
 
         [ThreadStatic]
@@ -339,12 +467,29 @@ namespace PlayFab
             if (_tempSb == null)
                 _tempSb = new StringBuilder();
             _tempSb.Length = 0;
-            _tempSb.Append(ErrorMessage);
+            _tempSb.Append(ApiEndpoint).Append(": ").Append(ErrorMessage);
             if (ErrorDetails != null)
                 foreach (var pair in ErrorDetails)
                     foreach (var msg in pair.Value)
                         _tempSb.Append("\n").Append(pair.Key).Append(": ").Append(msg);
             return _tempSb.ToString();
         }
+    }
+
+    public class PlayFabException : Exception
+    {
+        public readonly PlayFabExceptionCode Code;
+        public PlayFabException(PlayFabExceptionCode code, string message) : base(message)
+        {
+            Code = code;
+        }
+    }
+
+    public enum PlayFabExceptionCode
+    {
+        DeveloperKeyNotSet,
+        EntityTokenNotSet,
+        NotLoggedIn,
+        TitleNotSet,
     }
 }

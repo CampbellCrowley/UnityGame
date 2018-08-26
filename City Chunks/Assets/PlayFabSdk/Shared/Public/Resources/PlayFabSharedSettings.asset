@@ -3,7 +3,7 @@
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 0}
   m_Enabled: 1
@@ -12,12 +12,13 @@ MonoBehaviour:
   m_Name: PlayFabSharedSettings
   m_EditorClassIdentifier: 
   TitleId: 5FC
-  ProductionEnvironmentUrl: .playfabapi.com
+  DeveloperSecretKey: 
+  ProductionEnvironmentUrl: 
   RequestType: 0
   RequestTimeout: 2000
   RequestKeepAlive: 1
-  CompressApiData: 0
-  LogLevel: 8
+  CompressApiData: 1
+  LogLevel: 4
   LoggerHost: 
   LoggerPort: 0
   EnableRealTimeLogging: 0

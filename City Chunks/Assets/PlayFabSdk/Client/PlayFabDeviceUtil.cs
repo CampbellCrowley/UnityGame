@@ -1,24 +1,21 @@
 #if !DISABLE_PLAYFABCLIENT_API
-using System;
 using System.Collections.Generic;
-using PlayFab.ClientModels;
+using PlayFab.Json;
+using PlayFab.SharedModels;
 using UnityEngine;
 
 namespace PlayFab.Internal
 {
     public static class PlayFabDeviceUtil
     {
-        private const string GAME_OBJECT_NAME = "_PlayFabGO";
-
-        private static GameObject _playFabAndroidPushGo;
-        private static bool _needsAttribution;
+        private static bool _needsAttribution, _gatherDeviceInfo, _gatherScreenTime;
 
         #region Make Attribution API call
         private static void DoAttributeInstall()
         {
             if (!_needsAttribution || PlayFabSettings.DisableAdvertising)
                 return; // Don't send this value to PlayFab if it's not required
-            var attribRequest = new AttributeInstallRequest();
+            var attribRequest = new ClientModels.AttributeInstallRequest();
             switch (PlayFabSettings.AdvertisingIdType)
             {
                 case PlayFabSettings.AD_TYPE_ANDROID_ID: attribRequest.Adid = PlayFabSettings.AdvertisingIdValue; break;
@@ -26,43 +23,91 @@ namespace PlayFab.Internal
             }
             PlayFabClientAPI.AttributeInstall(attribRequest, OnAttributeInstall, null);
         }
-        private static void OnAttributeInstall(AttributeInstallResult result)
+        private static void OnAttributeInstall(ClientModels.AttributeInstallResult result)
         {
             // This is for internal testing.
             PlayFabSettings.AdvertisingIdType += "_Successful";
         }
         #endregion Make Attribution API call
 
-        #region Make Push Registration API call
-        private static void RegisterForAndroidPush(string token, bool sendConfirmation, string confirmationMessage)
+        #region Scrape Device Info
+        private static void SendDeviceInfoToPlayFab()
         {
-            var request = new AndroidDevicePushNotificationRegistrationRequest
-            {
-                SendPushNotificationConfirmation = sendConfirmation,
-                ConfirmationMessage = confirmationMessage,
-                DeviceToken = token
-            };
-            PlayFabClientAPI.AndroidDevicePushNotificationRegistration(request, OnAndroidPushRegister, OnApiFail, token);
-        }
-        private static void OnAndroidPushRegister(AndroidDevicePushNotificationRegistrationResult result)
-        {
-            _playFabAndroidPushGo = GameObject.Find(GAME_OBJECT_NAME);
-            if (_playFabAndroidPushGo != null)
-                _playFabAndroidPushGo.BroadcastMessage("OnRegisterApiSuccess", result.CustomData);
-        }
-        private static void OnApiFail(PlayFabError error)
-        {
-            Debug.Log("Android Push Register failed: " + error.GenerateErrorReport());
-        }
-        #endregion Make Push Registration API call
+            if (PlayFabSettings.DisableDeviceInfo || !_gatherDeviceInfo) return;
 
-        public static void OnPlayFabLogin(LoginResult loginResult, RegisterPlayFabUserResult registerResult)
+            var serializer = PluginManager.GetPlugin<ISerializerPlugin>(PluginContract.PlayFab_Serializer);
+            var request = new ClientModels.DeviceInfoRequest
+            {
+                Info = serializer.DeserializeObject<Dictionary<string, object>>(serializer.SerializeObject(new PlayFabDataGatherer()))
+            };
+            PlayFabClientAPI.ReportDeviceInfo(request, OnGatherSuccess, OnGatherFail);
+        }
+        private static void OnGatherSuccess(ClientModels.EmptyResult result)
         {
-            _needsAttribution = false;
-            if (loginResult != null && loginResult.SettingsForUser != null)
-                _needsAttribution = loginResult.SettingsForUser.NeedsAttribution;
-            else if (registerResult != null && registerResult.SettingsForUser != null)
-                _needsAttribution = registerResult.SettingsForUser.NeedsAttribution;
+            //Debug.Log("OnGatherSuccess");
+        }
+        private static void OnGatherFail(PlayFabError error)
+        {
+            Debug.Log("OnGatherFail: " + error.GenerateErrorReport());
+        }
+        #endregion
+
+        /// <summary>
+        /// When a PlayFab login occurs, check the result information, and
+        ///   relay it to _OnPlayFabLogin where the information is used
+        /// </summary>
+        /// <param name="result"></param>
+        public static void OnPlayFabLogin(PlayFabResultCommon result)
+        {
+            var loginResult = result as ClientModels.LoginResult;
+            var registerResult = result as ClientModels.RegisterPlayFabUserResult;
+            if (loginResult == null && registerResult == null)
+                return;
+
+            // Gather things common to the result types
+            ClientModels.UserSettings settingsForUser = null;
+            string playFabId = null;
+            string entityId = null;
+            string entityTypeString = null;
+
+            if (loginResult != null)
+            {
+                settingsForUser = loginResult.SettingsForUser;
+                playFabId = loginResult.PlayFabId;
+                if (loginResult.EntityToken != null)
+                {
+                    entityId = loginResult.EntityToken.Entity.Id;
+                    entityTypeString = loginResult.EntityToken.Entity.TypeString;
+                }
+            }
+            else if (registerResult != null)
+            {
+                settingsForUser = registerResult.SettingsForUser;
+                playFabId = registerResult.PlayFabId;
+                if (registerResult.EntityToken != null)
+                {
+                    entityId = registerResult.EntityToken.Entity.Id;
+                    entityTypeString = registerResult.EntityToken.Entity.TypeString;
+                }
+            }
+
+            _OnPlayFabLogin(settingsForUser, playFabId, entityId, entityTypeString);
+        }
+
+        /// <summary>
+        /// Separated from OnPlayFabLogin, to explicitly lose the refs to loginResult and registerResult, because
+        ///   only one will be defined, but both usually have all the information we REALLY need here.
+        /// But the result signatures are different and clunky, so do the separation above, and processing here
+        /// </summary>
+        private static void _OnPlayFabLogin(ClientModels.UserSettings settingsForUser, string playFabId, string entityId, string entityTypeString)
+        {
+            _needsAttribution = _gatherDeviceInfo = _gatherScreenTime = false;
+            if (settingsForUser != null)
+            {
+                _needsAttribution = settingsForUser.NeedsAttribution;
+                _gatherDeviceInfo = settingsForUser.GatherDeviceInfo;
+                _gatherScreenTime = settingsForUser.GatherFocusInfo;
+            }
 
             // Device attribution (adid or idfa)
             if (PlayFabSettings.AdvertisingIdType != null && PlayFabSettings.AdvertisingIdValue != null)
@@ -70,10 +115,19 @@ namespace PlayFab.Internal
             else
                 GetAdvertIdFromUnity();
 
-            // Push Notification Plugin Setup
-            _playFabAndroidPushGo = GameObject.Find(GAME_OBJECT_NAME);
-            if (_playFabAndroidPushGo != null)
-                _playFabAndroidPushGo.BroadcastMessage("OnPlayFabLogin", (Action<string, bool, string>)RegisterForAndroidPush);
+            // Device information gathering
+            SendDeviceInfoToPlayFab();
+
+#if ENABLE_PLAYFABENTITY_API
+            if (!string.IsNullOrEmpty(entityId) && !string.IsNullOrEmpty(entityTypeString) && _gatherScreenTime)
+            {
+                PlayFabHttp.InitializeScreenTimeTracker(entityId, entityTypeString, playFabId);
+            }
+            else
+            {
+                PlayFabSettings.DisableFocusTimeCollection = true;
+            }
+#endif
         }
 
         private static void GetAdvertIdFromUnity()

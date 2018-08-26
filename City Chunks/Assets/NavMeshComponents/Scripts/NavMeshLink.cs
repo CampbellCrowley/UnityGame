@@ -5,7 +5,7 @@ namespace UnityEngine.AI
     [ExecuteInEditMode]
     [DefaultExecutionOrder(-101)]
     [AddComponentMenu("Navigation/NavMeshLink", 33)]
-    [HelpURLAttribute("https://github.com/Unity-Technologies/NavMeshComponents#documentation-draft")]
+    [HelpURL("https://github.com/Unity-Technologies/NavMeshComponents#documentation-draft")]
     public class NavMeshLink : MonoBehaviour
     {
         [SerializeField]
